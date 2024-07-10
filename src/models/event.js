@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize');
+/*const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 
 const Event = sequelize.define('Event', {
@@ -23,3 +23,4 @@ const Event = sequelize.define('Event', {
 });
 
 module.exports = Event;
+*/

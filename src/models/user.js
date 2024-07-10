@@ -1,35 +1,47 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const pool = require('../config/db');
 const bcrypt = require('bcrypt');
 
-const User = sequelize.define('User', {
-  email: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true,
-    validate: {
-      isEmail: true
-    }
-  },
-  password: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false
-  }
-}, {
-  hooks: {
-    beforeCreate: async (user) => {
-      const salt = await bcrypt.genSalt(10);
-      user.password = await bcrypt.hash(user.password, salt);
-    }
-  }
-});
+const createUser = async ({ email, password, name }) => {
+  try {
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-User.prototype.validPassword = async function(password) {
-  return await bcrypt.compare(password, this.password);
+    const query = {
+      text: 'INSERT INTO users (email, password, name) VALUES ($1, $2, $3) RETURNING *',
+      values: [email, hashedPassword, name],
+    };
+
+    const res = await pool.query(query);
+    return res.rows[0];
+  } catch (err) {
+    throw new Error('Error creating user: ' + err.message);
+  }
 };
 
-module.exports = User;
+const findUserByEmail = async (email) => {
+  try {
+    const query = {
+      text: 'SELECT * FROM users WHERE email = $1',
+      values: [email],
+    };
+
+    const res = await pool.query(query);
+    return res.rows[0];
+  } catch (err) {
+    throw new Error('Error finding user by email: ' + err.message);
+  }
+};
+
+const validPassword = async (inputPassword, storedPassword) => {
+  try {
+    return await bcrypt.compare(inputPassword, storedPassword);
+  } catch (err) {
+    throw new Error('Error validating password: ' + err.message);
+  }
+};
+
+module.exports = {
+  createUser,
+  findUserByEmail,
+  validPassword,
+};
