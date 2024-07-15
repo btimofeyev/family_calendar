@@ -1,0 +1,73 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f0f0f0;
+}
+.dashboard {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+@media (min-width: 768px) {
+    .dashboard {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+.card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 20px;
+}
+.card-title {
+    font-size: 1.2em;
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+.avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-right: 15px;
+}
+.user-profile {
+    display: flex;
+    align-items: center;
+}
+.calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+}
+.calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+}
+.social-feed {
+    max-height: 200px;
+    overflow-y: auto;
+}
+.social-post {
+    margin-bottom: 10px;
+}
+.member-list {
+    list-style-type: none;
+    padding: 0;
+}
+.member-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
