@@ -58,8 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (response.ok) {
                 localStorage.setItem('token', data.token);
-                hideModal();
-                showApp();
+                window.location.href = 'dashboard.html'; // Redirect to dashboard.html
             } else {
                 alert(data.error);
             }
@@ -67,7 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Login error:', error);
         }
     }
-
     async function signup(event) {
         event.preventDefault();
         const name = document.getElementById('signup-name').value;
@@ -83,8 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (response.ok) {
                 localStorage.setItem('token', data.token);
-                hideModal();
-                showApp();
+                window.location.href = 'dashboard.html'; // Redirect to dashboard.html
             } else {
                 alert(data.error);
             }

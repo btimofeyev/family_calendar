@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,31 +8,33 @@
     <link rel="stylesheet" href="css/dashboard.css">
 
 </head>
+
 <body>
     <div class="dashboard">
         <div id="userProfile" class="card">
             <div class="card-title">User Profile</div>
             <div class="user-profile">
-                <div class="avatar" id="userAvatar"></div>
+                <div id="userAvatar" class="avatar"></div>
                 <div>
-                    <h3 id="userName"></h3>
-                    <p id="userEmail"></p>
+                    <h3 id="userName" class="user-name"></h3>
+                    <p id="userEmail" class="user-email"></p>
                 </div>
             </div>
         </div>
         <div id="familyCalendar" class="card">
             <div class="card-title">Family Calendar</div>
-            <div class="calendar" id="calendarGrid"></div>
+            <div id="calendarGrid" class="calendar"></div>
         </div>
         <div id="familySocialFeed" class="card">
             <div class="card-title">Family Social Feed</div>
-            <div class="social-feed" id="socialFeedContent"></div>
+            <div id="socialFeedContent" class="social-feed"></div>
         </div>
         <div id="memberList" class="card">
             <div class="card-title">Family Members</div>
-            <ul class="member-list" id="memberListContent"></ul>
+            <ul id="memberListContent" class="member-list"></ul>
         </div>
     </div>
     <script src="js/dashboard.js"></script>
 </body>
+
 </html>
