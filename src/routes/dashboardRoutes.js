@@ -6,5 +6,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 router.use(authMiddleware);
 
 router.get('/profile', dashboardController.getUserProfile);
+router.get('/profile', dashboardController.getUserProfile);
+router.get('/calendar', dashboardController.getFamilyCalendar);
 
 module.exports = router;

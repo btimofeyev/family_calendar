@@ -37,12 +37,76 @@ function updateUserProfile(user) {
         document.getElementById('userProfile').innerHTML = '<p>Failed to load user profile</p>';
     }
 }
+async function fetchCalendarEvents() {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('No token found');
+        }
+
+        const response = await fetch('/api/dashboard/calendar', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch calendar events');
+        }
+
+        const events = await response.json();
+        return events;
+    } catch (error) {
+        console.error('Error fetching calendar events:', error);
+        return [];
+    }
+}
+function updateCalendar(events) {
+    const calendarGrid = document.getElementById('calendarGrid');
+    calendarGrid.innerHTML = ''; // Clear existing content
+
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+    for (let i = 1; i <= daysInMonth; i++) {
+        const day = document.createElement('div');
+        day.className = 'calendar-day';
+        day.textContent = i;
+
+        const eventDate = new Date(currentYear, currentMonth, i);
+        const dayEvents = events.filter(event => {
+            const eventDay = new Date(event.event_date);
+            return eventDay.getDate() === i && 
+                   eventDay.getMonth() === currentMonth && 
+                   eventDay.getFullYear() === currentYear;
+        });
+
+        if (dayEvents.length > 0) {
+            day.classList.add('has-events');
+            const eventIndicator = document.createElement('div');
+            eventIndicator.className = 'event-indicator';
+            eventIndicator.textContent = dayEvents.length;
+            day.appendChild(eventIndicator);
+
+            // Add tooltip with event titles
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            tooltip.innerHTML = dayEvents.map(event => `<div>${event.title}</div>`).join('');
+            day.appendChild(tooltip);
+        }
+
+        calendarGrid.appendChild(day);
+    }
+}
 
 // Main function to initialize the dashboard
 async function initDashboard() {
     const user = await fetchUserProfile();
     updateUserProfile(user);
-
+    const events = await fetchCalendarEvents();
+    updateCalendar(events);
     // Existing code for other sections (calendar, social feed, member list)
     // Family Calendar
     const calendarGrid = document.getElementById('calendarGrid');

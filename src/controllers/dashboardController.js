@@ -16,3 +16,20 @@ exports.getUserProfile = async(req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+exports.getFamilyCalendar = async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const query = {
+        text: `SELECT * FROM calendar_events 
+               WHERE family_id = (SELECT family_id FROM users WHERE id = $1)
+               AND event_date >= CURRENT_DATE
+               ORDER BY event_date ASC
+               LIMIT 31`,
+        values: [userId],
+      };
+      const result = await pool.query(query);
+      res.json(result.rows);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  };

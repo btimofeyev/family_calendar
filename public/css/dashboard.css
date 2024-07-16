@@ -74,11 +74,12 @@ body {
 }
 
 .calendar-day {
+    position: relative;
     aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(0,0,0,0.05);
     border-radius: 50%;
     font-size: 0.9em;
     transition: all 0.2s ease;
@@ -87,6 +88,45 @@ body {
 .calendar-day:hover {
     background-color: var(--accent-color);
     color: white;
+}
+
+.calendar-day.has-events {
+    font-weight: bold;
+    background-color: rgba(0, 113, 227, 0.1);
+}
+
+.event-indicator {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background-color: var(--accent-color);
+    color: white;
+    border-radius: 50%;
+    width: 15px;
+    height: 15px;
+    font-size: 0.7em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tooltip {
+    display: none;
+    position: absolute;
+    background-color: white;
+    border: 1px solid #ddd;
+    padding: 5px;
+    border-radius: 4px;
+    z-index: 1;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 200px;
+}
+
+.calendar-day:hover .tooltip {
+    display: block;
 }
 
 .social-feed {
