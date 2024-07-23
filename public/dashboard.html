@@ -1,40 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Family Dashboard</title>
     <link rel="stylesheet" href="css/dashboard.css">
-
 </head>
-
 <body>
     <div class="dashboard">
-        <div id="userProfile" class="card">
-            <div class="card-title">User Profile</div>
-            <div class="user-profile">
-                <div id="userAvatar" class="avatar"></div>
-                <div>
-                    <h3 id="userName" class="user-name"></h3>
-                    <p id="userEmail" class="user-email"></p>
+        <div class="left-column">
+            <div class="card user-profile">
+                <h2>User Profile</h2>
+                <div class="profile-content">
+                    <div id="userAvatar" class="avatar"></div>
+                    <div>
+                        <h3 id="userName"></h3>
+                        <p id="userEmail"></p>
+                        <p id="userFamilyName"></p>
+                    </div>
                 </div>
             </div>
+            <form id="createFamilyForm">
+                <input type="text" id="createFamilyName" name="familyName" required placeholder="Enter family name">
+                <button type="submit">Create Family</button>
+            </form>
+            <div class="card add-member">
+                <h2>Add Family Member</h2>
+                <form id="addMemberForm">
+                    <input type="email" id="memberEmail" placeholder="Enter member's email" required>
+                    <button type="submit">Add Member</button>
+                </form>
+            </div>
+            <div class="card member-list">
+                <h2>Family Members</h2>
+                <ul id="memberListContent"></ul>
+            </div>
         </div>
-        <div id="familyCalendar" class="card">
-            <div class="card-title">Family Calendar</div>
-            <div id="calendarGrid" class="calendar"></div>
+        <div class="center-column">
+            <div class="card social-feed">
+                <h2>Family Social Feed</h2>
+                <form id="postForm" enctype="multipart/form-data">
+                    <textarea id="captionInput" placeholder="What's on your mind?" required></textarea>
+                    <div class="post-actions">
+                        <label for="photoInput" class="photo-upload-label">
+                            <i class="fas fa-image"></i> Add Photo
+                        </label>
+                        <input type="file" id="photoInput" accept="image/*" style="display: none;">
+                        <button type="submit">Post</button>
+                    </div>
+                </form>
+                <div id="socialFeedContent"></div>
+            </div>
         </div>
-        <div id="familySocialFeed" class="card">
-            <div class="card-title">Family Social Feed</div>
-            <div id="socialFeedContent" class="social-feed"></div>
+        <div class="right-column">
+            <div class="card family-calendar">
+                <h2>Family Calendar</h2>
+                <div class="calendar-header">
+                    <button id="prevMonth">&lt;</button>
+                    <span id="monthYear"></span>
+                    <button id="nextMonth">&gt;</button>
+                </div>
+                <div id="calendarGrid" class="calendar"></div>
+            </div>
+            <div class="card event-list">
+                <h2>Upcoming Events</h2>
+                <ul id="eventList"></ul>
+            </div>
         </div>
-        <div id="memberList" class="card">
-            <div class="card-title">Family Members</div>
-            <ul id="memberListContent" class="member-list"></ul>
+    </div>
+    <div id="eventModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close" id="closeModalButton">&times;</span>
+            <form id="eventForm">
+                <input type="hidden" id="eventId">
+                <label for="eventType">Event Type:</label>
+                <select id="eventType" required>
+                    <option value="birthday">Birthday</option>
+                    <option value="anniversary">Anniversary</option>
+                    <option value="other">Other</option>
+                </select>
+                <label for="eventTitle">Title:</label>
+                <input type="text" id="eventTitle" required>
+                <label for="eventDate">Date:</label>
+                <input type="date" id="eventDate" required>
+                <label for="eventDescription">Description:</label>
+                <textarea id="eventDescription"></textarea>
+                <div id="recurringOption">
+                    <label for="isRecurring">
+                        <input type="checkbox" id="isRecurring">
+                        Recurring yearly?
+                    </label>
+                </div>
+                <button type="submit" id="saveEventButton">Save Event</button>
+            </form>
+            <button id="deleteEvent" style="display:none;">Delete Event</button>
         </div>
     </div>
     <script src="js/dashboard.js"></script>
-</body>
+    <script src="js/socialFeed.js"></script>
 
+
+</body>
 </html>
