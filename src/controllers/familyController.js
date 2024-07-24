@@ -84,3 +84,32 @@ exports.addFamilyMember = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+exports.getFamilyMembers = async (req, res) => {
+    const userId = req.user.id;
+
+    try {
+        // Get user's family_id
+        const getFamilyIdQuery = {
+            text: 'SELECT family_id FROM users WHERE id = $1',
+            values: [userId],
+        };
+        const familyResult = await pool.query(getFamilyIdQuery);
+        const familyId = familyResult.rows[0].family_id;
+
+        if (!familyId) {
+            return res.status(400).json({ error: 'User does not belong to a family' });
+        }
+
+        // Fetch all members of the family
+        const getMembersQuery = {
+            text: 'SELECT id, name, email FROM users WHERE family_id = $1',
+            values: [familyId],
+        };
+        const membersResult = await pool.query(getMembersQuery);
+
+        res.status(200).json(membersResult.rows);
+    } catch (error) {
+        console.error('Error in getFamilyMembers:', error);
+        res.status(500).json({ error: error.message });
+    }
+};

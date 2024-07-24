@@ -66,22 +66,63 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Login error:', error);
         }
     }
+    async function handleInvitation() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const invitationToken = urlParams.get('invitationToken');
+        const error = urlParams.get('error');
+
+        if (error) {
+            switch (error) {
+                case 'invalid_invitation':
+                    alert('The invitation is invalid or has expired.');
+                    break;
+                case 'invitation_already_used':
+                    alert('This invitation has already been used.');
+                    break;
+                case 'invitation_error':
+                    alert('There was an error processing the invitation. Please try again.');
+                    break;
+            }
+        }
+
+        if (invitationToken) {
+            try {
+                const response = await fetch(`/api/auth/check-invitation/${invitationToken}`);
+                const data = await response.json();
+                if (data.valid) {
+                    showModal();
+                    signupForm.classList.remove('hidden');
+                    loginForm.classList.add('hidden');
+                    document.getElementById('signup-email').value = data.email;
+                    document.getElementById('signup-email').readOnly = true;
+                    localStorage.setItem('invitationToken', invitationToken);
+                } else {
+                    alert('Invalid or expired invitation.');
+                }
+            } catch (error) {
+                console.error('Error checking invitation:', error);
+                alert('There was an error processing the invitation. Please try again.');
+            }
+        }
+    }
     async function signup(event) {
         event.preventDefault();
         const name = document.getElementById('signup-name').value;
         const email = document.getElementById('signup-email').value;
         const password = document.getElementById('signup-password').value;
+        const invitationToken = localStorage.getItem('invitationToken');
 
         try {
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, password })
+                body: JSON.stringify({ name, email, password, invitationToken })
             });
             const data = await response.json();
             if (response.ok) {
                 localStorage.setItem('token', data.token);
-                window.location.href = 'dashboard.html'; // Redirect to dashboard.html
+                localStorage.removeItem('invitationToken'); // Clear the invitation token
+                window.location.href = 'dashboard.html';
             } else {
                 alert(data.error);
             }
@@ -98,4 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (token) {
         showApp();
     }
+    handleInvitation();
+
 });

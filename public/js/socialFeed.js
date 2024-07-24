@@ -75,6 +75,10 @@ function createPostElement(post) {
     const commentButton = postElement.querySelector('.comment-button');
     commentButton.addEventListener('click', () => showCommentForm(post.post_id));
 
+    const commentsSection = postElement.querySelector('.comments-section');
+    fetchAndDisplayComments(post.post_id, commentsSection);
+
+
     return postElement;
 }
 function setupPostForm() {
@@ -247,4 +251,22 @@ function displayComment(postId, comment) {
         <strong>${comment.author_name}</strong>: ${comment.text}
     `;
     commentsSection.appendChild(commentElement);
+}
+async function fetchAndDisplayComments(postId, commentsSection) {
+    try {
+        const response = await fetch(`/api/posts/${postId}/comments`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch comments');
+        }
+
+        const comments = await response.json();
+        comments.forEach(comment => displayComment(postId, comment));
+    } catch (error) {
+        console.error('Error fetching comments:', error);
+    }
 }

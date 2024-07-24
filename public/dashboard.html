@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Family Dashboard</title>
     <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
 </head>
 <body>
     <div class="dashboard">
@@ -26,9 +28,9 @@
             </form>
             <div class="card add-member">
                 <h2>Add Family Member</h2>
-                <form id="addMemberForm">
-                    <input type="email" id="memberEmail" placeholder="Enter member's email" required>
-                    <button type="submit">Add Member</button>
+                <form id="inviteMemberForm">
+                    <input type="email" id="inviteEmail" placeholder="Enter member's email" required>
+                    <button type="submit"><i class="fas fa-paper-plane"></i> Send Invitation</button>
                 </form>
             </div>
             <div class="card member-list">

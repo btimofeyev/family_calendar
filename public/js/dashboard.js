@@ -121,6 +121,43 @@ function updateUserProfile(user) {
         if (familyCalendar) familyCalendar.style.display = 'none';
     }
 }
+async function fetchFamilyMembers() {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/dashboard/family/members', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch family members');
+        }
+
+        const members = await response.json();
+        updateFamilyMembersList(members);
+    } catch (error) {
+        console.error('Error fetching family members:', error);
+    }
+}
+
+function updateFamilyMembersList(members) {
+    const memberListContent = document.getElementById('memberListContent');
+    memberListContent.innerHTML = '';
+
+    members.forEach(member => {
+        const listItem = document.createElement('li');
+        listItem.className = 'member-item';
+        listItem.innerHTML = `
+            <div class="member-avatar">${member.name.charAt(0)}</div>
+            <div class="member-info">
+                <p class="user-name">${member.name}</p>
+                <p class="user-email">${member.email}</p>
+            </div>
+        `;
+        memberListContent.appendChild(listItem);
+    });
+}
 async function fetchCalendarEvents() {
     try {
         const token = localStorage.getItem('token');
@@ -360,6 +397,31 @@ function closeModal() {
         console.error('Modal element not found');
     }
 }
+async function inviteFamilyMember(email) {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/dashboard/family/invite', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ email })
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            throw new Error(`HTTP error! status: ${response.status}: ${errorBody}`);
+        }
+
+        const result = await response.json();
+        console.log('Invitation sent successfully:', result);
+        return result;
+    } catch (error) {
+        console.error('Error sending invitation:', error);
+        throw error;
+    }
+}
 // Main function to initialize the dashboard
 async function initDashboard() {
     console.log('Initializing dashboard...');
@@ -370,6 +432,8 @@ async function initDashboard() {
         if (user && user.family_id) {
             const events = await fetchCalendarEvents();
             updateCalendar(events);
+            await fetchFamilyMembers();
+
         } else {
             const familyCalendar = document.getElementById('familyCalendar');
             if (familyCalendar) {
@@ -462,6 +526,34 @@ async function initDashboard() {
             });
         } else {
             console.error('Create family form not found');
+        }
+        const inviteMemberForm = document.getElementById('inviteMemberForm');
+        if (inviteMemberForm) {
+            inviteMemberForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                console.log('Invite form submitted');
+
+                const inviteEmailInput = document.getElementById('inviteEmail');
+                if (!inviteEmailInput) {
+                    console.error('Invite email input not found');
+                    alert('There was an error with the form. Please try again later.');
+                    return;
+                }
+
+                const email = inviteEmailInput.value.trim();
+                console.log('Invitation email submitted:', email);
+
+                try {
+                    await inviteFamilyMember(email);
+                    alert('Invitation sent successfully!');
+                    inviteEmailInput.value = '';
+                } catch (error) {
+                    console.error('Error sending invitation:', error);
+                    alert(`Failed to send invitation: ${error.message}`);
+                }
+            });
+        } else {
+            console.error('Invite member form not found');
         }
 
     } catch (error) {
