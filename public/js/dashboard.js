@@ -155,6 +155,9 @@ function updateFamilyMembersList(members) {
                 <p class="user-email">${member.email}</p>
             </div>
         `;
+        listItem.addEventListener('click', () => {
+            window.location.href = `profile.html?id=${member.id}`;
+        });
         memberListContent.appendChild(listItem);
     });
 }
@@ -189,7 +192,6 @@ function updateCalendar(events) {
     const monthYear = document.getElementById('monthYear');
     const eventList = document.getElementById('eventList');
     eventList.innerHTML = '';
-
     events.forEach(event => {
         const eventDate = new Date(event.event_date);
         const listItem = document.createElement('li');
@@ -197,8 +199,12 @@ function updateCalendar(events) {
         listItem.innerHTML = `
             <div class="event-title">${event.title}</div>
             <div class="event-date">${eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-            ${event.description ? `<div class="event-description">${event.description}</div>` : ''}
+            <div class="event-description" style="display: none;">${event.description || 'No description available.'}</div>
         `;
+        listItem.addEventListener('click', function() {
+            const description = this.querySelector('.event-description');
+            description.style.display = description.style.display === 'none' ? 'block' : 'none';
+        });
         eventList.appendChild(listItem);
     });
 
@@ -471,7 +477,7 @@ async function initDashboard() {
                 closeModal();
             }
         });
-
+        
         // Handle create family form
         const createFamilyForm = document.getElementById('createFamilyForm');
         if (createFamilyForm) {

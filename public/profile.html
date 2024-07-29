@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/profile.css">
+</head>
+<body>
+    <div class="dashboard">
+        <div class="profile-header">
+            <div id="userAvatar" class="avatar"></div>
+            <h1 id="userName"></h1>
+            <p id="userEmail"></p>
+        </div>
+        <div class="profile-content">
+            <div class="profile-tabs">
+                <button class="tab-button active" data-tab="allPosts">All Posts</button>
+                <button class="tab-button" data-tab="images">Images</button>
+            </div>
+            <div id="socialFeed" class="social-feed">
+                <div id="allPostsTab" class="tab-content active"></div>
+                <div id="imagesTab" class="tab-content"></div>
+            </div>
+        </div>
+    </div>
+    <script src="js/profile.js"></script>
+</body>
+</html>

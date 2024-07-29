@@ -4,6 +4,7 @@ const dashboardController = require('../controllers/dashboardController');
 const calendarController = require('../controllers/calendarController');
 const familyController = require('../controllers/familyController');
 const invitationController = require('../controllers/invitationController');
+const userController = require('../controllers/userController');
 
 const authMiddleware = require('../middleware/authMiddleware');
 
@@ -25,6 +26,9 @@ router.delete('/calendar/:id', calendarController.deleteEvent);
 router.post('/families', familyController.createFamily);
 router.post('/family/member', familyController.addFamilyMember);
 router.get('/family/members', familyController.getFamilyMembers);
+
+router.get('/users/:userId', userController.getUserProfile);
+
 
 //Family Invites
 
