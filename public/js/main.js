@@ -58,7 +58,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (response.ok) {
                 localStorage.setItem('token', data.token);
-                window.location.href = 'dashboard.html'; // Redirect to dashboard.html
+                localStorage.setItem('userId', data.user.id);
+                if (data.user.family_id) {
+                    localStorage.setItem('familyId', data.user.family_id);
+                }
+                window.location.href = 'dashboard.html';
             } else {
                 alert(data.error);
             }
@@ -121,7 +125,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (response.ok) {
                 localStorage.setItem('token', data.token);
-                localStorage.removeItem('invitationToken'); // Clear the invitation token
+                localStorage.setItem('userId', data.user.id);
+                if (data.user.family_id) {
+                    localStorage.setItem('familyId', data.user.family_id);
+                }
+                localStorage.removeItem('invitationToken');
                 window.location.href = 'dashboard.html';
             } else {
                 alert(data.error);
@@ -130,7 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Signup error:', error);
         }
     }
-
     document.getElementById('login').addEventListener('submit', login);
     document.getElementById('signup').addEventListener('submit', signup);
 
