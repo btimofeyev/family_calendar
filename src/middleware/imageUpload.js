@@ -19,6 +19,7 @@ const upload = multer({
     s3: s3Client,
     bucket: process.env.AWS_BUCKET_NAME,
     key: function (req, file, cb) {
+      console.log('Uploading file:', file);
       const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
       const filename = file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname);
       cb(null, filename);
