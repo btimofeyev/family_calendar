@@ -24,10 +24,18 @@ const upload = multer({
       cb(null, filename);
     },
   }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // Set file size limit to 10MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
+  }
 });
 
 async function deleteImageFromS3(imageUrl) {
-  const filename = imageUrl.split("/").pop(); 
+  const filename = imageUrl.split("/").pop();
   const params = {
     Bucket: process.env.AWS_BUCKET_NAME,
     Key: filename,
