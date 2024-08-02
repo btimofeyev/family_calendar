@@ -51,6 +51,7 @@ function updateProfileUI(user, posts) {
 function createPostElement(post) {
     const postElement = document.createElement('div');
     postElement.className = 'profile-post';
+    postElement.setAttribute('data-post-id', post.post_id);
     
     let postContent = '';
     if (post.signed_image_url) {
@@ -71,6 +72,8 @@ function createPostElement(post) {
             <button class="comment-button" data-post-id="${post.post_id}">
                 Comment (${post.comments_count || 0})
             </button>
+            <button class="delete-button" data-post-id="${post.post_id}">Delete</button>
+
         </div>
         <div class="comments-section" id="comments-${post.post_id}"></div>
         <form class="comment-form" data-post-id="${post.post_id}">
@@ -92,6 +95,8 @@ function createPostElement(post) {
         addComment(post.post_id, commentText);
         commentForm.reset();
     });
+    const deleteButton = postElement.querySelector('.delete-button');
+    deleteButton.addEventListener('click', () => deletePost(post.post_id));
 
     return postElement;
 }
@@ -197,4 +202,31 @@ function setupTabNavigation() {
             document.getElementById(`${tabName}Tab`).classList.add('active');
         });
     });
+}
+
+async function deletePost(postId) {
+    if (!confirm('Are you sure you want to delete this post?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/posts/${postId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to delete post');
+        }
+
+        // Remove the post from the UI
+        const postElement = document.querySelector(`.profile-post[data-post-id="${postId}"]`);
+        if (postElement) {
+            postElement.remove();
+        }
+    } catch (error) {
+        console.error('Error deleting post:', error);
+    }
 }

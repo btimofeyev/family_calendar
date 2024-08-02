@@ -25,18 +25,18 @@ const upload = multer({
       cb(null, filename);
     },
   }),
-  limits: { fileSize: 10 * 1024 * 1024 }, // Set file size limit to 10MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // Set file size limit to 50MB
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed!'), false);
+      cb(new Error('Only image and video files are allowed!'), false);
     }
   }
 });
 
-async function deleteImageFromS3(imageUrl) {
-  const filename = imageUrl.split("/").pop();
+async function deleteMediaFromS3(mediaUrl) {
+  const filename = mediaUrl.split("/").pop();
   const params = {
     Bucket: process.env.AWS_BUCKET_NAME,
     Key: filename,
@@ -45,11 +45,10 @@ async function deleteImageFromS3(imageUrl) {
     await s3Client.send(new DeleteObjectCommand(params));
     console.log(`Successfully deleted ${filename} from S3.`);
   } catch (err) {
-    console.error("Error deleting image from S3:", err);
+    console.error("Error deleting media from S3:", err);
     throw err;
   }
 }
-
 async function getSignedImageUrl(key) {
   const command = new GetObjectCommand({
     Bucket: process.env.AWS_BUCKET_NAME,
@@ -67,6 +66,6 @@ async function getSignedImageUrl(key) {
 
 module.exports = {
   upload,
-  deleteImageFromS3,
+  deleteMediaFromS3,
   getSignedImageUrl,
 };

@@ -438,7 +438,7 @@ async function initDashboard() {
         if (user && user.family_id) {
             const events = await fetchCalendarEvents();
             updateCalendar(events);
-            await fetchFamilyMembers();
+            await fetchFamilyMembers(); 
 
         } else {
             const familyCalendar = document.getElementById('familyCalendar');
@@ -568,4 +568,7 @@ async function initDashboard() {
 }
 
 // Call the init function when the page loads
-document.addEventListener('DOMContentLoaded', initDashboard);
+document.addEventListener('DOMContentLoaded', () => {
+    initDashboard();
+
+});
