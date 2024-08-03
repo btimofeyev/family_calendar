@@ -10,8 +10,15 @@ function initializeSocialFeed() {
 function setupPostForm() {
     const postForm = document.getElementById('postForm');
     const mediaInput = document.getElementById('mediaInput');
-    const captureButton = document.getElementById('captureButton');
-    captureButton.addEventListener('click', captureMedia);
+    const captureInput = document.getElementById('captureInput');
+
+    mediaInput.addEventListener('change', (event) => {
+        handleFileSelection(event.target.files[0]);
+    });
+
+    captureInput.addEventListener('change', (event) => {
+        handleFileSelection(event.target.files[0]);
+    });
 
     postForm.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -61,41 +68,13 @@ function previewVideo(file) {
     document.getElementById('postForm').appendChild(video);
 }
 
-function captureMedia() {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then((stream) => {
-                const videoElement = document.createElement('video');
-                videoElement.srcObject = stream;
-                videoElement.play();
 
-                const captureCanvas = document.createElement('canvas');
-                document.body.appendChild(captureCanvas);
-
-                setTimeout(() => {
-                    captureCanvas.width = videoElement.videoWidth;
-                    captureCanvas.height = videoElement.videoHeight;
-                    captureCanvas.getContext('2d').drawImage(videoElement, 0, 0);
-                    stream.getTracks().forEach(track => track.stop());
-                    captureCanvas.toBlob((blob) => {
-                        handleFileSelection(blob);
-                    }, 'image/jpeg');
-                    document.body.removeChild(captureCanvas);
-                }, 300);
-            })
-            .catch((error) => {
-                console.error('Error accessing camera:', error);
-                alert('Unable to access camera. Please check your permissions.');
-            });
-    } else {
-        alert('Your device does not support media capture.');
-    }
-}
 
 async function submitPost() {
     const caption = document.getElementById('captionInput').value;
     const mediaInput = document.getElementById('mediaInput');
-    const mediaFile = mediaInput.files[0];
+    const captureInput = document.getElementById('captureInput');
+    const mediaFile = mediaInput.files[0] || captureInput.files[0];
 
     if (!caption && !mediaFile) {
         alert('Please enter a caption or select a media file.');
@@ -125,8 +104,9 @@ async function submitPost() {
         const result = await response.json();
         console.log('Post created successfully:', result);
         document.getElementById('postForm').reset();
-        const previewElements = document.querySelectorAll('#postForm img, #postForm video');
-        previewElements.forEach(el => el.remove());
+        document.getElementById('mediaPreview').innerHTML = '';
+        mediaInput.value = '';
+        captureInput.value = '';
         await fetchAndDisplayPosts();
     } catch (error) {
         console.error('Error creating post:', error);
