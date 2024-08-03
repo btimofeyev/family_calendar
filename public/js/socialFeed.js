@@ -8,22 +8,22 @@ function initializeSocialFeed() {
 }
 
 function setupPostForm() {
-  const postForm = document.getElementById("postForm");
-  const mediaInput = document.getElementById("mediaInput");
-  const captureButton = document.getElementById("captureButton");
+    const postForm = document.getElementById('postForm');
+    const mediaInput = document.getElementById('mediaInput');
+    const captureInput = document.getElementById('captureInput');
 
-  mediaInput.addEventListener("change", (event) => {
-    handleFileSelection(event.target.files[0]);
-  });
+    mediaInput.addEventListener('change', (event) => {
+        handleFileSelection(event.target.files[0]);
+    });
 
-  captureButton.addEventListener("click", () => {
-    captureMedia();
-  });
+    captureInput.addEventListener('change', (event) => {
+        handleFileSelection(event.target.files[0]);
+    });
 
-  postForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    await submitPost();
-  });
+    postForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        await submitPost();
+    });
 }
 function handleFileSelection(file) {
   const preview = document.getElementById("mediaPreview");
@@ -45,53 +45,7 @@ function handleFileSelection(file) {
     }
   }
 }
-function captureMedia() {
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices
-      .getUserMedia({ video: true })
-      .then((stream) => {
-        const videoElement = document.createElement("video");
-        videoElement.srcObject = stream;
-        videoElement.style.display = "block";
-        videoElement.style.maxWidth = "100%";
 
-        const captureButton = document.createElement("button");
-        captureButton.textContent = "Take Photo";
-        captureButton.style.display = "block";
-        captureButton.style.margin = "10px auto";
-
-        const previewContainer = document.getElementById("mediaPreview");
-        previewContainer.innerHTML = "";
-        previewContainer.appendChild(videoElement);
-        previewContainer.appendChild(captureButton);
-
-        videoElement.play();
-
-        captureButton.addEventListener("click", () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = videoElement.videoWidth;
-          canvas.height = videoElement.videoHeight;
-          canvas.getContext("2d").drawImage(videoElement, 0, 0);
-          stream.getTracks().forEach((track) => track.stop());
-
-          canvas.toBlob((blob) => {
-            handleFileSelection(blob);
-            previewContainer.innerHTML = "";
-            const img = document.createElement("img");
-            img.src = URL.createObjectURL(blob);
-            img.style.maxWidth = "100%";
-            previewContainer.appendChild(img);
-          }, "image/jpeg");
-        });
-      })
-      .catch((error) => {
-        console.error("Error accessing camera:", error);
-        alert("Unable to access camera. Please check your permissions.");
-      });
-  } else {
-    alert("Your device does not support media capture.");
-  }
-}
 function previewImage(file) {
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -116,14 +70,8 @@ function previewVideo(file) {
 async function submitPost() {
     const caption = document.getElementById('captionInput').value;
     const mediaInput = document.getElementById('mediaInput');
-    const mediaPreview = document.getElementById('mediaPreview');
-    let mediaFile = mediaInput.files[0];
-
-    if (!mediaFile && mediaPreview.querySelector('img')) {
-        // If there's no file input but there's a preview image, it's a captured photo
-        const imgSrc = mediaPreview.querySelector('img').src;
-        mediaFile = await fetch(imgSrc).then(r => r.blob());
-    }
+    const captureInput = document.getElementById('captureInput');
+    const mediaFile = mediaInput.files[0] || captureInput.files[0];
 
     if (!caption && !mediaFile) {
         alert('Please enter a caption or select/capture a media file.');
@@ -133,7 +81,7 @@ async function submitPost() {
     const formData = new FormData();
     formData.append('caption', caption);
     if (mediaFile) {
-        formData.append('media', mediaFile, mediaFile.name || 'captured_image.jpg');
+        formData.append('media', mediaFile);
     }
 
     try {
@@ -155,6 +103,7 @@ async function submitPost() {
         document.getElementById('postForm').reset();
         document.getElementById('mediaPreview').innerHTML = '';
         mediaInput.value = '';
+        captureInput.value = '';
         await fetchAndDisplayPosts();
     } catch (error) {
         console.error('Error creating post:', error);
