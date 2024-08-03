@@ -61,7 +61,17 @@
           <form id="postForm" enctype="multipart/form-data">
             <textarea id="captionInput" placeholder="What's on your mind?" required></textarea>
             <div id="mediaPreview"></div>
-          </div>
+            <div class="post-actions">
+              <label for="mediaInput" class="media-upload-label">
+                <i class="fas fa-image"></i> Add Photo/Video
+              </label>
+              <input type="file" id="mediaInput" name="media" accept="image/*,video/*" style="display: none" />
+              <label for="captureInput" class="media-upload-label">
+                <i class="fas fa-camera"></i> Capture
+              </label>
+              <input type="file" id="captureInput" name="capture" accept="image/*,video/*" capture style="display: none" />
+              <button type="submit">Post</button>
+            </div>
           </form>
           <div id="socialFeedContent"></div>
         </div>
