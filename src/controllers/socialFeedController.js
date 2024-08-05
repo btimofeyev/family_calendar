@@ -3,7 +3,7 @@ const {
   deleteMediaFromS3,
   getSignedImageUrl,
 } = require("../middleware/imageUpload");
-
+const { getLinkPreview } = require('link-preview-js');
 // Get all posts for a family
 exports.getPosts = async (req, res) => {
   try {
@@ -11,21 +11,29 @@ exports.getPosts = async (req, res) => {
     console.log("Type of familyId:", typeof familyId, "Value:", familyId);
 
     const query = `
-        SELECT p.*, u.name as author_name, 
-               (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) as likes_count
-        FROM posts p
-        JOIN users u ON p.author_id = u.id
-        WHERE p.family_id = $1
-        ORDER BY p.created_at DESC
-      `;
+      SELECT p.*, u.name as author_name, 
+             (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) as likes_count
+      FROM posts p
+      JOIN users u ON p.author_id = u.id
+      WHERE p.family_id = $1
+      ORDER BY p.created_at DESC
+    `;
     const { rows } = await pool.query(query, [familyId]);
 
-    // Generate signed URLs for each image
+    // Generate signed URLs for each image and parse link previews
     const postsWithSignedUrls = await Promise.all(
       rows.map(async (post) => {
         if (post.image_url) {
           const key = post.image_url.split("/").pop();
           post.signed_image_url = await getSignedImageUrl(key);
+        }
+        if (typeof post.link_preview === 'string') {
+          try {
+            post.link_preview = JSON.parse(post.link_preview);
+          } catch (error) {
+            console.error('Error parsing link preview JSON:', error);
+            post.link_preview = null;
+          }
         }
         return post;
       })
@@ -46,37 +54,59 @@ exports.createPost = async (req, res) => {
   const familyId = req.user.family_id;
 
   if (!familyId) {
-      return res.status(400).json({ error: 'User does not belong to a family' });
+    return res.status(400).json({ error: 'User does not belong to a family' });
   }
 
   try {
-      const query = `
-          INSERT INTO posts (author_id, family_id, media_url, media_type, caption, created_at)
-          VALUES ($1, $2, $3, $4, $5, NOW())
-          RETURNING *
-      `;
-      const mediaType = req.file ? (req.file.mimetype.startsWith('image/') ? 'image' : 'video') : null;
-      const values = [authorId, familyId, mediaUrl, mediaType, caption];
-      const { rows } = await pool.query(query, values);
-
-      // Fetch author name
-      const authorQuery = 'SELECT name FROM users WHERE id = $1';
-      const { rows: authorRows } = await pool.query(authorQuery, [authorId]);
-
-      const post = {
-          ...rows[0],
-          author_name: authorRows[0].name
-      };
-
-      res.status(201).json(post);
-  } catch (error) {
-      console.error('Error creating post:', error);
-      if (mediaUrl) {
-          await deleteMediaFromS3(mediaUrl);
+    let linkPreview = null;
+    const urls = extractUrls(caption);
+    if (urls.length > 0) {
+      try {
+        const preview = await getLinkPreview(urls[0]);
+        linkPreview = JSON.stringify({
+          title: preview.title,
+          description: preview.description,
+          image: preview.images[0] || '',
+          url: preview.url
+        });
+      } catch (previewError) {
+        console.error('Error fetching link preview:', previewError);
+        // Continue without link preview if there's an error
       }
-      res.status(500).json({ error: 'Internal server error' });
+    }
+
+    const query = `
+      INSERT INTO posts (author_id, family_id, media_url, media_type, caption, link_preview, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      RETURNING *
+    `;
+    const mediaType = req.file ? (req.file.mimetype.startsWith('image/') ? 'image' : 'video') : null;
+    const values = [authorId, familyId, mediaUrl, mediaType, caption, linkPreview];
+    const { rows } = await pool.query(query, values);
+
+    // Fetch author name
+    const authorQuery = 'SELECT name FROM users WHERE id = $1';
+    const { rows: authorRows } = await pool.query(authorQuery, [authorId]);
+
+    const post = {
+      ...rows[0],
+      author_name: authorRows[0].name,
+      link_preview: linkPreview ? JSON.parse(linkPreview) : null
+    };
+
+    res.status(201).json(post);
+  } catch (error) {
+    console.error('Error creating post:', error);
+    if (mediaUrl) {
+      await deleteMediaFromS3(mediaUrl);
+    }
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
+function extractUrls(text) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.match(urlRegex) || [];
+}
 exports.deletePost = async (req, res) => {
   const postId = req.params.postId;
   const userId = req.user.id;
@@ -193,5 +223,24 @@ exports.getComments = async (req, res) => {
   } catch (error) {
     console.error("Error fetching comments:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+};
+exports.getLinkPreview = async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) {
+        return res.status(400).json({ error: 'URL is required' });
+    }
+
+    const preview = await getLinkPreview(url);
+    res.json({
+        title: preview.title,
+        description: preview.description,
+        image: preview.images[0] || '',  // Get the first image if available
+        url: preview.url
+    });
+  } catch (error) {
+    console.error('Error fetching link preview:', error);
+    res.status(500).json({ error: 'Failed to fetch link preview' });
   }
 };
