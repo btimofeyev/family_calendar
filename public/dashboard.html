@@ -62,8 +62,12 @@
             <textarea id="captionInput" placeholder="What's on your mind?" required></textarea>
             <div id="mediaPreview"></div>
             <div class="post-actions">
-              <i class="fas fa-camera" id="cameraButton"></i>
-              <i class="fas fa-image" id="galleryButton"></i>
+              <button type="button" id="cameraButton" class="icon-button">
+                <i class="fas fa-camera"></i>
+              </button>
+              <button type="button" id="galleryButton" class="icon-button">
+                <i class="fas fa-image"></i>
+              </button>
               <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;">
               <input type="file" id="imageUpload" accept="image/*,video/*" style="display: none;">
               <button type="submit">Post</button>

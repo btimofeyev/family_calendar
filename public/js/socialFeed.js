@@ -118,7 +118,6 @@ async function submitPost() {
       alert('Failed to create post. Please try again.');
   }
 }
-
 async function fetchAndDisplayPosts() {
   try {
     const token = localStorage.getItem("token");
