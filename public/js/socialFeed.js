@@ -14,6 +14,11 @@ function setupPostForm() {
   const cameraInput = document.getElementById('cameraInput');
   const imageUpload = document.getElementById('imageUpload');
 
+  if (!postForm || !cameraButton || !galleryButton || !cameraInput || !imageUpload) {
+      console.error('One or more required elements are missing from the DOM');
+      return;
+  }
+
   cameraButton.addEventListener('click', () => {
       cameraInput.click();
   });
