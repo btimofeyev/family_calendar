@@ -66,9 +66,7 @@ function previewImage(file) {
   };
   reader.readAsDataURL(file);
 }
-document.getElementById("mediaInput").addEventListener("change", (event) => {
-  handleFileSelection(event.target.files[0]);
-});
+
 function previewVideo(file) {
   const video = document.createElement("video");
   video.src = URL.createObjectURL(file);
