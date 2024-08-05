@@ -570,5 +570,41 @@ async function initDashboard() {
 // Call the init function when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     initDashboard();
+    const leftColumn = document.querySelector(".left-column");
+  const rightColumn = document.querySelector(".right-column");
+  const postForm = document.querySelector("#postForm");
+  const toggleLeftColumn = document.getElementById("toggleLeftColumn");
+  const toggleRightColumn = document.getElementById("toggleRightColumn");
+  const togglePostForm = document.getElementById("togglePostForm");
+  const overlay = document.getElementById("overlay");
 
+  toggleLeftColumn.addEventListener("click", () => {
+    leftColumn.classList.toggle("open");
+    rightColumn.classList.remove("open");
+    postForm.classList.remove("open");
+    overlay.classList.toggle("active", leftColumn.classList.contains("open"));
+  });
+
+  toggleRightColumn.addEventListener("click", () => {
+    rightColumn.classList.toggle("open");
+    leftColumn.classList.remove("open");
+    postForm.classList.remove("open");
+    overlay.classList.toggle("active", rightColumn.classList.contains("open"));
+  });
+
+  togglePostForm.addEventListener("click", () => {
+    postForm.classList.toggle("open");
+    leftColumn.classList.remove("open");
+    rightColumn.classList.remove("open");
+    overlay.classList.toggle("active", postForm.classList.contains("open"));
+    window.scrollTo(0, postForm.offsetTop);
+  });
+
+  // Hide columns and form when clicking outside
+  overlay.addEventListener("click", () => {
+    leftColumn.classList.remove("open");
+    rightColumn.classList.remove("open");
+    postForm.classList.remove("open");
+    overlay.classList.remove("active");
+  });
 });
