@@ -1,8 +1,6 @@
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeSocialFeed);
-} else {
+document.addEventListener("DOMContentLoaded", () => {
   initializeSocialFeed();
-}
+});
 
 function initializeSocialFeed() {
   setupPostForm();
@@ -10,37 +8,22 @@ function initializeSocialFeed() {
 }
 
 function setupPostForm() {
-  const postForm = document.getElementById('postForm');
-  const cameraButton = document.getElementById('cameraButton');
-  const galleryButton = document.getElementById('galleryButton');
-  const cameraInput = document.getElementById('cameraInput');
-  const imageUpload = document.getElementById('imageUpload');
+    const postForm = document.getElementById('postForm');
+    const mediaInput = document.getElementById('mediaInput');
+    const captureInput = document.getElementById('captureInput');
 
-  if (!postForm || !cameraButton || !galleryButton || !cameraInput || !imageUpload) {
-    console.error('One or more required elements are missing from the DOM');
-    return;
-  }
+    mediaInput.addEventListener('change', (event) => {
+        handleFileSelection(event.target.files[0]);
+    });
 
-  cameraButton.addEventListener('click', () => {
-    cameraInput.click();
-  });
+    captureInput.addEventListener('change', (event) => {
+        handleFileSelection(event.target.files[0]);
+    });
 
-  galleryButton.addEventListener('click', () => {
-    imageUpload.click();
-  });
-
-  cameraInput.addEventListener('change', (event) => {
-    handleFileSelection(event.target.files[0]);
-  });
-
-  imageUpload.addEventListener('change', (event) => {
-    handleFileSelection(event.target.files[0]);
-  });
-
-  postForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    await submitPost();
-  });
+    postForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        await submitPost();
+    });
 }
 function handleFileSelection(file) {
   const preview = document.getElementById("mediaPreview");
@@ -73,7 +56,9 @@ function previewImage(file) {
   };
   reader.readAsDataURL(file);
 }
-
+document.getElementById("mediaInput").addEventListener("change", (event) => {
+  handleFileSelection(event.target.files[0]);
+});
 function previewVideo(file) {
   const video = document.createElement("video");
   video.src = URL.createObjectURL(file);
@@ -83,48 +68,49 @@ function previewVideo(file) {
 }
 
 async function submitPost() {
-  const caption = document.getElementById('captionInput').value;
-  const cameraInput = document.getElementById('cameraInput');
-  const imageUpload = document.getElementById('imageUpload');
-  const mediaFile = cameraInput.files[0] || imageUpload.files[0];
+    const caption = document.getElementById('captionInput').value;
+    const mediaInput = document.getElementById('mediaInput');
+    const captureInput = document.getElementById('captureInput');
+    const mediaFile = mediaInput.files[0] || captureInput.files[0];
 
-  if (!caption && !mediaFile) {
-      alert('Please enter a caption or select/capture a media file.');
-      return;
-  }
+    if (!caption && !mediaFile) {
+        alert('Please enter a caption or select/capture a media file.');
+        return;
+    }
 
-  const formData = new FormData();
-  formData.append('caption', caption);
-  if (mediaFile) {
-      formData.append('media', mediaFile);
-  }
+    const formData = new FormData();
+    formData.append('caption', caption);
+    if (mediaFile) {
+        formData.append('media', mediaFile);
+    }
 
-  try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/posts', {
-          method: 'POST',
-          headers: {
-              'Authorization': `Bearer ${token}`
-          },
-          body: formData
-      });
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/posts', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
 
-      if (!response.ok) {
-          throw new Error('Failed to create post');
-      }
+        if (!response.ok) {
+            throw new Error('Failed to create post');
+        }
 
-      const result = await response.json();
-      console.log('Post created successfully:', result);
-      document.getElementById('postForm').reset();
-      document.getElementById('mediaPreview').innerHTML = '';
-      cameraInput.value = '';
-      imageUpload.value = '';
-      await fetchAndDisplayPosts();
-  } catch (error) {
-      console.error('Error creating post:', error);
-      alert('Failed to create post. Please try again.');
-  }
+        const result = await response.json();
+        console.log('Post created successfully:', result);
+        document.getElementById('postForm').reset();
+        document.getElementById('mediaPreview').innerHTML = '';
+        mediaInput.value = '';
+        captureInput.value = '';
+        await fetchAndDisplayPosts();
+    } catch (error) {
+        console.error('Error creating post:', error);
+        alert('Failed to create post. Please try again.');
+    }
 }
+
 async function fetchAndDisplayPosts() {
   try {
     const token = localStorage.getItem("token");
