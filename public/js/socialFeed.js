@@ -1,6 +1,8 @@
-document.addEventListener("DOMContentLoaded", () => {
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeSocialFeed);
+} else {
   initializeSocialFeed();
-});
+}
 
 function initializeSocialFeed() {
   setupPostForm();
@@ -15,29 +17,29 @@ function setupPostForm() {
   const imageUpload = document.getElementById('imageUpload');
 
   if (!postForm || !cameraButton || !galleryButton || !cameraInput || !imageUpload) {
-      console.error('One or more required elements are missing from the DOM');
-      return;
+    console.error('One or more required elements are missing from the DOM');
+    return;
   }
 
   cameraButton.addEventListener('click', () => {
-      cameraInput.click();
+    cameraInput.click();
   });
 
   galleryButton.addEventListener('click', () => {
-      imageUpload.click();
+    imageUpload.click();
   });
 
   cameraInput.addEventListener('change', (event) => {
-      handleFileSelection(event.target.files[0]);
+    handleFileSelection(event.target.files[0]);
   });
 
   imageUpload.addEventListener('change', (event) => {
-      handleFileSelection(event.target.files[0]);
+    handleFileSelection(event.target.files[0]);
   });
 
   postForm.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      await submitPost();
+    event.preventDefault();
+    await submitPost();
   });
 }
 function handleFileSelection(file) {
