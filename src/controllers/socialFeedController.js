@@ -112,31 +112,38 @@ exports.deletePost = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    // First, fetch the post to check if it exists and belongs to the user
-    const fetchQuery = "SELECT * FROM posts WHERE post_id = $1 AND author_id = $2";
-    const { rows } = await pool.query(fetchQuery, [postId, userId]);
+      // First, fetch the post to check if it exists and belongs to the user
+      const fetchQuery = "SELECT * FROM posts WHERE post_id = $1";
+      const { rows } = await pool.query(fetchQuery, [postId]);
 
-    if (rows.length === 0) {
-      return res.status(404).json({
-        error: "Post not found or you do not have permission to delete it",
-      });
-    }
+      if (rows.length === 0) {
+          return res.status(404).json({
+              error: "Post not found",
+          });
+      }
 
-    const post = rows[0];
+      const post = rows[0];
 
-    // Delete the post from the database
-    const deleteQuery = "DELETE FROM posts WHERE post_id = $1";
-    await pool.query(deleteQuery, [postId]);
+      // Check if the user is the author of the post
+      if (post.author_id !== userId) {
+          return res.status(403).json({
+              error: "You do not have permission to delete this post",
+          });
+      }
 
-    // If the post has media, delete it from S3
-    if (post.media_url) {
-      await deleteMediaFromS3(post.media_url);
-    }
+      // Delete the post from the database
+      const deleteQuery = "DELETE FROM posts WHERE post_id = $1";
+      await pool.query(deleteQuery, [postId]);
 
-    res.json({ message: "Post deleted successfully" });
+      // If the post has media, delete it from S3
+      if (post.media_url) {
+          await deleteMediaFromS3(post.media_url);
+      }
+
+      res.json({ message: "Post deleted successfully" });
   } catch (error) {
-    console.error("Error deleting post:", error);
-    res.status(500).json({ error: "Internal server error" });
+      console.error("Error deleting post:", error);
+      res.status(500).json({ error: "Internal server error" });
   }
 };
 // Toggle like on a post

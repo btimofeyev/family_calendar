@@ -78,30 +78,30 @@ function createPostElement(post) {
             </a>
         `;
     }
-
+    const currentUserId = getCurrentUserId();
+    console.log('Post author ID:', post.author_id, 'Current user ID:', currentUserId);
     postContent += `<p>${post.caption.replace(/(https?:\/\/[^\s]+)/g, '')}</p>`;
-
     postElement.innerHTML = `
-        ${postContent}
-        <div class="post-meta">
-            <span>${new Date(post.created_at).toLocaleString()}</span>
-            <span>Likes: ${post.likes_count}</span>
-        </div>
-        <div class="post-actions">
-            <button class="like-button" data-post-id="${post.post_id}">
-                ${post.is_liked ? 'Unlike' : 'Like'} (${post.likes_count})
-            </button>
-            <button class="comment-button" data-post-id="${post.post_id}">
-                Comment (${post.comments_count || 0})
-            </button>
-            <button class="delete-button" data-post-id="${post.post_id}">Delete</button>
-        </div>
-        <div class="comments-section" id="comments-${post.post_id}"></div>
-        <form class="comment-form" data-post-id="${post.post_id}">
-            <input type="text" placeholder="Write a comment..." required>
-            <button type="submit">Post</button>
-        </form>
-    `;
+    ${postContent}
+    <div class="post-meta">
+        <span>${new Date(post.created_at).toLocaleString()}</span>
+        <span>Likes: ${post.likes_count}</span>
+    </div>
+    <div class="post-actions">
+        <button class="like-button" data-post-id="${post.post_id}">
+            ${post.is_liked ? 'Unlike' : 'Like'} (${post.likes_count})
+        </button>
+        <button class="comment-button" data-post-id="${post.post_id}">
+            Comment (${post.comments_count || 0})
+        </button>
+        ${currentUserId === post.author_id ? `<button class="delete-button" data-post-id="${post.post_id}">Delete</button>` : ''}
+    </div>
+    <div class="comments-section" id="comments-${post.post_id}"></div>
+    <form class="comment-form" data-post-id="${post.post_id}">
+        <input type="text" placeholder="Write a comment..." required>
+        <button type="submit">Post</button>
+    </form>
+`;
 
     const likeButton = postElement.querySelector('.like-button');
     likeButton.addEventListener('click', () => toggleLike(post.post_id));
@@ -118,10 +118,22 @@ function createPostElement(post) {
     });
 
     const deleteButton = postElement.querySelector('.delete-button');
-    deleteButton.addEventListener('click', () => deletePost(post.post_id));
+    if (deleteButton) {
+        console.log('Delete button added for post:', post.post_id);
+        deleteButton.addEventListener('click', () => deletePost(post.post_id));
+    } else {
+        console.log('Delete button not added for post:', post.post_id);
+    }
 
     return postElement;
 }
+function getCurrentUserId() {
+    const userId = localStorage.getItem('userId');
+    console.log('Current user ID:', userId || 'No user logged in');
+    return userId ? parseInt(userId, 10) : null;
+}
+
+
 async function toggleLike(postId) {
     try {
         const response = await fetch(`/api/posts/${postId}/like`, {
@@ -240,7 +252,8 @@ async function deletePost(postId) {
         });
 
         if (!response.ok) {
-            throw new Error('Failed to delete post');
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete post');
         }
 
         // Remove the post from the UI
@@ -250,5 +263,6 @@ async function deletePost(postId) {
         }
     } catch (error) {
         console.error('Error deleting post:', error);
+        alert(error.message);
     }
 }
