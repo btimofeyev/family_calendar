@@ -3,11 +3,9 @@ const router = express.Router();
 const dashboardController = require('../controllers/dashboardController');
 const calendarController = require('../controllers/calendarController');
 const familyController = require('../controllers/familyController');
-const invitationController = require('../controllers/invitationController');
 const userController = require('../controllers/userController');
 
 const authMiddleware = require('../middleware/authMiddleware');
-
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);
@@ -30,11 +28,5 @@ router.get('/family/members', familyController.getFamilyMembers);
 router.get('/users/:userId', userController.getUserProfile);
 
 
-//Family Invites
-
-
-router.post('/family/invite', invitationController.inviteMember);
-router.get('/invite/accept/:token', invitationController.acceptInvitation);
-router.get('/invite/decline/:token', invitationController.declineInvitation);
 
 module.exports = router;

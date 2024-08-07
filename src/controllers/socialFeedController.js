@@ -12,7 +12,8 @@ exports.getPosts = async (req, res) => {
 
     const query = `
       SELECT p.*, u.name as author_name, 
-             (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) as likes_count
+             (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) as likes_count,
+             (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id) as comments_count
       FROM posts p
       JOIN users u ON p.author_id = u.id
       WHERE p.family_id = $1
@@ -45,7 +46,6 @@ exports.getPosts = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-
 // Create a new post
 exports.createPost = async (req, res) => {
   const { caption } = req.body;

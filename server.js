@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const authRoutes = require('./src/routes/authRoutes');
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
 const socialFeedRoutes = require('./src/routes/socialFeedRoutes');
+const invitationRoutes = require('./src/routes/invitationRoutes');
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/invitations', invitationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api', socialFeedRoutes);
 

@@ -21,58 +21,112 @@ exports.createInvitation = async (familyId, email) => {
     const { rows } = await pool.query(query, [familyId, email, token, expiresAt]);
     return rows[0];
 };
-
+/*
 exports.sendInvitationEmail = async (invitation, familyName) => {
+    
+    const inviteUrl = `http://localhost:3001/invite.html?token=${invitation.token}`;
+    
     const msg = {
         to: invitation.email,
         from: 'support@myhomeschoolevents.com',
         subject: `You're invited to join ${familyName} on Family Dashboard`,
-        text: `You've been invited to join ${familyName} on Family Dashboard. Click here to accept: http://localhost:3000/?invitationToken=${invitation.token}`,
+        text: `You've been invited to join ${familyName} on Family Dashboard. Click here to accept: ${inviteUrl}`,
         html: `<p>You've been invited to join ${familyName} on Family Dashboard.</p>
-               <p><a href="http://localhost:3000/?invitationToken=${invitation.token}">Click here to accept</a></p>`,
+               <p><a href="${inviteUrl}">Click here to accept</a></p>`,
     };
+
     /* Production DOMAIN SET UP
+    const inviteUrl = `https://yourdomain.com/invite.html?token=${invitation.token}`;
     const msg = {
         to: invitation.email,
         from: 'support@myhomeschoolevents.com', // Use your verified sender
         subject: `You're invited to join ${familyName} on Family Dashboard`,
-        text: `You've been invited to join ${familyName} on Family Dashboard. Click here to accept: http://yourdomain.com/invite/accept/${invitation.token}`,
+        text: `You've been invited to join ${familyName} on Family Dashboard. Click here to accept: ${inviteUrl}`,
         html: `<p>You've been invited to join ${familyName} on Family Dashboard.</p>
-               <p><a href="http://yourdomain.com/invite/accept/${invitation.token}">Click here to accept</a></p>`,
-    };*/
+               <p><a href="${inviteUrl}">Click here to accept</a></p>`,
+    };
 
     await sgMail.send(msg);
 };
+*/
+exports.sendInvitationEmail = async (invitation, familyName) => {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const baseUrl = isProduction ? 'https://famlynook.com' : 'http://localhost:3001';
+    const inviteUrl = `${baseUrl}/invite.html?token=${invitation.token}`;
+    
+    const msg = {
+        to: invitation.email,
+        from: 'famlynook@famlynook.com', // Update this to your verified sender email
+        subject: `You're invited to join ${familyName} on FamilyNook`,
+        text: `You've been invited to join ${familyName} on FamilyNook. Click here to accept: ${inviteUrl}`,
+        html: `
+            <p>You've been invited to join ${familyName} on FamilyNook.</p>
+            <p><a href="${inviteUrl}">Click here to accept</a></p>
+            <p>If you're unable to click the link, copy and paste this URL into your browser:</p>
+            <p>${inviteUrl}</p>
+        `,
+    };
 
+    try {
+        await sgMail.send(msg);
+        console.log('Invitation email sent successfully');
+    } catch (error) {
+        console.error('Error sending invitation email:', error);
+        if (error.response) {
+            console.error(error.response.body);
+        }
+        throw new Error('Failed to send invitation email');
+    }
+};
 exports.getInvitationByToken = async (token) => {
+    console.log('Searching for invitation with token:', token);
     const query = 'SELECT * FROM invitations WHERE token = $1 AND status = \'pending\'';
     const { rows } = await pool.query(query, [token]);
+    console.log('Invitation search result:', rows[0]);
     return rows[0];
 };
+exports.acceptInvitation = async (req, res) => {
+    const { token } = req.params;
 
-exports.acceptInvitation = async (invitationId, userId) => {
-    const client = await pool.connect();
     try {
-        await client.query('BEGIN');
+        const invitation = await invitationService.getInvitationByToken(token);
+        if (!invitation) {
+            return res.redirect(`/?error=invalid_invitation`);
+        }
 
-        // Update invitation status
-        await client.query('UPDATE invitations SET status = \'accepted\' WHERE id = $1', [invitationId]);
+        // Check if the invitation has already been used
+        if (invitation.status !== 'pending') {
+            return res.redirect(`/?error=invitation_already_used`);
+        }
 
-        // Add user to family
-        const { rows } = await client.query('SELECT family_id FROM invitations WHERE id = $1', [invitationId]);
-        const familyId = rows[0].family_id;
-        await client.query('UPDATE users SET family_id = $1 WHERE id = $2', [familyId, userId]);
+        // Assuming you have user registration logic here
+        const user = await registerUser(invitation.email);
 
-        await client.query('COMMIT');
-    } catch (e) {
-        await client.query('ROLLBACK');
-        throw e;
-    } finally {
-        client.release();
+        // Update the user's family ID
+        await pool.query('UPDATE users SET family_id = $1 WHERE id = $2', [invitation.family_id, user.id]);
+
+        // Mark the invitation as used
+        await invitationService.markInvitationAsUsed(invitation.id);
+
+        // Redirect to the main page with a success message
+        res.redirect(`/?success=invitation_accepted`);
+    } catch (error) {
+        console.error('Error processing invitation:', error);
+        res.redirect(`/?error=invitation_error`);
     }
 };
 
+exports.markInvitationAsUsed = async (invitationId) => {
+    const query = 'UPDATE invitations SET status = $1 WHERE id = $2';
+    await pool.query(query, ['used', invitationId]);
+  };
 exports.declineInvitation = async (invitationId) => {
     const query = 'UPDATE invitations SET status = \'declined\' WHERE id = $1';
     await pool.query(query, [invitationId]);
 };
+async function registerUser(email) {
+    const hashedPassword = await bcrypt.hash('defaultpassword', 10);
+    const query = 'INSERT INTO users (email, password) VALUES ($1, $2) RETURNING *';
+    const { rows } = await pool.query(query, [email, hashedPassword]);
+    return rows[0];
+}

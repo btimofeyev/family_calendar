@@ -406,7 +406,7 @@ function closeModal() {
 async function inviteFamilyMember(email) {
     try {
         const token = localStorage.getItem('token');
-        const response = await fetch('/api/dashboard/family/invite', {
+        const response = await fetch('/api/invitations/invite', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

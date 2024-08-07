@@ -3,16 +3,14 @@ const pool = require('../config/db');
 
 
 exports.createFamily = async (req, res) => {
-    console.log('Request body:', req.body); // Debug log
+    console.log('Request body:', req.body); 
 
     const { familyName } = req.body;
-    const userId = req.user.id; // Assuming you have user information in the request
-
-    console.log('Family name:', familyName); // Debug log
-    console.log('User ID:', userId); // Debug log
-
+    const userId = req.user.id; 
+    console.log('Family name:', familyName); 
+    console.log('User ID:', userId); 
     if (!familyName) {
-        console.log('Family name is missing'); // Debug log
+        console.log('Family name is missing'); 
         return res.status(400).json({ error: 'Family name is required' });
     }
 
@@ -25,17 +23,17 @@ exports.createFamily = async (req, res) => {
             text: 'INSERT INTO families (family_name) VALUES ($1) RETURNING family_id',
             values: [familyName],
         };
-        console.log('Executing query:', createFamilyQuery); // Debug log
+        console.log('Executing query:', createFamilyQuery); 
         const familyResult = await pool.query(createFamilyQuery);
         const familyId = familyResult.rows[0].family_id;
-        console.log('Family created with ID:', familyId); // Debug log
+        console.log('Family created with ID:', familyId); 
 
         // Update user's family_id
         const updateUserQuery = {
             text: 'UPDATE users SET family_id = $1 WHERE id = $2',
             values: [familyId, userId],
         };
-        console.log('Executing query:', updateUserQuery); // Debug log
+        console.log('Executing query:', updateUserQuery); 
         await pool.query(updateUserQuery);
 
         // Commit the transaction

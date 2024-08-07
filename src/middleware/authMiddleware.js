@@ -1,6 +1,10 @@
 const jwt = require("jsonwebtoken");
 
 const authMiddleware = (req, res, next) => {
+  if (req.path.startsWith('/api/invitations/check/')) {
+    return next();
+  }
+
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     return res.status(401).json({ error: "No token provided" });
@@ -22,10 +26,10 @@ const authMiddleware = (req, res, next) => {
     }
 
     req.user = { 
-        id: parseInt(decoded.userId, 10),
-        family_id: parseInt(decoded.familyId, 10)
-    };   
-    console.log('req.user:', req.user);
+      id: parseInt(decoded.userId, 10) || null,
+      family_id: parseInt(decoded.familyId, 10) || null
+    };
+    console.log('req.user in authMiddleware:', req.user);
     return next();
   });
 };

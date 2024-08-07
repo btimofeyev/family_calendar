@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setupTabNavigation();
 });
+
 async function fetchUserProfile(userId) {
     try {
         const response = await fetch(`/api/dashboard/users/${userId}`, {
@@ -26,6 +27,7 @@ async function fetchUserProfile(userId) {
         console.error('Error fetching user profile:', error);
     }
 }
+
 function updateProfileUI(user, posts) {
     document.getElementById('userAvatar').textContent = user.name.charAt(0);
     document.getElementById('userName').textContent = user.name;
@@ -52,13 +54,33 @@ function createPostElement(post) {
     const postElement = document.createElement('div');
     postElement.className = 'profile-post';
     postElement.setAttribute('data-post-id', post.post_id);
-    
+
     let postContent = '';
-    if (post.signed_image_url) {
-        postContent += `<img src="${post.signed_image_url}" alt="Posted Image">`;
+
+    // Check if the post contains an image
+    if (post.media_url && post.media_type === 'image') {
+        postContent += `<img src="${post.media_url}" alt="Posted Image">`;
     }
-    postContent += `<p>${post.caption}</p>`;
-    
+
+    // Check if the post contains a link preview
+    if (post.link_preview) {
+        const linkPreview = typeof post.link_preview === 'string' ? JSON.parse(post.link_preview) : post.link_preview;
+        const imageHtml = linkPreview.image ? `<img src="${linkPreview.image}" alt="Link preview" style="max-width: 100%;">` : '';
+        postContent += `
+            <a href="${linkPreview.url}" target="_blank" style="text-decoration: none; color: inherit;">
+                <div class="link-preview" style="border: 1px solid #ccc; padding: 10px; display: flex; flex-direction: column; align-items: center;">
+                    ${imageHtml}
+                    <div class="link-info" style="text-align: center;">
+                        <h3>${linkPreview.title || 'No title available'}</h3>
+                        <p>${linkPreview.description || 'No description available'}</p>
+                    </div>
+                </div>
+            </a>
+        `;
+    }
+
+    postContent += `<p>${post.caption.replace(/(https?:\/\/[^\s]+)/g, '')}</p>`;
+
     postElement.innerHTML = `
         ${postContent}
         <div class="post-meta">
@@ -73,7 +95,6 @@ function createPostElement(post) {
                 Comment (${post.comments_count || 0})
             </button>
             <button class="delete-button" data-post-id="${post.post_id}">Delete</button>
-
         </div>
         <div class="comments-section" id="comments-${post.post_id}"></div>
         <form class="comment-form" data-post-id="${post.post_id}">
@@ -95,6 +116,7 @@ function createPostElement(post) {
         addComment(post.post_id, commentText);
         commentForm.reset();
     });
+
     const deleteButton = postElement.querySelector('.delete-button');
     deleteButton.addEventListener('click', () => deletePost(post.post_id));
 

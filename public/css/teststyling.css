@@ -6,6 +6,7 @@
   --text-color: #4a3827; /* Earthy Brown */
   --border-color: #ddd6c9; /* Lighter shade of Cream White */
 }
+
 body {
   font-family: "Inter", sans-serif;
   background-color: var(--background-color);
@@ -87,6 +88,7 @@ button {
 button:hover {
   background-color: var(--secondary-color);
 }
+
 input[type="text"],
 input[type="email"] {
   width: calc(100% - 16px);
@@ -98,6 +100,7 @@ input[type="email"] {
   margin-bottom: 10px;
   font-size: 0.875rem;
 }
+
 textarea {
   width: 95%;
   padding: 8px;
@@ -215,6 +218,7 @@ textarea:focus {
   background-color: rgba(0, 0, 0, 0.05);
   border-radius: 20px;
 }
+
 .link-preview {
   border: 1px solid #e1e4e8;
   border-radius: 8px;
@@ -248,6 +252,48 @@ textarea:focus {
   text-decoration: none;
   font-size: 14px;
 }
+
+.comments-section {
+  margin-top: 10px;
+}
+
+.comment {
+  padding: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+.comment-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.comment-form input[type="text"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  margin-bottom: 10px;
+  font-size: 0.875rem;
+}
+
+.comment-form button {
+  background-color: var(--secondary-color);
+  color: #ffffff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  font-weight: 500;
+  font-size: 0.875rem;
+  width: 100%;
+}
+
+.comment-form button:hover {
+  background-color: var(--primary-color);
+}
+
 .family-calendar {
   font-size: 0.875rem;
 }
@@ -390,108 +436,111 @@ textarea:focus {
 
 @media (max-width: 768px) {
   .dashboard {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding-bottom: 80px; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: 80px;
   }
 
-  .left-column, .right-column {
-      display: none;
+  .left-column,
+  .right-column {
+    display: none;
   }
 
   .center-column {
-      width: 100%;
-      padding-bottom: 100px; /* Add bottom padding for the floating icons */
+    width: 100%;
+    padding-bottom: 100px; /* Add bottom padding for the floating icons */
   }
 
   .floating-icons {
-      position: fixed;
-      bottom: 0;
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      padding: 10px 20px;
-      box-sizing: border-box;
-      background-color: var(--primary-color);
-      z-index: 1000;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 20px;
+    box-sizing: border-box;
+    background-color: var(--primary-color);
+    z-index: 1000;
   }
 
   .floating-icons .icon {
-      background-color: var(--primary-color);
-      color: #FFFFFF;
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
+    background-color: var(--primary-color);
+    color: #ffffff;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
   }
 
-  .left-column.open, .right-column.open {
-      display: block;
-      position: fixed;
-      top: 0;
-      bottom: 0;
-      background-color: #FFFFFF;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      z-index: 1100;
-      width: 75%;
-      overflow-y: auto;
-      transition: transform 0.3s ease;
+  .left-column.open,
+  .right-column.open {
+    display: block;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    background-color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 1100;
+    width: 75%;
+    overflow-y: auto;
+    transition: transform 0.3s ease;
   }
 
   .left-column.open {
-      left: 0;
-      transform: translateX(0);
+    left: 0;
+    transform: translateX(0);
   }
 
   .right-column.open {
-      right: 0;
-      transform: translateX(0);
+    right: 0;
+    transform: translateX(0);
   }
 
   .plus-icon {
-      background-color: var(--accent-color);
-      width: 60px;
-      height: 60px;
-      font-size: 30px;
+    background-color: var(--accent-color);
+    width: 60px;
+    height: 60px;
+    font-size: 30px;
   }
 
   /* Dark overlay when a column or form is open */
   .overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 1000;
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
   }
 
   .overlay.active {
-      display: block;
+    display: block;
   }
 
   #postForm {
-      display: none;
-      position: fixed;
-      bottom: 80px;
-      left: 10px;
-      right: 10px;
-      background-color: #FFFFFF;
-      border-radius: 8px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      z-index: 1100;
-      padding: 20px;
+    display: none;
+    position: fixed;
+    bottom: 80px;
+    left: 10px;
+    right: 10px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    z-index: 1100;
+    padding: 20px;
   }
 
   #postForm.open {
-      display: block;
+    display: block;
   }
 }
+
 @media (min-width: 769px) {
   .floating-icons {
     display: none;
