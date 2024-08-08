@@ -3,7 +3,8 @@ const router = express.Router();
 const invitationController = require('../controllers/invitationController');
 
 router.get('/check/:token', invitationController.checkInvitation);
-router.post('/invite', invitationController.inviteMember); // This now includes authMiddleware
+router.post('/invite', invitationController.inviteMember); 
+
 router.get('/accept/:token', invitationController.acceptInvitation);
 router.get('/decline/:token', invitationController.declineInvitation);
 
