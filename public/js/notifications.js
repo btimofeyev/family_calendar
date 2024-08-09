@@ -80,9 +80,15 @@ function displayNotifications(tab) {
 function createNotificationElement(notification) {
   const element = document.createElement("div");
   element.className = `notification-item ${notification.read ? "read" : "unread"}`;
+  
+  let content = notification.formatted_content || notification.content;
+  if (notification.type === 'reply') {
+    content = content.replace('commented on your post', 'replied to your comment');
+  }
+  
   element.innerHTML = `
     <div class="notification-content">
-      <p>${notification.formatted_content || notification.content}</p>
+      <p>${content}</p>
       <span class="notification-time">${formatTime(notification.created_at)}</span>
     </div>
   `;

@@ -282,43 +282,118 @@ async function fetchComments(postId) {
 }
 
 function displayComments(postId, comments) {
+  console.log(`Displaying comments for post ${postId}:`, comments);
   const commentsSection = document.getElementById(`comments-${postId}`);
-  commentsSection.innerHTML = comments.map(comment => `
-    <div class="comment">
-      <strong>${comment.author_name}</strong>: ${comment.text}
-    </div>
-  `).join('');
-}
+  commentsSection.innerHTML = '';
 
-async function addComment(postId, commentText) {
+  const topLevelComments = comments.filter(comment => !comment.parent_comment_id);
+  
+  topLevelComments.forEach(comment => {
+    const commentElement = createCommentElement(comment, postId);
+    commentsSection.appendChild(commentElement);
+
+    // Add replies
+    const replies = comments.filter(reply => reply.parent_comment_id === comment.comment_id);
+    replies.forEach(reply => {
+      const replyElement = createCommentElement(reply, postId, true);
+      commentElement.appendChild(replyElement);
+    });
+  });
+}
+function toggleReplyForm(commentId) {
+  const replyForm = document.getElementById(`replyForm-${commentId}`);
+  replyForm.style.display = replyForm.style.display === 'none' ? 'block' : 'none';
+}
+async function addComment(postId, commentText, parentCommentId = null) {
   try {
+    console.log(`Adding comment/reply: postId=${postId}, parentCommentId=${parentCommentId}, text=${commentText}`);
+    const token = localStorage.getItem('token');
+    console.log('Token:', token);
     const response = await fetch(`/api/posts/${postId}/comment`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ text: commentText })
+      body: JSON.stringify({ 
+        text: commentText,
+        parentCommentId: parentCommentId
+      })
     });
 
+    console.log('Response status:', response.status);
+    const responseText = await response.text();
+    console.log('Response text:', responseText);
+
     if (!response.ok) {
-      throw new Error('Failed to add comment');
+      throw new Error(`Failed to add comment/reply: ${responseText}`);
     }
 
-    const newComment = await response.json();
-    appendComment(postId, newComment);
+    const newComment = JSON.parse(responseText);
+    console.log('New comment/reply:', newComment);
+
+    if (parentCommentId) {
+      appendReply(postId, parentCommentId, newComment);
+    } else {
+      appendComment(postId, newComment);
+    }
   } catch (error) {
-    console.error('Error adding comment:', error);
+    console.error('Error adding comment/reply:', error);
   }
 }
 
 function appendComment(postId, comment) {
   const commentsSection = document.getElementById(`comments-${postId}`);
-  const commentElement = document.createElement('div');
-  commentElement.className = 'comment';
-  commentElement.innerHTML = `<strong>${comment.author_name}</strong>: ${comment.text}`;
+  const commentElement = createCommentElement(comment);
   commentsSection.appendChild(commentElement);
 
+  updateCommentCount(postId);
+}
+function appendReply(postId, parentCommentId, reply) {
+  console.log(`Appending reply: postId=${postId}, parentCommentId=${parentCommentId}`, reply);
+  const parentComment = document.querySelector(`.comment[data-comment-id="${parentCommentId}"]`);
+  if (parentComment) {
+    const replyElement = createCommentElement(reply, true);
+    parentComment.appendChild(replyElement);
+    updateCommentCount(postId);
+  } else {
+    console.error(`Parent comment not found: ${parentCommentId}`);
+  }
+}
+function createCommentElement(comment, postId, isReply = false) {
+  const element = document.createElement('div');
+  element.className = isReply ? 'reply' : 'comment';
+  element.dataset.commentId = comment.comment_id;
+
+  element.innerHTML = `
+    <div class="comment-content">
+      <span class="comment-author">${comment.author_name}</span>: ${comment.text}
+    </div>
+    <button class="reply-button" id="replyButton-${comment.comment_id}">Reply</button>
+    <div class="reply-form" id="replyForm-${comment.comment_id}">
+      <input type="text" placeholder="Write a reply..." required>
+      <button type="submit" class="post-reply-button" id="postReply-${comment.comment_id}">Post</button>
+    </div>
+  `;
+
+  const replyButton = element.querySelector(`#replyButton-${comment.comment_id}`);
+  const replyForm = element.querySelector(`#replyForm-${comment.comment_id}`);
+  const postReplyButton = element.querySelector(`#postReply-${comment.comment_id}`);
+
+  replyButton.addEventListener('click', () => toggleReplyForm(comment.comment_id));
+
+  postReplyButton.addEventListener('click', (e) => {
+    e.preventDefault();
+    const replyText = replyForm.querySelector('input').value;
+    console.log(`Submitting reply: postId=${postId}, commentId=${comment.comment_id}, text=${replyText}`);
+    addComment(postId, replyText, comment.comment_id);
+    replyForm.querySelector('input').value = '';
+    replyForm.style.display = 'none';
+  });
+
+  return element;
+}
+function updateCommentCount(postId) {
   const commentButton = document.querySelector(`.comment-button[data-post-id="${postId}"]`);
   const currentCount = parseInt(commentButton.textContent.match(/\d+/)[0]);
   commentButton.textContent = `Comment (${currentCount + 1})`;

@@ -193,19 +193,22 @@ exports.toggleLike = async (req, res) => {
 exports.addComment = async (req, res) => {
   const postId = req.params.postId;
   const authorId = req.user.id;
-  const { text } = req.body;
+  const { text, parentCommentId } = req.body;
 
   try {
     const query = `
-      INSERT INTO comments (post_id, author_id, text, created_at)
-      VALUES ($1, $2, $3, NOW())
+      INSERT INTO comments (post_id, author_id, text, parent_comment_id, created_at)
+      VALUES ($1, $2, $3, $4, NOW())
       RETURNING *
     `;
-    const { rows } = await pool.query(query, [postId, authorId, text]);
+    const { rows } = await pool.query(query, [postId, authorId, text, parentCommentId]);
 
-    // Fetch author name and post author
+    // Fetch author name, post author, and parent comment author (if it's a reply)
     const authorQuery = `
-      SELECT c.*, u.name as author_name, p.author_id as post_author_id
+      SELECT c.*, u.name as author_name, p.author_id as post_author_id,
+             CASE WHEN c.parent_comment_id IS NOT NULL THEN
+               (SELECT author_id FROM comments WHERE comment_id = c.parent_comment_id)
+             ELSE NULL END as parent_comment_author_id
       FROM comments c
       JOIN users u ON c.author_id = u.id
       JOIN posts p ON c.post_id = p.post_id
@@ -215,9 +218,14 @@ exports.addComment = async (req, res) => {
 
     const comment = authorRows[0];
 
-    // Create notification for the post author
+    // Create notification for the post author (if the commenter is not the post author)
     if (comment.post_author_id !== authorId) {
       await createNotification(comment.post_author_id, 'comment', `${comment.author_name} commented on your post`);
+    }
+
+    // If it's a reply, create notification for the parent comment author
+    if (comment.parent_comment_author_id && comment.parent_comment_author_id !== authorId) {
+      await createNotification(comment.parent_comment_author_id, 'reply', `${comment.author_name} replied to your comment`);
     }
 
     res.status(201).json(comment);
@@ -226,6 +234,7 @@ exports.addComment = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
 // Get comments for a post
 exports.getComments = async (req, res) => {
   const postId = req.params.postId;

@@ -460,77 +460,6 @@ async function inviteFamilyMember(email) {
     throw error;
   }
 }
-function toggleNotificationDropdown(event) {
-  event.stopPropagation();
-  const dropdown = document.getElementById("notificationDropdown");
-  dropdown.classList.toggle("show");
-  if (dropdown.classList.contains("show")) {
-    fetchNotifications();
-  }
-}
-
-function closeNotificationDropdownOutside(event) {
-  const dropdown = document.getElementById("notificationDropdown");
-  if (
-    !event.target.closest("#notificationIcon") &&
-    !event.target.closest("#notificationDropdown")
-  ) {
-    dropdown.classList.remove("show");
-  }
-}
-async function fetchNotifications() {
-  try {
-    const token = localStorage.getItem("token");
-    const response = await fetch("/api/notifications", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch notifications");
-    }
-
-    const notifications = await response.json();
-    displayNotifications(notifications);
-    updateNotificationCount(notifications);
-  } catch (error) {
-    console.error("Error fetching notifications:", error);
-  }
-}
-
-function displayNotifications(notifications) {
-  const notificationList = document.getElementById("notificationList");
-  notificationList.innerHTML = "";
-
-  notifications.forEach((notification) => {
-    const notificationElement = createNotificationElement(notification);
-    notificationList.appendChild(notificationElement);
-  });
-}
-
-function createNotificationElement(notification) {
-  const element = document.createElement("div");
-  element.className = `notification-item ${
-    notification.read ? "read" : "unread"
-  }`;
-  element.innerHTML = `
-      <div class="notification-content">
-        <p>${notification.message}</p>
-        <span class="notification-time">${formatTime(
-          notification.created_at
-        )}</span>
-      </div>
-    `;
-  return element;
-}
-
-function updateNotificationCount(notifications) {
-  const unreadCount = notifications.filter((n) => !n.read).length;
-  const countElement = document.getElementById("notificationCount");
-  countElement.textContent = unreadCount;
-  countElement.style.display = unreadCount > 0 ? "block" : "none";
-}
 
 // Main function to initialize the dashboard
 async function initDashboard() {
@@ -709,9 +638,4 @@ document.addEventListener("DOMContentLoaded", () => {
     postForm.classList.remove("open");
     overlay.classList.remove("active");
   });
-  const notificationIcon = document.getElementById("notificationIcon");
-  const notificationDropdown = document.getElementById("notificationDropdown");
-
-  notificationIcon.addEventListener("click", toggleNotificationDropdown);
-  document.addEventListener("click", closeNotificationDropdownOutside);
 });
