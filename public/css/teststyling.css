@@ -27,11 +27,24 @@ body {
   margin: 0 auto;
 }
 
-.notification-icon {
+.dashboard-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 10px 20px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.notification-icon,
+.logout-icon {
   position: relative;
   cursor: pointer;
   font-size: 1.2rem;
   color: #495057;
+  margin-left: 20px;
 }
 
 .notification-count {
@@ -150,7 +163,6 @@ body {
   cursor: pointer;
   font-size: 0.9rem;
 }
-
 
 .dashboard {
   display: grid;

@@ -3,14 +3,23 @@ const pool = require('../config/db');
 const jwt = require('jsonwebtoken');
 const invitationService = require('../middleware/invite');
 
+
+
+
+const createAccessToken = (user) => {
+  return jwt.sign({ userId: user.id, familyId: user.family_id }, process.env.JWT_SECRET, { expiresIn: '15m' });
+};
+
+const createRefreshToken = (user) => {
+  return jwt.sign({ userId: user.id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+};
 exports.register = async (req, res) => {
   try {
     const { email, password, name, invitationToken } = req.body;
     console.log('Request body:', req.body);
 
-
     console.log('Registering user:', email, 'with invitation token:', invitationToken);
-    
+
     let user = await createUser({ email, password, name });
     console.log('Created user:', user);
 
@@ -22,14 +31,24 @@ exports.register = async (req, res) => {
         const updateResult = await pool.query('UPDATE users SET family_id = $1 WHERE id = $2 RETURNING *', [invitation.family_id, user.id]);
         user = updateResult.rows[0];
         console.log('Updated user after processing invitation:', user);
-        
+
         await invitationService.markInvitationAsUsed(invitation.id);
       } else {
         console.log('Invalid invitation or email mismatch');
       }
     }
 
-    const token = jwt.sign({ userId: user.id, familyId: user.family_id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const accessToken = createAccessToken(user);
+    const refreshToken = createRefreshToken(user);
+
+    // Store the refresh token in an HTTP-only cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+      path: '/api/auth/refresh-token',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
     res.status(201).json({ 
       user: { 
         id: user.id, 
@@ -37,7 +56,7 @@ exports.register = async (req, res) => {
         name: user.name, 
         family_id: user.family_id 
       }, 
-      token 
+      token: accessToken 
     });
   } catch (error) {
     console.error('Error in register:', error);
@@ -98,7 +117,17 @@ exports.login = async (req, res) => {
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
-    const token = jwt.sign({ userId: user.id, familyId: user.family_id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+    const accessToken = createAccessToken(user);
+    const refreshToken = createRefreshToken(user);
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/api/auth/refresh-token',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
     res.json({ 
       user: { 
         id: user.id, 
@@ -106,13 +135,12 @@ exports.login = async (req, res) => {
         name: user.name, 
         family_id: user.family_id 
       }, 
-      token 
+      token: accessToken 
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
-
 exports.checkInvitation = async (req, res) => {
   const { token } = req.params;
   console.log('Checking invitation token:', token);
@@ -131,4 +159,19 @@ exports.checkInvitation = async (req, res) => {
       console.error('Error checking invitation:', error);
       res.status(500).json({ error: 'Failed to check invitation', details: error.message });
   }
+};
+exports.refreshToken = (req, res) => {
+  const { refreshToken } = req.cookies;
+  if (!refreshToken) {
+    return res.status(401).json({ error: 'No refresh token provided' });
+  }
+
+  jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid refresh token' });
+    }
+
+    const accessToken = createAccessToken({ id: decoded.userId });
+    res.json({ token: accessToken });
+  });
 };

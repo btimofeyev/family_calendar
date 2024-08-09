@@ -1,35 +1,25 @@
-// Function to fetch user profile
+
 async function fetchUserProfile() {
   try {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      throw new Error("No token found");
-    }
-
-    const response = await fetch("/api/dashboard/profile", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
+    const response = await makeAuthenticatedRequest('/api/dashboard/profile');
     if (!response.ok) {
       const errorBody = await response.text();
-      console.error("Response status:", response.status);
-      console.error("Response body:", errorBody);
+      console.error('Response status:', response.status);
+      console.error('Response body:', errorBody);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const user = await response.json();
     return user;
   } catch (error) {
-    console.error("Error fetching user profile:", error);
+    console.error('Error fetching user profile:', error);
     return null;
   }
 }
 async function createFamily(familyName) {
   try {
     const token = localStorage.getItem("token");
-    const response = await fetch("/api/dashboard/families", {
+    const response = await makeAuthenticatedRequest('/api/dashboard/families', {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -65,7 +55,7 @@ async function createFamily(familyName) {
 async function addFamilyMember(email) {
   try {
     const token = localStorage.getItem("token");
-    const response = await fetch("/api/dashboard/family/member", {
+    const response = await makeAuthenticatedRequest('/api/dashboard/family/member', {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -126,7 +116,7 @@ function updateUserProfile(user) {
 async function fetchFamilyMembers() {
   try {
     const token = localStorage.getItem("token");
-    const response = await fetch("/api/dashboard/family/members", {
+    const response = await makeAuthenticatedRequest("/api/dashboard/family/members", {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -362,7 +352,7 @@ async function saveEvent(event) {
     }
 
     console.log("Sending request to save event...");
-    const response = await fetch("/api/dashboard/calendar", {
+    const response = await makeAuthenticatedRequest("/api/dashboard/calendar", {
       method: eventData.id ? "PUT" : "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -407,7 +397,7 @@ async function deleteEvent() {
 
   try {
     const token = localStorage.getItem("token");
-    const response = await fetch(`/api/dashboard/calendar/${eventId}`, {
+    const response = await makeAuthenticatedRequest(`/api/dashboard/calendar/${eventId}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -438,7 +428,7 @@ function closeModal() {
 async function inviteFamilyMember(email) {
   try {
     const token = localStorage.getItem("token");
-    const response = await fetch("/api/invitations/invite", {
+    const response = await makeAuthenticatedRequest("/api/invitations/invite", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -533,7 +523,7 @@ async function initDashboard() {
             throw new Error("No token found in local storage");
           }
           console.log("Sending request to create family...");
-          const response = await fetch("/api/dashboard/families", {
+          const response = await makeAuthenticatedRequest("/api/dashboard/families", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

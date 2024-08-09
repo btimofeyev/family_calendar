@@ -1,4 +1,4 @@
-const jwt = require("jsonwebtoken");
+const jwt = require('jsonwebtoken');
 
 const authMiddleware = (req, res, next) => {
   if (req.path.startsWith('/api/invitations/check/')) {
@@ -22,6 +22,9 @@ const authMiddleware = (req, res, next) => {
 
   jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
     if (err) {
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: "Token expired, please refresh" });
+      }
       return res.status(401).json({ error: "Token invalid" });
     }
 
