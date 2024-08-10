@@ -37,7 +37,7 @@ function getCurrentUserId() {
 async function fetchNotifications() {
   try {
     const token = localStorage.getItem("token");
-    const response = await fetch("/api/notifications", {
+    const response =  await makeAuthenticatedRequest("/api/notifications", {
       headers: {
         Authorization: `Bearer ${token}`,
       },

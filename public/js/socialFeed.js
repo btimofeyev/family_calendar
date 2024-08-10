@@ -8,31 +8,31 @@ function initializeSocialFeed() {
 }
 
 function setupPostForm() {
-  const postForm = document.getElementById('postForm');
-  const mediaInput = document.getElementById('mediaInput');
-  const captionInput = document.getElementById('captionInput');
+  const postForm = document.getElementById("postForm");
+  const mediaInput = document.getElementById("mediaInput");
+  const captionInput = document.getElementById("captionInput");
 
-  mediaInput.addEventListener('change', (event) => {
+  mediaInput.addEventListener("change", (event) => {
     handleFileSelection(event.target.files[0]);
   });
 
-  captionInput.addEventListener('input', handleLinkPreview);
+  captionInput.addEventListener("input", handleLinkPreview);
 
-  postForm.addEventListener('submit', async (event) => {
+  postForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     await submitPost();
   });
 }
 
 function handleLinkPreview() {
-  const captionInput = document.getElementById('captionInput');
-  const mediaPreview = document.getElementById('mediaPreview');
+  const captionInput = document.getElementById("captionInput");
+  const mediaPreview = document.getElementById("mediaPreview");
   const urls = extractUrls(captionInput.value);
 
   if (urls.length > 0) {
     fetchLinkPreview(urls[0]);
   } else {
-    mediaPreview.innerHTML = '';
+    mediaPreview.innerHTML = "";
   }
 }
 
@@ -43,31 +43,36 @@ function extractUrls(text) {
 
 async function fetchLinkPreview(url) {
   try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
+    const token = localStorage.getItem("token");
+    const response = await makeAuthenticatedRequest(
+      `/api/link-preview?url=${encodeURIComponent(url)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       }
-    });
+    );
     if (!response.ok) {
-      throw new Error('Failed to fetch link preview');
+      throw new Error("Failed to fetch link preview");
     }
     const preview = await response.json();
     displayLinkPreview(preview);
   } catch (error) {
-    console.error('Error fetching link preview:', error);
+    console.error("Error fetching link preview:", error);
   }
 }
 
 function displayLinkPreview(preview) {
-  const mediaPreview = document.getElementById('mediaPreview');
-  const imageHtml = preview.image ? `<img src="${preview.image}" alt="Link preview" style="max-width: 100%;">` : '';
+  const mediaPreview = document.getElementById("mediaPreview");
+  const imageHtml = preview.image
+    ? `<img src="${preview.image}" alt="Link preview" style="max-width: 100%;">`
+    : "";
   mediaPreview.innerHTML = `
     <div class="link-preview" style="border: 1px solid #ccc; padding: 10px; display: flex; flex-direction: column; align-items: center;">
       ${imageHtml}
       <div class="link-info" style="text-align: center;">
-        <h3>${preview.title || 'No title available'}</h3>
-        <p>${preview.description || 'No description available'}</p>
+        <h3>${preview.title || "No title available"}</h3>
+        <p>${preview.description || "No description available"}</p>
       </div>
     </div>
   `;
@@ -95,51 +100,51 @@ function handleFileSelection(file) {
 }
 
 async function submitPost() {
-  const caption = document.getElementById('captionInput').value;
-  const mediaInput = document.getElementById('mediaInput');
+  const caption = document.getElementById("captionInput").value;
+  const mediaInput = document.getElementById("mediaInput");
   const mediaFile = mediaInput.files[0];
 
   if (!caption && !mediaFile) {
-    alert('Please enter a caption or select a media file.');
+    alert("Please enter a caption or select a media file.");
     return;
   }
 
   const formData = new FormData();
-  formData.append('caption', caption);
+  formData.append("caption", caption);
   if (mediaFile) {
-    formData.append('media', mediaFile);
+    formData.append("media", mediaFile);
   }
 
   try {
-    const token = localStorage.getItem('token');
-    const response = await fetch('/api/posts', {
-      method: 'POST',
+    const token = localStorage.getItem("token");
+    const response = await makeAuthenticatedRequest("/api/posts", {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${token}`
+        Authorization: `Bearer ${token}`,
       },
-      body: formData
+      body: formData,
     });
 
     if (!response.ok) {
-      throw new Error('Failed to create post');
+      throw new Error("Failed to create post");
     }
 
     const result = await response.json();
-    console.log('Post created successfully:', result);
-    document.getElementById('postForm').reset();
-    document.getElementById('mediaPreview').innerHTML = '';
-    mediaInput.value = '';
+    console.log("Post created successfully:", result);
+    document.getElementById("postForm").reset();
+    document.getElementById("mediaPreview").innerHTML = "";
+    mediaInput.value = "";
     await fetchAndDisplayPosts();
   } catch (error) {
-    console.error('Error creating post:', error);
-    alert('Failed to create post. Please try again.');
+    console.error("Error creating post:", error);
+    alert("Failed to create post. Please try again.");
   }
 }
 
 async function fetchAndDisplayPosts() {
   try {
     const token = localStorage.getItem("token");
-    const response = await fetch("/api/posts", {
+    const response = await makeAuthenticatedRequest("/api/posts", {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -157,32 +162,34 @@ async function fetchAndDisplayPosts() {
 }
 
 function displayPosts(posts) {
-  const socialFeedContent = document.getElementById('socialFeedContent');
-  socialFeedContent.innerHTML = '';
+  const socialFeedContent = document.getElementById("socialFeedContent");
+  socialFeedContent.innerHTML = "";
 
-  posts.forEach(post => {
-    const postElement = document.createElement('div');
-    postElement.className = 'social-post';
+  posts.forEach((post) => {
+    const postElement = document.createElement("div");
+    postElement.className = "social-post";
 
-    let mediaContent = '';
+    let mediaContent = "";
     if (post.media_url) {
-      if (post.media_type === 'image') {
+      if (post.media_type === "image") {
         mediaContent = `<img src="${post.media_url}" alt="Post image" class="post-media">`;
-      } else if (post.media_type === 'video') {
+      } else if (post.media_type === "video") {
         mediaContent = `<video controls class="post-media"><source src="${post.media_url}" type="video/mp4"></video>`;
       }
     } else if (post.link_preview) {
       const linkPreview = post.link_preview;
       const imageHtml = linkPreview.image
         ? `<img src="${linkPreview.image}" alt="Link preview" style="max-width: 100%;">`
-        : '';
+        : "";
       mediaContent = `
-        <a href="${linkPreview.url}" target="_blank" style="text-decoration: none; color: inherit;">
+        <a href="${
+          linkPreview.url
+        }" target="_blank" style="text-decoration: none; color: inherit;">
           <div class="link-preview" style="border: 1px solid #ccc; padding: 10px; display: flex; flex-direction: column; align-items: center;">
             ${imageHtml}
             <div class="link-info" style="text-align: center;">
-              <h3>${linkPreview.title || 'No title available'}</h3>
-              <p>${linkPreview.description || 'No description available'}</p>
+              <h3>${linkPreview.title || "No title available"}</h3>
+              <p>${linkPreview.description || "No description available"}</p>
             </div>
           </div>
         </a>
@@ -191,13 +198,15 @@ function displayPosts(posts) {
 
     let captionContent = post.caption;
     if (post.link_preview) {
-      captionContent = post.caption.replace(/(https?:\/\/[^\s]+)/g, '');
+      captionContent = post.caption.replace(/(https?:\/\/[^\s]+)/g, "");
     }
 
     postElement.innerHTML = `
       <div class="post-header">
         <span class="post-author">${post.author_name}</span>
-        <span class="post-date">${new Date(post.created_at).toLocaleString()}</span>
+        <span class="post-date">${new Date(
+          post.created_at
+        ).toLocaleString()}</span>
       </div>
       <div class="post-content">
         <p>${captionContent}</p>
@@ -218,16 +227,16 @@ function displayPosts(posts) {
       </form>
     `;
 
-    const likeButton = postElement.querySelector('.like-button');
-    likeButton.addEventListener('click', () => toggleLike(post.post_id));
+    const likeButton = postElement.querySelector(".like-button");
+    likeButton.addEventListener("click", () => toggleLike(post.post_id));
 
-    const commentButton = postElement.querySelector('.comment-button');
-    commentButton.addEventListener('click', () => fetchComments(post.post_id));
+    const commentButton = postElement.querySelector(".comment-button");
+    commentButton.addEventListener("click", () => fetchComments(post.post_id));
 
-    const commentForm = postElement.querySelector('.comment-form');
-    commentForm.addEventListener('submit', (e) => {
+    const commentForm = postElement.querySelector(".comment-form");
+    commentForm.addEventListener("submit", (e) => {
       e.preventDefault();
-      const commentText = commentForm.querySelector('input').value;
+      const commentText = commentForm.querySelector("input").value;
       addComment(post.post_id, commentText);
       commentForm.reset();
     });
@@ -236,67 +245,70 @@ function displayPosts(posts) {
   });
 }
 
-
 async function toggleLike(postId) {
   try {
-    const response = await fetch(`/api/posts/${postId}/like`, {
-      method: 'POST',
+    const response = await makeAuthenticatedRequest(`/api/posts/${postId}/like`, {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
     });
 
     if (!response.ok) {
-      throw new Error('Failed to toggle like');
+      throw new Error("Failed to toggle like");
     }
 
     const data = await response.json();
     updateLikeUI(postId, data.likes_count);
   } catch (error) {
-    console.error('Error toggling like:', error);
+    console.error("Error toggling like:", error);
   }
 }
 
 function updateLikeUI(postId, likesCount) {
-  const likeButton = document.querySelector(`.like-button[data-post-id="${postId}"]`);
+  const likeButton = document.querySelector(
+    `.like-button[data-post-id="${postId}"]`
+  );
   likeButton.innerHTML = `<i class="fas fa-heart"></i> Like (${likesCount})`;
 }
 
 async function fetchComments(postId) {
   try {
-    const response = await fetch(`/api/posts/${postId}/comments`, {
+    const response = await makeAuthenticatedRequest(`/api/posts/${postId}/comments`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch comments');
+      throw new Error("Failed to fetch comments");
     }
 
     const comments = await response.json();
-    console.log('Fetched comments:', comments);
+    console.log("Fetched comments:", comments);
     displayComments(postId, comments);
   } catch (error) {
-    console.error('Error fetching comments:', error);
+    console.error("Error fetching comments:", error);
   }
 }
 
 function displayComments(postId, comments) {
   console.log(`Displaying comments for post ${postId}:`, comments);
   const commentsSection = document.getElementById(`comments-${postId}`);
-  commentsSection.innerHTML = '';
+  commentsSection.innerHTML = "";
 
   // Sort comments by creation date
   comments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
   // Create a map to store comments by their ID
   const commentMap = new Map();
-  comments.forEach(comment => commentMap.set(comment.comment_id, { ...comment, replies: [] }));
+  comments.forEach((comment) =>
+    commentMap.set(comment.comment_id, { ...comment, replies: [] })
+  );
 
   // Organize comments into a tree structure
   const topLevelComments = [];
-  comments.forEach(comment => {
+  comments.forEach((comment) => {
     if (comment.parent_comment_id) {
       const parentComment = commentMap.get(comment.parent_comment_id);
       if (parentComment) {
@@ -308,42 +320,45 @@ function displayComments(postId, comments) {
   });
 
   // Render the comments
-  topLevelComments.forEach(comment => {
+  topLevelComments.forEach((comment) => {
     const commentElement = createCommentElement(comment, postId);
     commentsSection.appendChild(commentElement);
   });
 }
 function toggleReplyForm(commentId) {
   const replyForm = document.getElementById(`replyForm-${commentId}`);
-  replyForm.style.display = replyForm.style.display === 'none' ? 'block' : 'none';
+  replyForm.style.display =
+    replyForm.style.display === "none" ? "block" : "none";
 }
 async function addComment(postId, commentText, parentCommentId = null) {
   try {
-    console.log(`Adding comment/reply: postId=${postId}, parentCommentId=${parentCommentId}, text=${commentText}`);
-    const token = localStorage.getItem('token');
-    console.log('Token:', token);
-    const response = await fetch(`/api/posts/${postId}/comment`, {
-      method: 'POST',
+    console.log(
+      `Adding comment/reply: postId=${postId}, parentCommentId=${parentCommentId}, text=${commentText}`
+    );
+    const token = localStorage.getItem("token");
+    console.log("Token:", token);
+    const response = await makeAuthenticatedRequest(`/api/posts/${postId}/comment`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         text: commentText,
-        parentCommentId: parentCommentId
-      })
+        parentCommentId: parentCommentId,
+      }),
     });
 
-    console.log('Response status:', response.status);
+    console.log("Response status:", response.status);
     const responseText = await response.text();
-    console.log('Response text:', responseText);
+    console.log("Response text:", responseText);
 
     if (!response.ok) {
       throw new Error(`Failed to add comment/reply: ${responseText}`);
     }
 
     const newComment = JSON.parse(responseText);
-    console.log('New comment/reply:', newComment);
+    console.log("New comment/reply:", newComment);
 
     if (parentCommentId) {
       appendReply(postId, parentCommentId, newComment);
@@ -351,7 +366,7 @@ async function addComment(postId, commentText, parentCommentId = null) {
       appendComment(postId, newComment);
     }
   } catch (error) {
-    console.error('Error adding comment/reply:', error);
+    console.error("Error adding comment/reply:", error);
   }
 }
 
@@ -363,8 +378,13 @@ function appendComment(postId, comment) {
   updateCommentCount(postId);
 }
 function appendReply(postId, parentCommentId, reply) {
-  console.log(`Appending reply: postId=${postId}, parentCommentId=${parentCommentId}`, reply);
-  const parentComment = document.querySelector(`.comment[data-comment-id="${parentCommentId}"]`);
+  console.log(
+    `Appending reply: postId=${postId}, parentCommentId=${parentCommentId}`,
+    reply
+  );
+  const parentComment = document.querySelector(
+    `.comment[data-comment-id="${parentCommentId}"]`
+  );
   if (parentComment) {
     const replyElement = createCommentElement(reply, true);
     parentComment.appendChild(replyElement);
@@ -374,8 +394,8 @@ function appendReply(postId, parentCommentId, reply) {
   }
 }
 function createCommentElement(comment, postId, isReply = false) {
-  const element = document.createElement('div');
-  element.className = isReply ? 'reply' : 'comment';
+  const element = document.createElement("div");
+  element.className = isReply ? "reply" : "comment";
   element.dataset.commentId = comment.comment_id;
 
   element.innerHTML = `
@@ -384,12 +404,18 @@ function createCommentElement(comment, postId, isReply = false) {
       <span class="comment-text">${comment.text}</span>
     </div>
     <div class="comment-actions">
-      <button class="reply-button" id="replyButton-${comment.comment_id}">Reply</button>
+      <button class="reply-button" id="replyButton-${
+        comment.comment_id
+      }">Reply</button>
       <span class="comment-date">${formatDate(comment.created_at)}</span>
     </div>
-    <div class="reply-form" id="replyForm-${comment.comment_id}" style="display: none;">
+    <div class="reply-form" id="replyForm-${
+      comment.comment_id
+    }" style="display: none;">
       <input type="text" placeholder="Write a reply..." required>
-      <button type="submit" class="post-reply-button" id="postReply-${comment.comment_id}">Post</button>
+      <button type="submit" class="post-reply-button" id="postReply-${
+        comment.comment_id
+      }">Post</button>
     </div>
   `;
 
@@ -397,9 +423,9 @@ function createCommentElement(comment, postId, isReply = false) {
 
   // Render replies recursively
   if (comment.replies && comment.replies.length > 0) {
-    const repliesContainer = document.createElement('div');
-    repliesContainer.className = 'replies';
-    comment.replies.forEach(reply => {
+    const repliesContainer = document.createElement("div");
+    repliesContainer.className = "replies";
+    comment.replies.forEach((reply) => {
       const replyElement = createCommentElement(reply, postId, true);
       repliesContainer.appendChild(replyElement);
     });
@@ -411,10 +437,16 @@ function createCommentElement(comment, postId, isReply = false) {
 
 function formatDate(dateString) {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 function updateCommentCount(postId) {
-  const commentButton = document.querySelector(`.comment-button[data-post-id="${postId}"]`);
+  const commentButton = document.querySelector(
+    `.comment-button[data-post-id="${postId}"]`
+  );
   const currentCount = parseInt(commentButton.textContent.match(/\d+/)[0]);
   commentButton.textContent = `Comment (${currentCount + 1})`;
 }

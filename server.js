@@ -2,6 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const path = require('path');
 const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser'); // Add this line
 const http = require('http');
 const { initializeSocket } = require('./src/middleware/socket'); 
 const authRoutes = require('./src/routes/authRoutes');
@@ -21,6 +22,9 @@ const PORT = process.env.PORT || 3001;
 // Increase payload size limit (adjust the limit as needed)
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+
+// Add cookie parser middleware
+app.use(cookieParser());
 
 app.use(express.static(path.join(__dirname, 'public')));
 

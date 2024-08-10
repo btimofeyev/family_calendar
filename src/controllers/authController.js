@@ -7,11 +7,11 @@ const invitationService = require('../middleware/invite');
 
 
 const createAccessToken = (user) => {
-  return jwt.sign({ userId: user.id, familyId: user.family_id }, process.env.JWT_SECRET, { expiresIn: '30m' });
+  return jwt.sign({ userId: user.id, familyId: user.family_id }, process.env.JWT_SECRET, { expiresIn: '45m' });
 };
 
 const createRefreshToken = (user) => {
-  return jwt.sign({ userId: user.id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ userId: user.id, familyId: user.family_id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
 };
 exports.register = async (req, res) => {
   try {
@@ -161,19 +161,28 @@ exports.checkInvitation = async (req, res) => {
   }
 };
 exports.refreshToken = (req, res) => {
+  console.log('Refresh token endpoint hit');
+  console.log('Cookies:', req.cookies);
+  console.log('Headers:', req.headers);
+
   const { refreshToken } = req.cookies;
   if (!refreshToken) {
+    console.log('No refresh token provided');
     return res.status(401).json({ error: 'No refresh token provided' });
   }
 
   jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
     if (err) {
+      console.log('Invalid refresh token:', err);
       return res.status(403).json({ error: 'Invalid refresh token' });
     }
+
+    console.log('Decoded refresh token:', decoded);
 
     const user = { id: decoded.userId, family_id: decoded.familyId };
     const accessToken = createAccessToken(user);
 
+    console.log('New access token created');
     res.json({ token: accessToken });
   });
 };
