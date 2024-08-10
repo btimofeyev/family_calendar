@@ -52,25 +52,22 @@ function updateProfileUI(user, posts) {
 
 function createPostElement(post) {
     const postElement = document.createElement('div');
-    postElement.className = 'profile-post';
+    postElement.className = 'social-post';
     postElement.setAttribute('data-post-id', post.post_id);
 
-    let postContent = '';
-
-    // Check if the post contains an image or video
+    let mediaContent = '';
     if (post.media_url) {
         if (post.media_type === 'image') {
-            postContent += `<img src="${post.media_url}" alt="Posted Image">`;
+            mediaContent = `<img src="${post.media_url}" alt="Post image" class="post-media">`;
         } else if (post.media_type === 'video') {
-            postContent += `<video controls class="post-media"><source src="${post.media_url}" type="video/mp4"></video>`;
+            mediaContent = `<video controls class="post-media"><source src="${post.media_url}" type="video/mp4"></video>`;
         }
-    }
-
-    // Check if the post contains a link preview
-    if (post.link_preview) {
+    } else if (post.link_preview) {
         const linkPreview = typeof post.link_preview === 'string' ? JSON.parse(post.link_preview) : post.link_preview;
-        const imageHtml = linkPreview.image ? `<img src="${linkPreview.image}" alt="Link preview" style="max-width: 100%;">` : '';
-        postContent += `
+        const imageHtml = linkPreview.image
+            ? `<img src="${linkPreview.image}" alt="Link preview" style="max-width: 100%;">`
+            : '';
+        mediaContent = `
             <a href="${linkPreview.url}" target="_blank" style="text-decoration: none; color: inherit;">
                 <div class="link-preview" style="border: 1px solid #ccc; padding: 10px; display: flex; flex-direction: column; align-items: center;">
                     ${imageHtml}
@@ -82,31 +79,39 @@ function createPostElement(post) {
             </a>
         `;
     }
-    
+
+    let captionContent = post.caption;
+    if (post.link_preview) {
+        captionContent = post.caption.replace(/(https?:\/\/[^\s]+)/g, '');
+    }
+
     const currentUserId = getCurrentUserId();
-    console.log('Post author ID:', post.author_id, 'Current user ID:', currentUserId);
-    postContent += `<p>${post.caption.replace(/(https?:\/\/[^\s]+)/g, '')}</p>`;
+    const isPostOwner = currentUserId === post.author_id;
+
     postElement.innerHTML = `
-    ${postContent}
-    <div class="post-meta">
-        <span>${new Date(post.created_at).toLocaleString()}</span>
-        <span>Likes: ${post.likes_count}</span>
-    </div>
-    <div class="post-actions">
-        <button class="like-button" data-post-id="${post.post_id}">
-            ${post.is_liked ? 'Unlike' : 'Like'} (${post.likes_count})
-        </button>
-        <button class="comment-button" data-post-id="${post.post_id}">
-            Comment (${post.comments_count || 0})
-        </button>
-        ${currentUserId === post.author_id ? `<button class="delete-button" data-post-id="${post.post_id}">Delete</button>` : ''}
-    </div>
-    <div class="comments-section" id="comments-${post.post_id}"></div>
-    <form class="comment-form" data-post-id="${post.post_id}">
-        <input type="text" placeholder="Write a comment..." required>
-        <button type="submit">Post</button>
-    </form>
-`;
+        <div class="post-header">
+            <span class="post-author">${post.author_name}</span>
+            <span class="post-date">${new Date(post.created_at).toLocaleString()}</span>
+        </div>
+        <div class="post-content">
+            <p>${captionContent}</p>
+            ${mediaContent}
+        </div>
+        <div class="post-actions">
+            <button class="like-button" data-post-id="${post.post_id}">
+                <i class="fas fa-heart"></i> ${post.is_liked ? 'Unlike' : 'Like'} (${post.likes_count})
+            </button>
+            <button class="comment-button" data-post-id="${post.post_id}">
+                <i class="fas fa-comment"></i> Comment (${post.comments_count || 0})
+            </button>
+            ${isPostOwner ? `<button class="delete-button" data-post-id="${post.post_id}">Delete</button>` : ''}
+        </div>
+        <div class="comments-section" id="comments-${post.post_id}"></div>
+        <form class="comment-form" data-post-id="${post.post_id}">
+            <input type="text" placeholder="Write a comment..." required>
+            <button type="submit">Post</button>
+        </form>
+    `;
 
     const likeButton = postElement.querySelector('.like-button');
     likeButton.addEventListener('click', () => toggleLike(post.post_id));
@@ -124,10 +129,7 @@ function createPostElement(post) {
 
     const deleteButton = postElement.querySelector('.delete-button');
     if (deleteButton) {
-        console.log('Delete button added for post:', post.post_id);
         deleteButton.addEventListener('click', () => deletePost(post.post_id));
-    } else {
-        console.log('Delete button not added for post:', post.post_id);
     }
 
     return postElement;
@@ -158,10 +160,9 @@ async function toggleLike(postId) {
         console.error('Error toggling like:', error);
     }
 }
-
 function updateLikeUI(postId, likesCount) {
     const likeButton = document.querySelector(`.like-button[data-post-id="${postId}"]`);
-    likeButton.textContent = `${likeButton.textContent.includes('Unlike') ? 'Like' : 'Unlike'} (${likesCount})`;
+    likeButton.innerHTML = `<i class="fas fa-heart"></i> ${likeButton.textContent.includes('Unlike') ? 'Like' : 'Unlike'} (${likesCount})`;
 }
 
 async function fetchComments(postId) {
@@ -182,50 +183,87 @@ async function fetchComments(postId) {
         console.error('Error fetching comments:', error);
     }
 }
-
 function displayComments(postId, comments) {
     const commentsSection = document.getElementById(`comments-${postId}`);
-    commentsSection.innerHTML = comments.map(comment => `
-        <div class="comment">
-            <strong>${comment.author_name}</strong>: ${comment.text}
+    commentsSection.innerHTML = '';
+
+    comments.forEach(comment => {
+        const commentElement = createCommentElement(comment, postId);
+        commentsSection.appendChild(commentElement);
+    });
+}
+function createCommentElement(comment, postId) {
+    const element = document.createElement('div');
+    element.className = 'comment';
+    element.dataset.commentId = comment.comment_id;
+
+    element.innerHTML = `
+        <div class="comment-content">
+            <span class="comment-author">${comment.author_name}</span>
+            <span class="comment-text">${comment.text}</span>
         </div>
-    `).join('');
+        <div class="comment-actions">
+            <button class="reply-button" id="replyButton-${comment.comment_id}">Reply</button>
+            <span class="comment-date">${formatDate(comment.created_at)}</span>
+        </div>
+        <div class="reply-form" id="replyForm-${comment.comment_id}" style="display: none;">
+            <input type="text" placeholder="Write a reply..." required>
+            <button type="submit" class="post-reply-button" id="postReply-${comment.comment_id}">Post</button>
+        </div>
+    `;
+
+    return element;
+}
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-async function addComment(postId, commentText) {
+async function addComment(postId, commentText, parentCommentId = null) {
     try {
+        const token = localStorage.getItem('token');
         const response = await fetch(`/api/posts/${postId}/comment`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ text: commentText })
+            body: JSON.stringify({ 
+                text: commentText,
+                parentCommentId: parentCommentId
+            })
         });
 
         if (!response.ok) {
-            throw new Error('Failed to add comment');
+            throw new Error('Failed to add comment/reply');
         }
 
         const newComment = await response.json();
-        appendComment(postId, newComment);
+
+        if (parentCommentId) {
+            appendReply(postId, parentCommentId, newComment);
+        } else {
+            appendComment(postId, newComment);
+        }
     } catch (error) {
-        console.error('Error adding comment:', error);
+        console.error('Error adding comment/reply:', error);
     }
 }
 
+
 function appendComment(postId, comment) {
     const commentsSection = document.getElementById(`comments-${postId}`);
-    const commentElement = document.createElement('div');
-    commentElement.className = 'comment';
-    commentElement.innerHTML = `<strong>${comment.author_name}</strong>: ${comment.text}`;
+    const commentElement = createCommentElement(comment, postId);
     commentsSection.appendChild(commentElement);
 
-    const commentButton = document.querySelector(`.comment-button[data-post-id="${postId}"]`);
-    const currentCount = parseInt(commentButton.textContent.match(/\d+/)[0]);
-    commentButton.textContent = `Comment (${currentCount + 1})`;
+    updateCommentCount(postId);
 }
 
+function updateCommentCount(postId) {
+    const commentButton = document.querySelector(`.comment-button[data-post-id="${postId}"]`);
+    const currentCount = parseInt(commentButton.textContent.match(/\d+/)[0]);
+    commentButton.innerHTML = `<i class="fas fa-comment"></i> Comment (${currentCount + 1})`;
+}
 function setupTabNavigation() {
     const tabs = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');

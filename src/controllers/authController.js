@@ -7,7 +7,7 @@ const invitationService = require('../middleware/invite');
 
 
 const createAccessToken = (user) => {
-  return jwt.sign({ userId: user.id, familyId: user.family_id }, process.env.JWT_SECRET, { expiresIn: '15m' });
+  return jwt.sign({ userId: user.id, familyId: user.family_id }, process.env.JWT_SECRET, { expiresIn: '30m' });
 };
 
 const createRefreshToken = (user) => {
@@ -171,7 +171,13 @@ exports.refreshToken = (req, res) => {
       return res.status(403).json({ error: 'Invalid refresh token' });
     }
 
-    const accessToken = createAccessToken({ id: decoded.userId });
+    const user = { id: decoded.userId, family_id: decoded.familyId };
+    const accessToken = createAccessToken(user);
+
     res.json({ token: accessToken });
   });
+};
+exports.logout = (req, res) => {
+  res.cookie('refreshToken', '', { maxAge: 0, httpOnly: true, secure: process.env.NODE_ENV === 'production', path: '/api/auth/refresh-token' });
+  res.status(200).json({ message: 'Logged out successfully' });
 };

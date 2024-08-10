@@ -40,10 +40,21 @@ async function refreshAccessToken() {
   }
   
   function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('familyId');
-    window.location.href = 'index.html'; // Redirect to the login page
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include' 
+    })
+    .then(response => {
+      if (response.ok) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('familyId');
+        window.location.href = 'index.html'; 
+      } else {
+        console.error('Failed to log out');
+      }
+    })
+    .catch(error => console.error('Error during logout:', error));
   }
   
   function showLogoutModal() {
