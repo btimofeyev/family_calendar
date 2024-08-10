@@ -183,52 +183,50 @@ function updateCalendar(events) {
   const calendarGrid = document.getElementById("calendarGrid");
   const monthYear = document.getElementById("monthYear");
   const eventList = document.getElementById("eventList");
+  
+  // Sort events by date to find the next three
+  const upcomingEvents = events
+    .filter(event => new Date(event.event_date) >= new Date())
+    .sort((a, b) => new Date(a.event_date) - new Date(b.event_date))
+    .slice(0, 3);  
+  
+  // Clear the event list and populate it with upcoming events
   eventList.innerHTML = "";
-  events.forEach((event) => {
+  upcomingEvents.forEach(event => {
     const eventDate = new Date(event.event_date);
     const listItem = document.createElement("li");
     listItem.className = `event-list-item event-${event.type || "default"}`;
     listItem.innerHTML = `
-            <div class="event-title">${event.title}</div>
-            <div class="event-date">${eventDate.toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })}</div>
-            <div class="event-description" style="display: none;">${
-              event.description || "No description available."
-            }</div>
-        `;
+      <div class="event-title">${event.title}</div>
+      <div class="event-date">${eventDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      })}</div>
+      <div class="event-description" style="display: none;">${event.description || "No description available."}</div>
+    `;
     listItem.addEventListener("click", function () {
       const description = this.querySelector(".event-description");
-      description.style.display =
-        description.style.display === "none" ? "block" : "none";
+      description.style.display = description.style.display === "none" ? "block" : "none";
     });
     eventList.appendChild(listItem);
   });
 
+  // Update the calendar as before
   calendarGrid.innerHTML = "";
   monthYear.textContent = `${currentDate.toLocaleString("default", {
     month: "long",
   })} ${currentDate.getFullYear()}`;
 
   // Add weekday headers
-  weekdays.forEach((day) => {
+  weekdays.forEach(day => {
     const weekdayEl = document.createElement("div");
     weekdayEl.className = "calendar-weekday";
     weekdayEl.textContent = day;
     calendarGrid.appendChild(weekdayEl);
   });
 
-  const firstDay = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    1
-  );
-  const lastDay = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth() + 1,
-    0
-  );
+  const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+  const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
   // Add empty cells for days before the first day of the month
   for (let i = 0; i < firstDay.getDay(); i++) {
@@ -246,48 +244,23 @@ function updateCalendar(events) {
     dayNumber.textContent = i;
     day.appendChild(dayNumber);
 
-    const eventDate = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      i
-    );
-    const dayEvents = events.filter((event) => {
+    const eventDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), i);
+    const dayEvents = events.filter(event => {
       const eventDay = new Date(event.event_date);
-      return (
-        eventDay.getDate() === i &&
-        eventDay.getMonth() === currentDate.getMonth() &&
-        eventDay.getFullYear() === currentDate.getFullYear()
-      );
+      return eventDay.getDate() === i && eventDay.getMonth() === currentDate.getMonth() && eventDay.getFullYear() === currentDate.getFullYear();
     });
 
     if (dayEvents.length > 0) {
       day.classList.add("has-event");
-      const eventIndicatorContainer = document.createElement("div");
-      eventIndicatorContainer.className = "event-indicator-container";
-      dayEvents.forEach((event) => {
-        const eventIndicator = document.createElement("div");
-        eventIndicator.className = `event-indicator event-${
-          event.type || "default"
-        }`;
-        eventIndicatorContainer.appendChild(eventIndicator);
-      });
-      day.appendChild(eventIndicatorContainer);
+      day.style.backgroundColor = "lightblue"; // Customize this for different event types
     }
 
-    if (
-      i === new Date().getDate() &&
-      currentDate.getMonth() === new Date().getMonth() &&
-      currentDate.getFullYear() === new Date().getFullYear()
-    ) {
+    if (i === new Date().getDate() && currentDate.getMonth() === new Date().getMonth() && currentDate.getFullYear() === new Date().getFullYear()) {
       day.classList.add("today");
     }
 
     day.addEventListener("click", () => {
-      const dateStr = `${currentDate.getFullYear()}-${(
-        currentDate.getMonth() + 1
-      )
-        .toString()
-        .padStart(2, "0")}-${i.toString().padStart(2, "0")}`;
+      const dateStr = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, "0")}-${i.toString().padStart(2, "0")}`;
       showEventDetails(dayEvents, dateStr);
     });
 
@@ -329,6 +302,7 @@ function showEventDetails(events, date) {
     deleteBtn.style.display = "none";
   }
 }
+
 let currentEvents = [];
 async function saveEvent(event) {
   event.preventDefault();
@@ -341,6 +315,9 @@ async function saveEvent(event) {
     event_date: document.getElementById("eventDate").value,
     description: document.getElementById("eventDescription").value,
     is_recurring: document.getElementById("isRecurring").checked,
+
+
+
   };
 
   console.log("Event data to be saved:", eventData);
@@ -391,6 +368,28 @@ async function saveEvent(event) {
     alert(`Failed to save event: ${error.message}`);
   }
 }
+function handleRecurringEvents(events) {
+  const today = new Date();
+  const endOfYear = new Date(today.getFullYear() + 10, 11, 31); // Extend as necessary
+  
+  return events.flatMap(event => {
+    if (event.is_recurring) {
+      const eventDates = [];
+      let nextOccurrence = new Date(event.event_date);
+      
+      // Generate yearly occurrences up to the end of the extended year
+      while (nextOccurrence <= endOfYear) {
+        eventDates.push({ ...event, event_date: nextOccurrence.toISOString() });
+        nextOccurrence.setFullYear(nextOccurrence.getFullYear() + 1); // Move to the next year
+      }
+      
+      return eventDates;
+    } else {
+      return [event]; 
+    }
+  });
+}
+
 async function deleteEvent() {
   const eventId = document.getElementById("eventId").value;
   if (!eventId) return;
@@ -459,8 +458,10 @@ async function initDashboard() {
     const user = await fetchUserProfile();
     updateUserProfile(user);
     if (user && user.family_id) {
-      const events = await fetchCalendarEvents();
+      let events = await fetchCalendarEvents();
+      events = handleRecurringEvents(events);
       updateCalendar(events);
+
       await fetchFamilyMembers();
     } else {
       const familyCalendar = document.getElementById("familyCalendar");

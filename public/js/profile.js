@@ -57,9 +57,13 @@ function createPostElement(post) {
 
     let postContent = '';
 
-    // Check if the post contains an image
-    if (post.media_url && post.media_type === 'image') {
-        postContent += `<img src="${post.media_url}" alt="Posted Image">`;
+    // Check if the post contains an image or video
+    if (post.media_url) {
+        if (post.media_type === 'image') {
+            postContent += `<img src="${post.media_url}" alt="Posted Image">`;
+        } else if (post.media_type === 'video') {
+            postContent += `<video controls class="post-media"><source src="${post.media_url}" type="video/mp4"></video>`;
+        }
     }
 
     // Check if the post contains a link preview
@@ -78,6 +82,7 @@ function createPostElement(post) {
             </a>
         `;
     }
+    
     const currentUserId = getCurrentUserId();
     console.log('Post author ID:', post.author_id, 'Current user ID:', currentUserId);
     postContent += `<p>${post.caption.replace(/(https?:\/\/[^\s]+)/g, '')}</p>`;

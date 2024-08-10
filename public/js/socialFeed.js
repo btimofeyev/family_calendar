@@ -275,6 +275,7 @@ async function fetchComments(postId) {
     }
 
     const comments = await response.json();
+    console.log('Fetched comments:', comments);
     displayComments(postId, comments);
   } catch (error) {
     console.error('Error fetching comments:', error);
@@ -286,18 +287,30 @@ function displayComments(postId, comments) {
   const commentsSection = document.getElementById(`comments-${postId}`);
   commentsSection.innerHTML = '';
 
-  const topLevelComments = comments.filter(comment => !comment.parent_comment_id);
-  
+  // Sort comments by creation date
+  comments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+  // Create a map to store comments by their ID
+  const commentMap = new Map();
+  comments.forEach(comment => commentMap.set(comment.comment_id, { ...comment, replies: [] }));
+
+  // Organize comments into a tree structure
+  const topLevelComments = [];
+  comments.forEach(comment => {
+    if (comment.parent_comment_id) {
+      const parentComment = commentMap.get(comment.parent_comment_id);
+      if (parentComment) {
+        parentComment.replies.push(commentMap.get(comment.comment_id));
+      }
+    } else {
+      topLevelComments.push(commentMap.get(comment.comment_id));
+    }
+  });
+
+  // Render the comments
   topLevelComments.forEach(comment => {
     const commentElement = createCommentElement(comment, postId);
     commentsSection.appendChild(commentElement);
-
-    // Add replies
-    const replies = comments.filter(reply => reply.parent_comment_id === comment.comment_id);
-    replies.forEach(reply => {
-      const replyElement = createCommentElement(reply, postId, true);
-      commentElement.appendChild(replyElement);
-    });
   });
 }
 function toggleReplyForm(commentId) {
@@ -367,31 +380,38 @@ function createCommentElement(comment, postId, isReply = false) {
 
   element.innerHTML = `
     <div class="comment-content">
-      <span class="comment-author">${comment.author_name}</span>: ${comment.text}
+      <span class="comment-author">${comment.author_name}</span>
+      <span class="comment-text">${comment.text}</span>
     </div>
-    <button class="reply-button" id="replyButton-${comment.comment_id}">Reply</button>
-    <div class="reply-form" id="replyForm-${comment.comment_id}">
+    <div class="comment-actions">
+      <button class="reply-button" id="replyButton-${comment.comment_id}">Reply</button>
+      <span class="comment-date">${formatDate(comment.created_at)}</span>
+    </div>
+    <div class="reply-form" id="replyForm-${comment.comment_id}" style="display: none;">
       <input type="text" placeholder="Write a reply..." required>
       <button type="submit" class="post-reply-button" id="postReply-${comment.comment_id}">Post</button>
     </div>
   `;
 
-  const replyButton = element.querySelector(`#replyButton-${comment.comment_id}`);
-  const replyForm = element.querySelector(`#replyForm-${comment.comment_id}`);
-  const postReplyButton = element.querySelector(`#postReply-${comment.comment_id}`);
+  // Add event listeners (same as before)
 
-  replyButton.addEventListener('click', () => toggleReplyForm(comment.comment_id));
-
-  postReplyButton.addEventListener('click', (e) => {
-    e.preventDefault();
-    const replyText = replyForm.querySelector('input').value;
-    console.log(`Submitting reply: postId=${postId}, commentId=${comment.comment_id}, text=${replyText}`);
-    addComment(postId, replyText, comment.comment_id);
-    replyForm.querySelector('input').value = '';
-    replyForm.style.display = 'none';
-  });
+  // Render replies recursively
+  if (comment.replies && comment.replies.length > 0) {
+    const repliesContainer = document.createElement('div');
+    repliesContainer.className = 'replies';
+    comment.replies.forEach(reply => {
+      const replyElement = createCommentElement(reply, postId, true);
+      repliesContainer.appendChild(replyElement);
+    });
+    element.appendChild(repliesContainer);
+  }
 
   return element;
+}
+
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 function updateCommentCount(postId) {
   const commentButton = document.querySelector(`.comment-button[data-post-id="${postId}"]`);
