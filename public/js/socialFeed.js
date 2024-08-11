@@ -419,7 +419,20 @@ function createCommentElement(comment, postId, isReply = false) {
     </div>
   `;
 
-  // Add event listeners (same as before)
+  const replyButton = element.querySelector(`#replyButton-${comment.comment_id}`);
+  const replyForm = element.querySelector(`#replyForm-${comment.comment_id}`);
+  const postReplyButton = element.querySelector(`#postReply-${comment.comment_id}`);
+
+  replyButton.addEventListener('click', () => toggleReplyForm(comment.comment_id));
+
+  postReplyButton.addEventListener('click', (e) => {
+    e.preventDefault();
+    const replyText = replyForm.querySelector('input').value;
+    console.log(`Submitting reply: postId=${postId}, commentId=${comment.comment_id}, text=${replyText}`);
+    addComment(postId, replyText, comment.comment_id);
+    replyForm.querySelector('input').value = '';
+    replyForm.style.display = 'none';
+  });
 
   // Render replies recursively
   if (comment.replies && comment.replies.length > 0) {
