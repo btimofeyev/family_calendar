@@ -193,36 +193,36 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 function requestNotificationPermission() {
   if ('Notification' in window && navigator.serviceWorker) {
-    Notification.requestPermission().then((result) => {
-      if (result === 'granted') {
-        console.log('Notification permission granted.');
-        subscribeUserToPush();
-      } else {
-        console.log('Notification permission denied.');
-      }
-    });
+      Notification.requestPermission().then((result) => {
+          if (result === 'granted') {
+              console.log('Notification permission granted.');
+              subscribeUserToPush();
+          } else {
+              console.log('Notification permission denied.');
+          }
+      });
   }
 }
 
 function subscribeUserToPush() {
   navigator.serviceWorker.ready.then((registration) => {
-    if (!registration.pushManager) {
-      console.log('Push messaging is not supported.');
-      return;
-    }
+      if (!registration.pushManager) {
+          console.log('Push messaging is not supported.');
+          return;
+      }
 
-    registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array('<Your Public VAPID Key Here>')
-    })
-    .then((subscription) => {
-      console.log('User is subscribed to push notifications:', subscription);
-      // Send subscription to your server to save it and send notifications later
-      sendSubscriptionToServer(subscription);
-    })
-    .catch((err) => {
-      console.error('Failed to subscribe user: ', err);
-    });
+      registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array('<Your Public VAPID Key Here>')
+      })
+      .then((subscription) => {
+          console.log('User is subscribed to push notifications:', subscription);
+          // Send subscription to your server to save it and send notifications later
+          sendSubscriptionToServer(subscription);
+      })
+      .catch((err) => {
+          console.error('Failed to subscribe user: ', err);
+      });
   });
 }
 
