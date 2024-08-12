@@ -1,13 +1,14 @@
 document.addEventListener("DOMContentLoaded", () => {
-
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/js/serviceworker.js')
-    .then(() => {
-        console.log('Service Worker Registered');
-        requestNotificationPermission();
-      });
-  }
-  const authModal = document.getElementById("auth-modal");
+        .then(() => {
+            console.log('Service Worker Registered');
+            requestNotificationPermission();
+        })
+        .catch((error) => {
+            console.error('Service Worker Registration failed:', error);
+        });
+} authModal = document.getElementById("auth-modal");
   const loginForm = document.getElementById("login-form");
   const signupForm = document.getElementById("signup-form");
   const showLoginBtn = document.getElementById("show-login");
@@ -22,14 +23,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Capture the beforeinstallprompt event
-  window.addEventListener('beforeinstallprompt', (e) => {
+  window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e;
 
-    const installButton = document.getElementById('install-button');
+    const installButton = document.getElementById("install-button");
     if (installButton) {
-      installButton.style.display = 'block';
-      installButton.addEventListener('click', () => {
+      installButton.style.display = "block";
+      installButton.addEventListener("click", () => {
         deferredPrompt.prompt();
         deferredPrompt.userChoice.then((choiceResult) => {
           deferredPrompt = null;
@@ -118,7 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (invitationToken) {
-      console.log('Invitation token found:', invitationToken);
+      console.log("Invitation token found:", invitationToken);
 
       try {
         const response = await fetch(
@@ -127,12 +128,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await response.json();
         if (data.valid) {
           showModal();
-          signupForm.classList.remove('hidden');
-          loginForm.classList.add('hidden');
-          document.getElementById('signup-email').value = data.email;
-          document.getElementById('signup-email').readOnly = true;
-          localStorage.setItem('invitationToken', invitationToken);
-          console.log('Invitation token stored:', invitationToken);
+          signupForm.classList.remove("hidden");
+          loginForm.classList.add("hidden");
+          document.getElementById("signup-email").value = data.email;
+          document.getElementById("signup-email").readOnly = true;
+          localStorage.setItem("invitationToken", invitationToken);
+          console.log("Invitation token stored:", invitationToken);
         } else {
           alert("Invalid or expired invitation.");
         }
@@ -147,41 +148,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function signup(event) {
     event.preventDefault();
-    const name = document.getElementById('signup-name').value;
-    const email = document.getElementById('signup-email').value;
-    const password = document.getElementById('signup-password').value;
-    const invitationToken = localStorage.getItem('invitationToken');
+    const name = document.getElementById("signup-name").value;
+    const email = document.getElementById("signup-email").value;
+    const password = document.getElementById("signup-password").value;
+    const invitationToken = localStorage.getItem("invitationToken");
 
-    console.log('Signup attempt:', { name, email, invitationToken });
+    console.log("Signup attempt:", { name, email, invitationToken });
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, invitationToken })
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, invitationToken }),
       });
       const data = await response.json();
-      console.log('Signup response:', data);
+      console.log("Signup response:", data);
 
       if (response.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('userId', data.user.id);
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("userId", data.user.id);
         if (data.user.family_id) {
-          localStorage.setItem('familyId', data.user.family_id);
-          console.log('Family ID set:', data.user.family_id);
+          localStorage.setItem("familyId", data.user.family_id);
+          console.log("Family ID set:", data.user.family_id);
         } else {
-          console.log('No family ID in response');
+          console.log("No family ID in response");
         }
-        localStorage.removeItem('invitationToken');
-        console.log('Redirecting to dashboard in 3 seconds...');
+        localStorage.removeItem("invitationToken");
+        console.log("Redirecting to dashboard in 3 seconds...");
         setTimeout(() => {
-          window.location.href = 'dashboard.html';
+          window.location.href = "dashboard.html";
         }, 3000);
       } else {
         alert(data.error);
       }
     } catch (error) {
-      console.error('Signup error:', error);
+      console.error("Signup error:", error);
     }
   }
 
@@ -192,46 +193,49 @@ document.addEventListener("DOMContentLoaded", () => {
   handleInvitation();
 });
 function requestNotificationPermission() {
-  if ('Notification' in window && navigator.serviceWorker) {
-      Notification.requestPermission().then((result) => {
-          if (result === 'granted') {
-              console.log('Notification permission granted.');
-              subscribeUserToPush();
-          } else {
-              console.log('Notification permission denied.');
-          }
-      });
+  if ("Notification" in window && navigator.serviceWorker) {
+    Notification.requestPermission().then((result) => {
+      if (result === "granted") {
+        console.log("Notification permission granted.");
+        subscribeUserToPush();
+      } else {
+        console.log("Notification permission denied.");
+      }
+    });
   }
 }
 
 function subscribeUserToPush() {
   navigator.serviceWorker.ready.then((registration) => {
-      if (!registration.pushManager) {
-          console.log('Push messaging is not supported.');
-          return;
-      }
+    if (!registration.pushManager) {
+      console.log("Push messaging is not supported.");
+      return;
+    }
 
-      registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array('<Your Public VAPID Key Here>')
+    registration.pushManager
+      .subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(
+          "<Your Public VAPID Key Here>"
+        ),
       })
       .then((subscription) => {
-          console.log('User is subscribed to push notifications:', subscription);
-          // Send subscription to your server to save it and send notifications later
-          sendSubscriptionToServer(subscription);
+        console.log("User is subscribed to push notifications:", subscription);
+        // Send subscription to your server to save it and send notifications later
+        sendSubscriptionToServer(subscription);
       })
       .catch((err) => {
-          console.error('Failed to subscribe user: ', err);
+        console.error("Failed to subscribe user: ", err);
       });
   });
 }
 
 // Utility function to convert VAPID key
 function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding)
-    .replace(/\-/g, '+')
-    .replace(/_/g, '/');
+    .replace(/\-/g, "+")
+    .replace(/_/g, "/");
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
   for (let i = 0; i < rawData.length; ++i) {
@@ -242,19 +246,19 @@ function urlBase64ToUint8Array(base64String) {
 
 function sendSubscriptionToServer(subscription) {
   // Implement this function to send the subscription to your server
-  fetch('/api/subscribe', {
-    method: 'POST',
+  fetch("/api/subscribe", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${localStorage.getItem('token')}`
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
-    body: JSON.stringify(subscription)
+    body: JSON.stringify(subscription),
   })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error('Failed to send subscription to server');
-    }
-    console.log('Subscription sent to server');
-  })
-  .catch(err => console.error('Failed to send subscription:', err));
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to send subscription to server");
+      }
+      console.log("Subscription sent to server");
+    })
+    .catch((err) => console.error("Failed to send subscription:", err));
 }
