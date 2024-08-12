@@ -18,11 +18,6 @@ document.addEventListener("DOMContentLoaded", () => {
     signupForm.classList.add("hidden");
   }
 
-  function showApp() {
-    landingPage.classList.add("hidden");
-    app.classList.remove("hidden");
-    // TODO: Implement app initialization (calendar, member list, social feed)
-  }
 
   showLoginBtn.addEventListener("click", () => {
     showModal();
@@ -161,9 +156,5 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("signup").addEventListener("submit", signup);
 
   // Check if user is already logged in
-  const token = localStorage.getItem("token");
-  if (token) {
-    showApp();
-  }
   handleInvitation();
 });
