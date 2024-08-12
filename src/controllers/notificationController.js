@@ -5,43 +5,42 @@ const { getUserPushSubscriptions } = require('../models/subscriptionModel'); // 
 
 exports.createNotification = async (userId, type, content) => {
   try {
-    const query = `
-      INSERT INTO notifications (user_id, type, content, created_at)
-      VALUES ($1, $2, $3, NOW())
-      RETURNING *
-    `;
-    const values = [userId, type, content];
-    const { rows } = await pool.query(query, values);
+      const query = `
+          INSERT INTO notifications (user_id, type, content, created_at)
+          VALUES ($1, $2, $3, NOW())
+          RETURNING *
+      `;
+      const values = [userId, type, content];
+      const { rows } = await pool.query(query, values);
 
-    const notification = rows[0];
+      const notification = rows[0];
 
-    // Emit the notification to the user's room
-    const io = getIo();
-    io.to(userId.toString()).emit('new_notification', notification);
+      // Emit the notification to the user's room via socket
+      const io = getIo();
+      io.to(userId.toString()).emit('new_notification', notification);
 
-    // Send a push notification
-    const subscriptions = await getUserPushSubscriptions(userId);
-    if (subscriptions && subscriptions.length > 0) {
-      const payload = JSON.stringify({
-        title: 'New Notification',
-        body: notification.content,
-        url: '/dashboard.html'
-      });
+      // Send a push notification
+      const subscriptions = await getUserPushSubscriptions(userId);
+      if (subscriptions && subscriptions.length > 0) {
+          const payload = JSON.stringify({
+              title: 'New Notification',
+              body: content,
+              url: '/dashboard.html' // Adjust the URL as needed
+          });
 
-      subscriptions.forEach(subscription => {
-        webpush.sendNotification(subscription, payload).catch(error => {
-          console.error('Error sending push notification:', error);
-        });
-      });
-    }
+          subscriptions.forEach(subscription => {
+              webpush.sendNotification(subscription, payload).catch(error => {
+                  console.error('Error sending push notification:', error);
+              });
+          });
+      }
 
-    return notification;
+      return notification;
   } catch (error) {
-    console.error('Error creating notification:', error);
-    throw error;
+      console.error('Error creating notification:', error);
+      throw error;
   }
 };
-
   exports.getNotifications = async (req, res) => {
     try {
       const userId = req.user.id;
