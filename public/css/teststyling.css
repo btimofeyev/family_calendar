@@ -511,6 +511,41 @@ textarea:focus {
 .comment-form button:hover {
   background-color: var(--primary-color);
 }
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+.load-more-button {
+  background-color: #4CAF50; /* Green background */
+  border: none;
+  color: white;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 20px 0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+  width: 100%;
+  max-width: 200px;
+}
+
+.load-more-button:hover {
+  background-color: #45a049; 
+}
+
+.load-more-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.5); /
+}
+
+.load-more-button:active {
+  background-color: #3e8e41; 
+}
+
 .family-calendar {
   font-size: 0.875rem;
 }

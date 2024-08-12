@@ -9,7 +9,14 @@ const { createNotification } = require('./notificationController');
 exports.getPosts = async (req, res) => {
   try {
     const familyId = req.user.family_id;
-    console.log("Type of familyId:", typeof familyId, "Value:", familyId);
+    const page = parseInt(req.query.page) || 1;
+    const limit = 10; // Number of posts per page
+    const offset = (page - 1) * limit;
+
+    // Get total count of posts
+    const countQuery = "SELECT COUNT(*) FROM posts WHERE family_id = $1";
+    const { rows: countRows } = await pool.query(countQuery, [familyId]);
+    const totalPosts = parseInt(countRows[0].count);
 
     const query = `
       SELECT p.*, u.name as author_name, 
@@ -19,8 +26,9 @@ exports.getPosts = async (req, res) => {
       JOIN users u ON p.author_id = u.id
       WHERE p.family_id = $1
       ORDER BY p.created_at DESC
+      LIMIT $2 OFFSET $3
     `;
-    const { rows } = await pool.query(query, [familyId]);
+    const { rows } = await pool.query(query, [familyId, limit, offset]);
 
     // Generate signed URLs for each image and parse link previews
     const postsWithSignedUrls = await Promise.all(
@@ -41,7 +49,12 @@ exports.getPosts = async (req, res) => {
       })
     );
 
-    res.json(postsWithSignedUrls);
+    res.json({
+      posts: postsWithSignedUrls,
+      currentPage: page,
+      totalPages: Math.ceil(totalPosts / limit),
+      totalPosts: totalPosts
+    });
   } catch (error) {
     console.error("Error fetching posts:", error);
     res.status(500).json({ error: "Internal server error" });

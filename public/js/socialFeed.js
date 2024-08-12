@@ -1,10 +1,10 @@
 document.addEventListener("DOMContentLoaded", () => {
   initializeSocialFeed();
 });
-
 function initializeSocialFeed() {
   setupPostForm();
   fetchAndDisplayPosts();
+  updateLoadMoreButton();
 }
 
 function setupPostForm() {
@@ -141,10 +141,13 @@ async function submitPost() {
   }
 }
 
-async function fetchAndDisplayPosts() {
+let currentPage = 1;
+let totalPages = 1;
+
+async function fetchAndDisplayPosts(page = 1, append = false) {
   try {
     const token = localStorage.getItem("token");
-    const response = await makeAuthenticatedRequest("/api/posts", {
+    const response = await makeAuthenticatedRequest(`/api/posts?page=${page}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -154,97 +157,164 @@ async function fetchAndDisplayPosts() {
       throw new Error("Failed to fetch posts");
     }
 
-    const posts = await response.json();
-    displayPosts(posts);
+    const data = await response.json();
+    console.log("API response:", data);
+
+    if (Array.isArray(data.posts)) {
+      currentPage = data.currentPage;
+      totalPages = data.totalPages;
+      console.log(`Current page: ${currentPage}, Total pages: ${totalPages}`); // Add this line
+
+      if (append) {
+        appendPosts(data.posts);
+      } else {
+        displayPosts(data.posts);
+      }
+
+      updateLoadMoreButton();
+    } else {
+      console.error("Invalid posts data:", data);
+      throw new Error("Invalid posts data received from the server");
+    }
   } catch (error) {
     console.error("Error fetching posts:", error);
+    const socialFeedContent = document.getElementById("socialFeedContent");
+    socialFeedContent.innerHTML += `<p>Error loading posts. Please try again later.</p>`;
   }
 }
-
 function displayPosts(posts) {
   const socialFeedContent = document.getElementById("socialFeedContent");
   socialFeedContent.innerHTML = "";
+  
+  posts.forEach((post) => {
+    const postElement = createPostElement(post);
+    socialFeedContent.appendChild(postElement);
+  });
+
+  // Add this block at the end of the function
+  const loadMoreButton = document.getElementById("loadMoreButton");
+  if (loadMoreButton) {
+    loadMoreButton.addEventListener("click", () => {
+      console.log("Load More button clicked (from displayPosts)");
+      loadMorePosts();
+    });
+  }
+}
+function appendPosts(posts) {
+  const socialFeedContent = document.getElementById("socialFeedContent");
 
   posts.forEach((post) => {
-    const postElement = document.createElement("div");
-    postElement.className = "social-post";
-
-    let mediaContent = "";
-    if (post.media_url) {
-      if (post.media_type === "image") {
-        mediaContent = `<img src="${post.media_url}" alt="Post image" class="post-media">`;
-      } else if (post.media_type === "video") {
-        mediaContent = `<video controls class="post-media"><source src="${post.media_url}" type="video/mp4"></video>`;
-      }
-    } else if (post.link_preview) {
-      const linkPreview = post.link_preview;
-      const imageHtml = linkPreview.image
-        ? `<img src="${linkPreview.image}" alt="Link preview" style="max-width: 100%;">`
-        : "";
-      mediaContent = `
-        <a href="${
-          linkPreview.url
-        }" target="_blank" style="text-decoration: none; color: inherit;">
-          <div class="link-preview" style="border: 1px solid #ccc; padding: 10px; display: flex; flex-direction: column; align-items: center;">
-            ${imageHtml}
-            <div class="link-info" style="text-align: center;">
-              <h3>${linkPreview.title || "No title available"}</h3>
-              <p>${linkPreview.description || "No description available"}</p>
-            </div>
-          </div>
-        </a>
-      `;
-    }
-
-    let captionContent = post.caption;
-    if (post.link_preview) {
-      captionContent = post.caption.replace(/(https?:\/\/[^\s]+)/g, "");
-    }
-
-    postElement.innerHTML = `
-      <div class="post-header">
-        <span class="post-author">${post.author_name}</span>
-        <span class="post-date">${new Date(
-          post.created_at
-        ).toLocaleString()}</span>
-      </div>
-      <div class="post-content">
-        <p>${captionContent}</p>
-        ${mediaContent}
-      </div>
-      <div class="post-actions">
-        <button class="like-button" data-post-id="${post.post_id}">
-          <i class="fas fa-heart"></i> Like (${post.likes_count || 0})
-        </button>
-        <button class="comment-button" data-post-id="${post.post_id}">
-          <i class="fas fa-comment"></i> Comment (${post.comments_count || 0})
-        </button>
-      </div>
-      <div class="comments-section" id="comments-${post.post_id}"></div>
-      <form class="comment-form" data-post-id="${post.post_id}">
-        <input type="text" placeholder="Write a comment..." required>
-        <button type="submit">Post</button>
-      </form>
-    `;
-
-    const likeButton = postElement.querySelector(".like-button");
-    likeButton.addEventListener("click", () => toggleLike(post.post_id));
-
-    const commentButton = postElement.querySelector(".comment-button");
-    commentButton.addEventListener("click", () => fetchComments(post.post_id));
-
-    const commentForm = postElement.querySelector(".comment-form");
-    commentForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const commentText = commentForm.querySelector("input").value;
-      addComment(post.post_id, commentText);
-      commentForm.reset();
-    });
-
+    const postElement = createPostElement(post);
     socialFeedContent.appendChild(postElement);
   });
 }
+function createPostElement(post) {
+  const postElement = document.createElement("div");
+  postElement.className = "social-post";
+  postElement.dataset.postId = post.post_id;
 
+  let mediaContent = "";
+  if (post.media_url) {
+    if (post.media_type === "image") {
+      mediaContent = `<img src="${post.signed_image_url || post.media_url}" alt="Post image" class="post-media">`;
+    } else if (post.media_type === "video") {
+      mediaContent = `<video controls class="post-media"><source src="${post.signed_image_url || post.media_url}" type="video/mp4"></video>`;
+    }
+  } else if (post.link_preview) {
+    const linkPreview = post.link_preview;
+    const imageHtml = linkPreview.image
+      ? `<img src="${linkPreview.image}" alt="Link preview" style="max-width: 100%;">`
+      : "";
+    mediaContent = `
+      <a href="${linkPreview.url}" target="_blank" style="text-decoration: none; color: inherit;">
+        <div class="link-preview" style="border: 1px solid #ccc; padding: 10px; display: flex; flex-direction: column; align-items: center;">
+          ${imageHtml}
+          <div class="link-info" style="text-align: center;">
+            <h3>${linkPreview.title || "No title available"}</h3>
+            <p>${linkPreview.description || "No description available"}</p>
+          </div>
+        </div>
+      </a>
+    `;
+  }
+
+  let captionContent = post.caption;
+  if (post.link_preview) {
+    captionContent = post.caption.replace(/(https?:\/\/[^\s]+)/g, "");
+  }
+
+  postElement.innerHTML = `
+    <div class="post-header">
+      <span class="post-author">${post.author_name}</span>
+      <span class="post-date">${new Date(post.created_at).toLocaleString()}</span>
+    </div>
+    <div class="post-content">
+      <p>${captionContent}</p>
+      ${mediaContent}
+    </div>
+    <div class="post-actions">
+      <button class="like-button" data-post-id="${post.post_id}">
+        <i class="fas fa-heart"></i> Like (${post.likes_count || 0})
+      </button>
+      <button class="comment-button" data-post-id="${post.post_id}">
+        <i class="fas fa-comment"></i> Comment (${post.comments_count || 0})
+      </button>
+    </div>
+    <div class="comments-section" id="comments-${post.post_id}"></div>
+    <form class="comment-form" data-post-id="${post.post_id}">
+      <input type="text" placeholder="Write a comment..." required>
+      <button type="submit">Post</button>
+    </form>
+  `;
+
+  const likeButton = postElement.querySelector(".like-button");
+  likeButton.addEventListener("click", () => toggleLike(post.post_id));
+
+  const commentButton = postElement.querySelector(".comment-button");
+  commentButton.addEventListener("click", () => fetchComments(post.post_id));
+
+  const commentForm = postElement.querySelector(".comment-form");
+  commentForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const commentText = commentForm.querySelector("input").value;
+    addComment(post.post_id, commentText);
+    commentForm.reset();
+  });
+
+  return postElement;
+}
+function updateLoadMoreButton() {
+  let loadMoreButton = document.getElementById("loadMoreButton");
+  if (!loadMoreButton) {
+    loadMoreButton = document.createElement("button");
+    loadMoreButton.id = "loadMoreButton";
+    loadMoreButton.textContent = "Load More";
+    loadMoreButton.addEventListener("click", () => {
+      console.log("Load More button clicked"); // Add this line
+      loadMorePosts();
+    });
+    document.querySelector(".social-feed").appendChild(loadMoreButton);
+    console.log("Load More button created and appended"); // Add this line
+  }
+
+  loadMoreButton.style.display = currentPage < totalPages ? "block" : "none";
+  console.log(`Load More button display: ${loadMoreButton.style.display}`); // Add this line
+}
+async function loadMorePosts() {
+  console.log("loadMorePosts function called");
+  if (currentPage < totalPages) {
+    const loadMoreButton = document.getElementById("loadMoreButton");
+    loadMoreButton.textContent = "Loading...";
+    loadMoreButton.disabled = true;
+    
+    await fetchAndDisplayPosts(currentPage + 1, true);
+    
+    loadMoreButton.textContent = "Load More";
+    loadMoreButton.disabled = false;
+  } else {
+    console.log("No more posts to load");
+  }
+}
 async function toggleLike(postId) {
   try {
     const response = await makeAuthenticatedRequest(`/api/posts/${postId}/like`, {
