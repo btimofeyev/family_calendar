@@ -207,35 +207,32 @@ function requestNotificationPermission() {
 
 function subscribeUserToPush() {
   navigator.serviceWorker.ready.then((registration) => {
-    if (!registration.pushManager) {
-      console.log("Push messaging is not supported.");
-      return;
-    }
+      if (!registration.pushManager) {
+          console.log('Push messaging is not supported.');
+          return;
+      }
 
-    registration.pushManager
-      .subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(
-          "<Your Public VAPID Key Here>"
-        ),
+      registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array('BDVLcDnmydpssIa0St3OM_tq3n4GVF1vcEO25VYWZRlAq0fMrbxv46cBJnA47hV7aFeO2HZ0pnuHnq-pdvq5UjE')
       })
       .then((subscription) => {
-        console.log("User is subscribed to push notifications:", subscription);
-        // Send subscription to your server to save it and send notifications later
-        sendSubscriptionToServer(subscription);
+          console.log('User is subscribed to push notifications:', subscription);
+          // Send subscription to your server to save it and send notifications later
+          sendSubscriptionToServer(subscription);
       })
       .catch((err) => {
-        console.error("Failed to subscribe user: ", err);
+          console.error('Failed to subscribe user: ', err);
       });
   });
 }
 
 // Utility function to convert VAPID key
 function urlBase64ToUint8Array(base64String) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding)
-    .replace(/\-/g, "+")
-    .replace(/_/g, "/");
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
   for (let i = 0; i < rawData.length; ++i) {
