@@ -1,13 +1,37 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const landingPage = document.getElementById("landing-page");
   const authModal = document.getElementById("auth-modal");
   const loginForm = document.getElementById("login-form");
   const signupForm = document.getElementById("signup-form");
   const showLoginBtn = document.getElementById("show-login");
   const showSignupBtn = document.getElementById("show-signup");
   const closeBtn = document.querySelector(".close");
-  const app = document.getElementById("app");
-
+  let deferredPrompt;
+   // Capture the beforeinstallprompt event
+   window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Save the event so it can be triggered later
+    deferredPrompt = e;
+    
+    // Optionally, show your custom install button here
+    const installButton = document.getElementById('install-button');
+    if (installButton) {
+      installButton.style.display = 'block';
+      installButton.addEventListener('click', () => {
+        // Show the install prompt
+        deferredPrompt.prompt();
+        // Wait for the user to respond to the prompt
+        deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            console.log('User accepted the install prompt');
+          } else {
+            console.log('User dismissed the install prompt');
+          }
+          deferredPrompt = null;
+        });
+      });
+    }
+  });
   function showModal() {
     authModal.classList.remove("hidden");
   }
