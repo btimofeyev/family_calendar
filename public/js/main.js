@@ -1,37 +1,38 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const landingPage = document.getElementById("landing-page");
   const authModal = document.getElementById("auth-modal");
   const loginForm = document.getElementById("login-form");
   const signupForm = document.getElementById("signup-form");
   const showLoginBtn = document.getElementById("show-login");
   const showSignupBtn = document.getElementById("show-signup");
   const closeBtn = document.querySelector(".close");
+  const app = document.getElementById("app");
   let deferredPrompt;
-   // Capture the beforeinstallprompt event
-   window.addEventListener('beforeinstallprompt', (e) => {
-    // Prevent the mini-infobar from appearing on mobile
+
+  // Redirect to dashboard if the user is already logged in
+  if (localStorage.getItem("token")) {
+    window.location.href = "dashboard.html";
+    return; // Stop further script execution
+  }
+
+  // Capture the beforeinstallprompt event
+  window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
-    // Save the event so it can be triggered later
     deferredPrompt = e;
-    
-    // Optionally, show your custom install button here
+
     const installButton = document.getElementById('install-button');
     if (installButton) {
       installButton.style.display = 'block';
       installButton.addEventListener('click', () => {
-        // Show the install prompt
         deferredPrompt.prompt();
-        // Wait for the user to respond to the prompt
         deferredPrompt.userChoice.then((choiceResult) => {
-          if (choiceResult.outcome === 'accepted') {
-            console.log('User accepted the install prompt');
-          } else {
-            console.log('User dismissed the install prompt');
-          }
           deferredPrompt = null;
         });
       });
     }
   });
+
+  // Existing modal functionality
   function showModal() {
     authModal.classList.remove("hidden");
   }
@@ -41,7 +42,6 @@ document.addEventListener("DOMContentLoaded", () => {
     loginForm.classList.remove("hidden");
     signupForm.classList.add("hidden");
   }
-
 
   showLoginBtn.addEventListener("click", () => {
     showModal();
@@ -89,6 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Login error:", error);
     }
   }
+
   async function handleInvitation() {
     const urlParams = new URLSearchParams(window.location.search);
     const invitationToken = urlParams.get("invitationToken");
@@ -111,7 +112,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (invitationToken) {
-        console.log('Invitation token found:', invitationToken);
+      console.log('Invitation token found:', invitationToken);
 
       try {
         const response = await fetch(
@@ -119,13 +120,13 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         const data = await response.json();
         if (data.valid) {
-            showModal();
-            signupForm.classList.remove('hidden');
-            loginForm.classList.add('hidden');
-            document.getElementById('signup-email').value = data.email;
-            document.getElementById('signup-email').readOnly = true;
-            localStorage.setItem('invitationToken', invitationToken);
-            console.log('Invitation token stored:', invitationToken);
+          showModal();
+          signupForm.classList.remove('hidden');
+          loginForm.classList.add('hidden');
+          document.getElementById('signup-email').value = data.email;
+          document.getElementById('signup-email').readOnly = true;
+          localStorage.setItem('invitationToken', invitationToken);
+          console.log('Invitation token stored:', invitationToken);
         } else {
           alert("Invalid or expired invitation.");
         }
@@ -137,6 +138,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   }
+
   async function signup(event) {
     event.preventDefault();
     const name = document.getElementById('signup-name').value;
@@ -147,35 +149,36 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log('Signup attempt:', { name, email, invitationToken });
 
     try {
-        const response = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password, invitationToken })
-        });
-        const data = await response.json();
-        console.log('Signup response:', data);
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, invitationToken })
+      });
+      const data = await response.json();
+      console.log('Signup response:', data);
 
-        if (response.ok) {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('userId', data.user.id);
-            if (data.user.family_id) {
-                localStorage.setItem('familyId', data.user.family_id);
-                console.log('Family ID set:', data.user.family_id);
-            } else {
-                console.log('No family ID in response');
-            }
-            localStorage.removeItem('invitationToken');
-            console.log('Redirecting to dashboard in 3 seconds...');
-            setTimeout(() => {
-                window.location.href = 'dashboard.html';
-            }, 3000);
+      if (response.ok) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('userId', data.user.id);
+        if (data.user.family_id) {
+          localStorage.setItem('familyId', data.user.family_id);
+          console.log('Family ID set:', data.user.family_id);
         } else {
-            alert(data.error);
+          console.log('No family ID in response');
         }
+        localStorage.removeItem('invitationToken');
+        console.log('Redirecting to dashboard in 3 seconds...');
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 3000);
+      } else {
+        alert(data.error);
+      }
     } catch (error) {
-        console.error('Signup error:', error);
+      console.error('Signup error:', error);
     }
-}
+  }
+
   document.getElementById("login").addEventListener("submit", login);
   document.getElementById("signup").addEventListener("submit", signup);
 
