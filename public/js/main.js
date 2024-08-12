@@ -1,8 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/public/js/serviceworker.js')
-      .then(() => {
+    navigator.serviceWorker.register('/js/serviceworker.js')
+    .then(() => {
         console.log('Service Worker Registered');
         requestNotificationPermission();
       });
