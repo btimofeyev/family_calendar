@@ -1,13 +1,11 @@
 document.addEventListener("DOMContentLoaded", () => {
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/public/js/serviceworker.js').then((registration) => {
-        console.log('Service Worker registered with scope:', registration.scope);
-      }, (err) => {
-        console.log('Service Worker registration failed:', err);
+    navigator.serviceWorker.register('/public/js/serviceworker.js')
+      .then(() => {
+        console.log('Service Worker Registered');
+        requestNotificationPermission();
       });
-    });
   }
   const authModal = document.getElementById("auth-modal");
   const loginForm = document.getElementById("login-form");
@@ -193,3 +191,70 @@ document.addEventListener("DOMContentLoaded", () => {
   // Check if user is already logged in
   handleInvitation();
 });
+function requestNotificationPermission() {
+  if ('Notification' in window && navigator.serviceWorker) {
+    Notification.requestPermission().then((result) => {
+      if (result === 'granted') {
+        console.log('Notification permission granted.');
+        subscribeUserToPush();
+      } else {
+        console.log('Notification permission denied.');
+      }
+    });
+  }
+}
+
+function subscribeUserToPush() {
+  navigator.serviceWorker.ready.then((registration) => {
+    if (!registration.pushManager) {
+      console.log('Push messaging is not supported.');
+      return;
+    }
+
+    registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array('<Your Public VAPID Key Here>')
+    })
+    .then((subscription) => {
+      console.log('User is subscribed to push notifications:', subscription);
+      // Send subscription to your server to save it and send notifications later
+      sendSubscriptionToServer(subscription);
+    })
+    .catch((err) => {
+      console.error('Failed to subscribe user: ', err);
+    });
+  });
+}
+
+// Utility function to convert VAPID key
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+function sendSubscriptionToServer(subscription) {
+  // Implement this function to send the subscription to your server
+  fetch('/api/subscribe', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${localStorage.getItem('token')}`
+    },
+    body: JSON.stringify(subscription)
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Failed to send subscription to server');
+    }
+    console.log('Subscription sent to server');
+  })
+  .catch(err => console.error('Failed to send subscription:', err));
+}
