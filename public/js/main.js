@@ -1,12 +1,20 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const landingPage = document.getElementById("landing-page");
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/public/js/serviceworker.js').then((registration) => {
+        console.log('Service Worker registered with scope:', registration.scope);
+      }, (err) => {
+        console.log('Service Worker registration failed:', err);
+      });
+    });
+  }
   const authModal = document.getElementById("auth-modal");
   const loginForm = document.getElementById("login-form");
   const signupForm = document.getElementById("signup-form");
   const showLoginBtn = document.getElementById("show-login");
   const showSignupBtn = document.getElementById("show-signup");
   const closeBtn = document.querySelector(".close");
-  const app = document.getElementById("app");
   let deferredPrompt;
 
   // Redirect to dashboard if the user is already logged in
