@@ -1,44 +1,55 @@
 const pool = require("../config/db");
 const { getIo } = require('../middleware/socket'); 
 const webpush = require('web-push');
-const { getUserPushSubscriptions } = require('../models/subscriptionModel'); // Example model
+const { getUserPushSubscriptions, removeInvalidSubscription } = require('../models/subscriptionModel');
 
 exports.createNotification = async (userId, type, content) => {
   try {
-      const query = `
-          INSERT INTO notifications (user_id, type, content, created_at)
-          VALUES ($1, $2, $3, NOW())
-          RETURNING *
-      `;
-      const values = [userId, type, content];
-      const { rows } = await pool.query(query, values);
+    // Insert the notification into the database
+    const query = `
+      INSERT INTO notifications (user_id, type, content, created_at)
+      VALUES ($1, $2, $3, NOW())
+      RETURNING *
+    `;
+    const values = [userId, type, content];
+    const { rows } = await pool.query(query, values);
 
-      const notification = rows[0];
+    const notification = rows[0];
 
-      // Emit the notification to the user's room via socket
-      const io = getIo();
-      io.to(userId.toString()).emit('new_notification', notification);
+    // Emit the notification to the user's room via socket
+    const io = getIo();
+    io.to(userId.toString()).emit('new_notification', notification);
 
-      // Send a push notification
+    // Send a push notification
+    try {
       const subscriptions = await getUserPushSubscriptions(userId);
       if (subscriptions && subscriptions.length > 0) {
-          const payload = JSON.stringify({
-              title: 'New Notification',
-              body: content,
-              url: '/dashboard.html' // Adjust the URL as needed
-          });
+        const payload = JSON.stringify({
+          title: 'New Notification',
+          body: content,
+          url: '/dashboard.html' // Adjust the URL as needed
+        });
 
-          subscriptions.forEach(subscription => {
-              webpush.sendNotification(subscription, payload).catch(error => {
-                  console.error('Error sending push notification:', error);
-              });
-          });
+        for (const subscription of subscriptions) {
+          try {
+            await webpush.sendNotification(subscription, payload);
+          } catch (error) {
+            console.error('Error sending push notification:', error);
+            if (error.statusCode === 410) {
+              // Subscription has expired or been unsubscribed
+              await removeInvalidSubscription(userId, subscription.endpoint);
+            }
+          }
+        }
       }
+    } catch (error) {
+      console.error('Error processing push notifications:', error);
+    }
 
-      return notification;
+    return notification;
   } catch (error) {
-      console.error('Error creating notification:', error);
-      throw error;
+    console.error('Error creating notification:', error);
+    throw error;
   }
 };
   exports.getNotifications = async (req, res) => {

@@ -1,4 +1,15 @@
+console.log("Dashboard.js is running");
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/js/serviceworker.js')
+      .then(function(registration) {
+        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+      }, function(err) {
+        console.log('ServiceWorker registration failed: ', err);
+      });
+  });
+}
 async function fetchUserProfile() {
   try {
     const response = await makeAuthenticatedRequest('/api/dashboard/profile');
@@ -591,6 +602,7 @@ async function initDashboard() {
 
 // Call the init function when the page loads
 document.addEventListener("DOMContentLoaded", () => {
+
   initDashboard();
   const leftColumn = document.querySelector(".left-column");
   const rightColumn = document.querySelector(".right-column");

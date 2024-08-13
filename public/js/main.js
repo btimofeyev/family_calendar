@@ -1,14 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/js/serviceworker.js')
-        .then(() => {
-            console.log('Service Worker Registered');
-            requestNotificationPermission();
-        })
-        .catch((error) => {
-            console.error('Service Worker Registration failed:', error);
-        });
-} authModal = document.getElementById("auth-modal");
+
+  authModal = document.getElementById("auth-modal");
   const loginForm = document.getElementById("login-form");
   const signupForm = document.getElementById("signup-form");
   const showLoginBtn = document.getElementById("show-login");
@@ -192,70 +184,3 @@ document.addEventListener("DOMContentLoaded", () => {
   // Check if user is already logged in
   handleInvitation();
 });
-function requestNotificationPermission() {
-  if ("Notification" in window && navigator.serviceWorker) {
-    Notification.requestPermission().then((result) => {
-      if (result === "granted") {
-        console.log("Notification permission granted.");
-        subscribeUserToPush();
-      } else {
-        console.log("Notification permission denied.");
-      }
-    });
-  }
-}
-
-function subscribeUserToPush() {
-  navigator.serviceWorker.ready.then((registration) => {
-      if (!registration.pushManager) {
-          console.log('Push messaging is not supported.');
-          return;
-      }
-
-      registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array('BDVLcDnmydpssIa0St3OM_tq3n4GVF1vcEO25VYWZRlAq0fMrbxv46cBJnA47hV7aFeO2HZ0pnuHnq-pdvq5UjE')
-      })
-      .then((subscription) => {
-          console.log('User is subscribed to push notifications:', subscription);
-          // Send subscription to your server to save it and send notifications later
-          sendSubscriptionToServer(subscription);
-      })
-      .catch((err) => {
-          console.error('Failed to subscribe user: ', err);
-      });
-  });
-}
-
-// Utility function to convert VAPID key
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding)
-    .replace(/\-/g, '+')
-    .replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-function sendSubscriptionToServer(subscription) {
-  // Implement this function to send the subscription to your server
-  fetch("/api/subscribe", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
-    body: JSON.stringify(subscription),
-  })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error("Failed to send subscription to server");
-      }
-      console.log("Subscription sent to server");
-    })
-    .catch((err) => console.error("Failed to send subscription:", err));
-}

@@ -11,7 +11,7 @@ const socialFeedRoutes = require('./src/routes/socialFeedRoutes');
 const invitationRoutes = require('./src/routes/invitationRoutes');
 const notificationRoutes = require('./src/routes/notificationRoutes');
 const pushRoutes = require('./src/routes/pushRoutes');
-const webpush = require('./src/config/pushconfig');
+
 
 
 dotenv.config();
