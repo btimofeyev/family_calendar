@@ -115,7 +115,7 @@ self.addEventListener('push', function(event) {
         event.waitUntil(
             self.registration.showNotification(data.title, {
                 body: data.body,
-                icon: "/public/icons/512x512.png",
+                icon: "/icons/512x512.png",
                 data: { url: data.url }
             })
         );
