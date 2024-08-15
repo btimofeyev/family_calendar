@@ -1,4 +1,3 @@
-console.log("Dashboard.js is running");
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
