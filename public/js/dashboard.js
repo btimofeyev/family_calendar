@@ -46,11 +46,9 @@ async function createFamily(familyName) {
     const result = await response.json();
     console.log("Family created successfully:", result);
 
-    // Update user profile to reflect new family creation
     const updatedUser = await fetchUserProfile();
     updateUserProfile(updatedUser);
 
-    // Fetch and display the calendar for the new family
     const events = await fetchCalendarEvents();
     updateCalendar(events);
 
@@ -601,7 +599,6 @@ async function initDashboard() {
 
 // Call the init function when the page loads
 document.addEventListener("DOMContentLoaded", () => {
-
   initDashboard();
   const leftColumn = document.querySelector(".left-column");
   const rightColumn = document.querySelector(".right-column");

@@ -1,4 +1,16 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const scrollToTopLink = document.getElementById('scrollToTop');
+  if (scrollToTopLink) {
+    scrollToTopLink.addEventListener('click', function(event) {
+      event.preventDefault(); // Prevent the default anchor behavior
+      document.querySelector('.center-column').scrollTo({
+        top: 0,
+        behavior: 'smooth' // Smooth scrolling
+      });
+    });
+  } else {
+    console.error('Element with ID scrollToTop not found.');
+  }
   initializeSocialFeed();
 });
 function initializeSocialFeed() {

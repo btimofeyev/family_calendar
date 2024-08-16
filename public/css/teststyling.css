@@ -1,13 +1,12 @@
 :root {
-  --primary-color: #223651; /* Deep Slate Blue */
-  --secondary-color: #8E8D8A; /* Warm Gray */
-  --accent-color: #E07A5F; /* Soft Coral */
-  --background-color: #F4F1DE; /* Warm Light Beige */
-  --text-color: #3D405B; /* Dark Slate Gray */
-  --border-color: #D3D3D3; /* Light Gray */
-  --link-color: #6D597A; /* Muted Purple */
+  --primary-color: #223651; 
+  --secondary-color: #84c4b1; 
+  --accent-color: #E07A5F; 
+  --background-color: #F4F1DE; 
+  --text-color: #3D405B; 
+  --border-color: #D3D3D3; 
+  --link-color: #84c4b1; 
 }
-
 body {
   font-family: "Inter", sans-serif;
   background-color: var(--background-color);
@@ -20,36 +19,43 @@ body {
   margin: 0 auto;
   
 }
-.dashboard-header {
-  display: flex;
-  justify-content: flex-end;
-  padding: 10px 20px;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
-  max-width: 1400px;
-  margin: 0 auto;
-}
+
 
 .dashboard-header {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   padding: 10px 20px;
-  background-color: #f8f9fa;
+  background-color: var(--background-color);
   border-bottom: 1px solid #e9ecef;
   max-width: 1400px;
   margin: 0 auto;
+  border-radius: 10px;
 }
+.logo {
+  margin-right: auto;
+}
+.logo-img {
+  height: 40px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
 
+}
+.logo-img:hover {
+  transform: scale(1.05); 
+}
 .notification-icon,
 .logout-icon {
   position: relative;
   cursor: pointer;
-  font-size: 1.5rem; 
-  color: #495057;
+  font-size: 1.5rem;
+  color: var(--text-color);
   margin-left: 20px;
 }
-
+.notification-icon:hover,
+.logout-icon:hover {
+  color: var(--accent-color);
+}
 .notification-count {
   position: absolute;
   top: -8px;
@@ -216,11 +222,12 @@ h2 {
   font-size: 1.5rem;
   margin-bottom: 15px;
   font-weight: 700;
+  text-align: center;
 }
 h3 {
   font-family: "Inter", sans-serif;
   color: var(--primary-color);
-  font-size: 1.25rem; /* Add this if not defined */
+  font-size: 1.25rem; 
   margin-bottom: 10px;
   font-weight: 600;
 }
