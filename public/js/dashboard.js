@@ -3,9 +3,7 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     navigator.serviceWorker.register('/js/serviceworker.js')
       .then(function(registration) {
-        console.log('ServiceWorker registration successful with scope: ', registration.scope);
       }, function(err) {
-        console.log('ServiceWorker registration failed: ', err);
       });
   });
 }
@@ -44,7 +42,6 @@ async function createFamily(familyName) {
     }
 
     const result = await response.json();
-    console.log("Family created successfully:", result);
 
     const updatedUser = await fetchUserProfile();
     updateUserProfile(updatedUser);
@@ -85,7 +82,6 @@ async function addFamilyMember(email) {
 }
 // Function to update UI with user data
 function updateUserProfile(user) {
-  console.log("Updating user profile:", user);
 
   if (user) {
     const userAvatar = document.getElementById("userAvatar");
@@ -314,7 +310,6 @@ function showEventDetails(events, date) {
 let currentEvents = [];
 async function saveEvent(event) {
   event.preventDefault();
-  console.log("Save event function called");
 
   const eventData = {
     id: document.getElementById("eventId").value,
@@ -328,15 +323,12 @@ async function saveEvent(event) {
 
   };
 
-  console.log("Event data to be saved:", eventData);
 
   try {
     const token = localStorage.getItem("token");
     if (!token) {
       throw new Error("No authentication token found");
     }
-
-    console.log("Sending request to save event...");
     const response = await makeAuthenticatedRequest("/api/dashboard/calendar", {
       method: eventData.id ? "PUT" : "POST",
       headers: {
@@ -346,8 +338,6 @@ async function saveEvent(event) {
       body: JSON.stringify(eventData),
     });
 
-    console.log("Response status:", response.status);
-
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Error response:", errorText);
@@ -355,8 +345,6 @@ async function saveEvent(event) {
     }
 
     const savedEvent = await response.json();
-    console.log("Saved event:", savedEvent);
-
     // Update currentEvents array
     if (eventData.id) {
       const index = currentEvents.findIndex((e) => e.id === savedEvent.id);
@@ -450,7 +438,6 @@ async function inviteFamilyMember(email) {
     }
 
     const result = await response.json();
-    console.log("Invitation sent successfully:", result);
     return result;
   } catch (error) {
     console.error("Error sending invitation:", error);
@@ -460,7 +447,7 @@ async function inviteFamilyMember(email) {
 
 // Main function to initialize the dashboard
 async function initDashboard() {
-  console.log("Initializing dashboard...");
+
 
   try {
     const user = await fetchUserProfile();
@@ -514,7 +501,7 @@ async function initDashboard() {
     if (createFamilyForm) {
       createFamilyForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        console.log("Form submitted");
+
 
         const familyNameInput = document.getElementById("createFamilyName");
         if (!familyNameInput) {
@@ -524,14 +511,14 @@ async function initDashboard() {
         }
 
         const familyName = familyNameInput.value.trim();
-        console.log("Family name submitted:", familyName);
+
 
         try {
           const token = localStorage.getItem("token");
           if (!token) {
             throw new Error("No token found in local storage");
           }
-          console.log("Sending request to create family...");
+
           const response = await makeAuthenticatedRequest("/api/dashboard/families", {
             method: "POST",
             headers: {
@@ -540,17 +527,17 @@ async function initDashboard() {
             },
             body: JSON.stringify({ familyName }),
           });
-          console.log("Response status:", response.status);
+
 
           const responseText = await response.text();
-          console.log("Response text:", responseText);
+
 
           if (!response.ok) {
             throw new Error(responseText || "Failed to create family");
           }
 
           const result = JSON.parse(responseText);
-          console.log("Family created successfully:", result);
+
 
           const updatedUser = await fetchUserProfile();
           updateUserProfile(updatedUser);
@@ -568,7 +555,6 @@ async function initDashboard() {
     if (inviteMemberForm) {
       inviteMemberForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        console.log("Invite form submitted");
 
         const inviteEmailInput = document.getElementById("inviteEmail");
         if (!inviteEmailInput) {
@@ -578,7 +564,7 @@ async function initDashboard() {
         }
 
         const email = inviteEmailInput.value.trim();
-        console.log("Invitation email submitted:", email);
+
 
         try {
           await inviteFamilyMember(email);

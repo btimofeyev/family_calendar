@@ -12,7 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check invitation validity
     fetch(`/api/invitations/check/${token}`)
     .then(response => {
-        console.log('Response status:', response.status);
         if (!response.ok) {
             return response.text().then(text => {
                 throw new Error(`HTTP error! status: ${response.status}, message: ${text}`);
@@ -21,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return response.json();
     })
     .then(data => {
-        console.log('Invitation check response:', data);
         if (data.valid) {
             messageDiv.textContent = `You've been invited to join ${data.familyName}!`;
             document.getElementById('email').value = data.email;

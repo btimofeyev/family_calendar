@@ -34,13 +34,11 @@ async function makeAuthenticatedRequest(url, options = {}) {
   let response = await makeRequest(token);
 
   if (response.status === 403) {
-    console.log("Access token expired, attempting to refresh...");
     token = await refreshAccessToken();
     if (token) {
       localStorage.setItem("token", token);
       response = await makeRequest(token);
     } else {
-      console.log("Token refresh failed, showing re-login modal.");
       showLogoutModal();
       return null;
     }

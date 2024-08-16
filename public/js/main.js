@@ -1,5 +1,4 @@
 document.addEventListener("DOMContentLoaded", () => {
-
   authModal = document.getElementById("auth-modal");
   const loginForm = document.getElementById("login-form");
   const signupForm = document.getElementById("signup-form");
@@ -8,10 +7,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeBtn = document.querySelector(".close");
   let deferredPrompt;
 
-  // Redirect to dashboard if the user is already logged in
+
   if (localStorage.getItem("token")) {
     window.location.href = "dashboard.html";
-    return; // Stop further script execution
+    return; 
   }
 
   // Capture the beforeinstallprompt event
@@ -31,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Existing modal functionality
+  // modal functionality
   function showModal() {
     authModal.classList.remove("hidden");
   }
@@ -111,8 +110,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (invitationToken) {
-      console.log("Invitation token found:", invitationToken);
-
       try {
         const response = await fetch(
           `/api/auth/check-invitation/${invitationToken}`
@@ -125,7 +122,6 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("signup-email").value = data.email;
           document.getElementById("signup-email").readOnly = true;
           localStorage.setItem("invitationToken", invitationToken);
-          console.log("Invitation token stored:", invitationToken);
         } else {
           alert("Invalid or expired invitation.");
         }
@@ -145,8 +141,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const password = document.getElementById("signup-password").value;
     const invitationToken = localStorage.getItem("invitationToken");
 
-    console.log("Signup attempt:", { name, email, invitationToken });
-
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",
@@ -154,19 +148,16 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({ name, email, password, invitationToken }),
       });
       const data = await response.json();
-      console.log("Signup response:", data);
 
       if (response.ok) {
         localStorage.setItem("token", data.token);
         localStorage.setItem("userId", data.user.id);
         if (data.user.family_id) {
           localStorage.setItem("familyId", data.user.family_id);
-          console.log("Family ID set:", data.user.family_id);
         } else {
-          console.log("No family ID in response");
         }
         localStorage.removeItem("invitationToken");
-        console.log("Redirecting to dashboard in 3 seconds...");
+
         setTimeout(() => {
           window.location.href = "dashboard.html";
         }, 3000);

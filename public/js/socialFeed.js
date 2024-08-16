@@ -2,10 +2,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const scrollToTopLink = document.getElementById('scrollToTop');
   if (scrollToTopLink) {
     scrollToTopLink.addEventListener('click', function(event) {
-      event.preventDefault(); // Prevent the default anchor behavior
+      event.preventDefault(); 
       document.querySelector('.center-column').scrollTo({
         top: 0,
-        behavior: 'smooth' // Smooth scrolling
+        behavior: 'smooth' 
       });
     });
   } else {
@@ -142,7 +142,6 @@ async function submitPost() {
     }
 
     const result = await response.json();
-    console.log("Post created successfully:", result);
     document.getElementById("postForm").reset();
     document.getElementById("mediaPreview").innerHTML = "";
     mediaInput.value = "";
@@ -170,12 +169,10 @@ async function fetchAndDisplayPosts(page = 1, append = false) {
     }
 
     const data = await response.json();
-    console.log("API response:", data);
 
     if (Array.isArray(data.posts)) {
       currentPage = data.currentPage;
       totalPages = data.totalPages;
-      console.log(`Current page: ${currentPage}, Total pages: ${totalPages}`); // Add this line
 
       if (append) {
         appendPosts(data.posts);
@@ -207,7 +204,6 @@ function displayPosts(posts) {
   const loadMoreButton = document.getElementById("loadMoreButton");
   if (loadMoreButton) {
     loadMoreButton.addEventListener("click", () => {
-      console.log("Load More button clicked (from displayPosts)");
       loadMorePosts();
     });
   }
@@ -302,18 +298,14 @@ function updateLoadMoreButton() {
     loadMoreButton.id = "loadMoreButton";
     loadMoreButton.textContent = "Load More";
     loadMoreButton.addEventListener("click", () => {
-      console.log("Load More button clicked"); // Add this line
       loadMorePosts();
     });
     document.querySelector(".social-feed").appendChild(loadMoreButton);
-    console.log("Load More button created and appended"); // Add this line
   }
 
   loadMoreButton.style.display = currentPage < totalPages ? "block" : "none";
-  console.log(`Load More button display: ${loadMoreButton.style.display}`); // Add this line
 }
 async function loadMorePosts() {
-  console.log("loadMorePosts function called");
   if (currentPage < totalPages) {
     const loadMoreButton = document.getElementById("loadMoreButton");
     loadMoreButton.textContent = "Loading...";
@@ -324,7 +316,6 @@ async function loadMorePosts() {
     loadMoreButton.textContent = "Load More";
     loadMoreButton.disabled = false;
   } else {
-    console.log("No more posts to load");
   }
 }
 async function toggleLike(postId) {
@@ -367,7 +358,6 @@ async function fetchComments(postId) {
     }
 
     const comments = await response.json();
-    console.log("Fetched comments:", comments);
     displayComments(postId, comments);
   } catch (error) {
     console.error("Error fetching comments:", error);
@@ -375,20 +365,18 @@ async function fetchComments(postId) {
 }
 
 function displayComments(postId, comments) {
-  console.log(`Displaying comments for post ${postId}:`, comments);
   const commentsSection = document.getElementById(`comments-${postId}`);
   commentsSection.innerHTML = "";
 
-  // Sort comments by creation date
   comments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-  // Create a map to store comments by their ID
+
   const commentMap = new Map();
   comments.forEach((comment) =>
     commentMap.set(comment.comment_id, { ...comment, replies: [] })
   );
 
-  // Organize comments into a tree structure
+
   const topLevelComments = [];
   comments.forEach((comment) => {
     if (comment.parent_comment_id) {
@@ -401,7 +389,6 @@ function displayComments(postId, comments) {
     }
   });
 
-  // Render the comments
   topLevelComments.forEach((comment) => {
     const commentElement = createCommentElement(comment, postId);
     commentsSection.appendChild(commentElement);
@@ -414,11 +401,7 @@ function toggleReplyForm(commentId) {
 }
 async function addComment(postId, commentText, parentCommentId = null) {
   try {
-    console.log(
-      `Adding comment/reply: postId=${postId}, parentCommentId=${parentCommentId}, text=${commentText}`
-    );
     const token = localStorage.getItem("token");
-    console.log("Token:", token);
     const response = await makeAuthenticatedRequest(`/api/posts/${postId}/comment`, {
       method: "POST",
       headers: {
@@ -431,16 +414,13 @@ async function addComment(postId, commentText, parentCommentId = null) {
       }),
     });
 
-    console.log("Response status:", response.status);
     const responseText = await response.text();
-    console.log("Response text:", responseText);
 
     if (!response.ok) {
       throw new Error(`Failed to add comment/reply: ${responseText}`);
     }
 
     const newComment = JSON.parse(responseText);
-    console.log("New comment/reply:", newComment);
 
     if (parentCommentId) {
       appendReply(postId, parentCommentId, newComment);
@@ -460,10 +440,7 @@ function appendComment(postId, comment) {
   updateCommentCount(postId);
 }
 function appendReply(postId, parentCommentId, reply) {
-  console.log(
-    `Appending reply: postId=${postId}, parentCommentId=${parentCommentId}`,
-    reply
-  );
+
   const parentComment = document.querySelector(
     `.comment[data-comment-id="${parentCommentId}"]`
   );
@@ -510,7 +487,6 @@ function createCommentElement(comment, postId, isReply = false) {
   postReplyButton.addEventListener('click', (e) => {
     e.preventDefault();
     const replyText = replyForm.querySelector('input').value;
-    console.log(`Submitting reply: postId=${postId}, commentId=${comment.comment_id}, text=${replyText}`);
     addComment(postId, replyText, comment.comment_id);
     replyForm.querySelector('input').value = '';
     replyForm.style.display = 'none';
