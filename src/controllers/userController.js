@@ -19,7 +19,6 @@ exports.getUserProfile = async (req, res) => {
             return res.status(404).json({ error: 'User not found or not in your family' });
         }
 
-        // Get user's posts with likes, comments, and author information
         const postsQuery = `
             SELECT 
                 p.*,

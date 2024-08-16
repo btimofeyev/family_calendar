@@ -2,9 +2,7 @@ const pool = require("../config/db");
 
 exports.saveSubscription = async (userId, subscription) => {
     try {
-      console.log("Saving subscription for user:", userId);
-      console.log("Subscription:", JSON.stringify(subscription));
-  
+
       const query = `
         INSERT INTO push_subscriptions (user_id, endpoint, keys)
         VALUES ($1, $2, $3)
@@ -17,7 +15,6 @@ exports.saveSubscription = async (userId, subscription) => {
         JSON.stringify(subscription.keys),
       ];
       await pool.query(query, values);
-      console.log("Subscription saved successfully");
     } catch (error) {
       console.error("Error saving subscription:", error);
       throw error;
@@ -38,7 +35,7 @@ exports.saveSubscription = async (userId, subscription) => {
           parsedKeys = typeof row.keys === 'string' ? JSON.parse(row.keys) : row.keys;
         } catch (parseError) {
           console.error("Error parsing keys:", parseError);
-          parsedKeys = {}; // Set a default value or handle the error as needed
+          parsedKeys = {}; 
         }
         return {
           endpoint: row.endpoint,
@@ -57,7 +54,6 @@ exports.saveSubscription = async (userId, subscription) => {
         WHERE user_id = $1 AND endpoint = $2
       `;
       await pool.query(query, [userId, endpoint]);
-      console.log(`Removed invalid subscription for user ${userId} with endpoint ${endpoint}`);
     } catch (error) {
       console.error('Error removing invalid subscription:', error);
     }

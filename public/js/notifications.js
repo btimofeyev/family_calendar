@@ -95,6 +95,10 @@ function createNotificationElement(notification) {
     );
   }
 
+  if (notification.type === "event") {
+    content = content.replace("added a new event", "added a new family event");
+  }
+
   element.innerHTML = `
     <div class="notification-content">
       <p>${content}</p>

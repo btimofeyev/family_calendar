@@ -20,7 +20,6 @@ body {
   
 }
 
-
 .dashboard-header {
   display: flex;
   justify-content: space-between;
@@ -607,22 +606,35 @@ textarea:focus {
 }
 
 .event-list-item {
-  background-color: var(--accent-color);
-  border-radius: 4px;
-  padding: 8px;
+  display: flex;
+  align-items: center;
+  padding: 10px;
   margin-bottom: 8px;
-  font-size: 0.875rem;
-  cursor: pointer;
+  background-color: var(--background-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: background-color 0.3s ease;
+  cursor: pointer;
 }
 
 .event-list-item:hover {
-  background-color: var(--secondary-color);
-  color: #ffffff;
+  background-color: var(--accent-color);
 }
 
-.event-title {
+.event-list-item .event-title {
   font-weight: bold;
+  flex-grow: 1;
+}
+.event-list-item .event-date {
+  margin: 10px;
+  font-size: 0.85rem;
+  color: var(--text-color);
+}
+
+.event-list-item .event-icon {
+  font-size: 1.5rem;
+  margin-right: 10px;
+  color: var(--primary-color);
 }
 
 .event-description {
@@ -633,26 +645,57 @@ textarea:focus {
   border-top: 1px solid var(--border-color);
 }
 
+/* Modal Background and Positioning */
 .modal {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
   justify-content: center;
-  z-index: 1000;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: var(--transition);
 }
 
 .modal-content {
-  background-color: #ffffff;
-  padding: 20px;
-  border-radius: 8px;
+  background-color: var(--background-color);
+  margin: 10% auto;
+  padding: 40px;
+  border-radius: 20px;
   max-width: 400px;
-  width: 90%;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  position: relative;
+  text-align: left; 
+  transform: scale(0.9);
+  transition: var(--transition);
+}
+
+.modal:not(.hidden) {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.modal:not(.hidden) .modal-content {
+  transform: scale(1);
+}
+
+.modal .close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  cursor: pointer;
+  font-size: 1.5rem;
+  color: var(--text-color);
+  transition: var(--transition);
+}
+
+.modal .close:hover {
+  color: var(--primary-color);
+  transform: rotate(90deg);
 }
 
 .member-list ul {

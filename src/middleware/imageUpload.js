@@ -19,13 +19,12 @@ const upload = multer({
     s3: s3Client,
     bucket: process.env.AWS_BUCKET_NAME,
     key: function (req, file, cb) {
-      console.log('Uploading file:', file);
       const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
       const filename = file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname);
       cb(null, filename);
     },
   }),
-  limits: { fileSize: 50 * 1024 * 1024 }, // Set file size limit to 50MB
+  limits: { fileSize: 50 * 1024 * 1024 }, 
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
       cb(null, true);
@@ -43,7 +42,6 @@ async function deleteMediaFromS3(mediaUrl) {
   };
   try {
     await s3Client.send(new DeleteObjectCommand(params));
-    console.log(`Successfully deleted ${filename} from S3.`);
   } catch (err) {
     console.error("Error deleting media from S3:", err);
     throw err;

@@ -7,6 +7,7 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
+let loggedInUserId
 async function fetchUserProfile() {
   try {
     const response = await makeAuthenticatedRequest('/api/dashboard/profile');
@@ -18,6 +19,7 @@ async function fetchUserProfile() {
     }
 
     const user = await response.json();
+    loggedInUserId = user.id;
     return user;
   } catch (error) {
     console.error('Error fetching user profile:', error);
@@ -187,13 +189,15 @@ function updateCalendar(events) {
   const calendarGrid = document.getElementById("calendarGrid");
   const monthYear = document.getElementById("monthYear");
   const eventList = document.getElementById("eventList");
-  
+
+
+  let allEvents = handleRecurringEvents(events);
+
   // Sort events by date to find the next three
-  const upcomingEvents = events
+  const upcomingEvents = allEvents
     .filter(event => new Date(event.event_date) >= new Date())
     .sort((a, b) => new Date(a.event_date) - new Date(b.event_date))
     .slice(0, 3);  
-  
   // Clear the event list and populate it with upcoming events
   eventList.innerHTML = "";
   upcomingEvents.forEach(event => {
@@ -249,14 +253,14 @@ function updateCalendar(events) {
     day.appendChild(dayNumber);
 
     const eventDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), i);
-    const dayEvents = events.filter(event => {
+    const dayEvents = allEvents.filter(event => {
       const eventDay = new Date(event.event_date);
       return eventDay.getDate() === i && eventDay.getMonth() === currentDate.getMonth() && eventDay.getFullYear() === currentDate.getFullYear();
     });
 
     if (dayEvents.length > 0) {
       day.classList.add("has-event");
-      day.style.backgroundColor = "lightblue"; // Customize this for different event types
+      day.style.backgroundColor = "lightblue"; 
     }
 
     if (i === new Date().getDate() && currentDate.getMonth() === new Date().getMonth() && currentDate.getFullYear() === new Date().getFullYear()) {
@@ -289,7 +293,6 @@ function showEventDetails(events, date) {
   modal.style.display = "block";
 
   if (events.length === 1) {
-    // Existing event details
     const event = events[0];
     eventForm.eventId.value = event.id;
     eventForm.eventType.value = event.type;
@@ -297,9 +300,14 @@ function showEventDetails(events, date) {
     eventForm.eventDate.value = event.event_date;
     eventForm.eventDescription.value = event.description;
     eventForm.isRecurring.checked = event.is_recurring;
-    deleteBtn.style.display = "block";
+
+    if (event.owner_id === loggedInUserId) { 
+      console.log(loggedInUserId)
+      deleteBtn.style.display = "block";
+    } else {
+      deleteBtn.style.display = "none";
+    }
   } else {
-    // New event form
     eventForm.reset();
     eventForm.eventId.value = "";
     eventForm.eventDate.value = date;
@@ -318,8 +326,6 @@ async function saveEvent(event) {
     event_date: document.getElementById("eventDate").value,
     description: document.getElementById("eventDescription").value,
     is_recurring: document.getElementById("isRecurring").checked,
-
-
 
   };
 
@@ -354,9 +360,8 @@ async function saveEvent(event) {
     } else {
       currentEvents.push(savedEvent);
     }
-
-    // Update the calendar display
-    updateCalendar(currentEvents);
+    let updatedEvents = handleRecurringEvents(currentEvents);
+    updateCalendar(updatedEvents);
     closeModal();
     alert("Event saved successfully!");
   } catch (error) {
