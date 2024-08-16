@@ -1,20 +1,19 @@
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/js/serviceworker.js')
-      .then(function(registration) {
-      }, function(err) {
-      });
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("/js/serviceworker.js").then(
+      function (registration) {},
+      function (err) {}
+    );
   });
 }
-let loggedInUserId
+let loggedInUserId;
 async function fetchUserProfile() {
   try {
-    const response = await makeAuthenticatedRequest('/api/dashboard/profile');
+    const response = await makeAuthenticatedRequest("/api/dashboard/profile");
     if (!response.ok) {
       const errorBody = await response.text();
-      console.error('Response status:', response.status);
-      console.error('Response body:', errorBody);
+      console.error("Response status:", response.status);
+      console.error("Response body:", errorBody);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
@@ -22,14 +21,14 @@ async function fetchUserProfile() {
     loggedInUserId = user.id;
     return user;
   } catch (error) {
-    console.error('Error fetching user profile:', error);
+    console.error("Error fetching user profile:", error);
     return null;
   }
 }
 async function createFamily(familyName) {
   try {
     const token = localStorage.getItem("token");
-    const response = await makeAuthenticatedRequest('/api/dashboard/families', {
+    const response = await makeAuthenticatedRequest("/api/dashboard/families", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -62,14 +61,17 @@ async function createFamily(familyName) {
 async function addFamilyMember(email) {
   try {
     const token = localStorage.getItem("token");
-    const response = await makeAuthenticatedRequest('/api/dashboard/family/member', {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ email }),
-    });
+    const response = await makeAuthenticatedRequest(
+      "/api/dashboard/family/member",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ email }),
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -84,7 +86,6 @@ async function addFamilyMember(email) {
 }
 // Function to update UI with user data
 function updateUserProfile(user) {
-
   if (user) {
     const userAvatar = document.getElementById("userAvatar");
     const userName = document.getElementById("userName");
@@ -122,11 +123,14 @@ function updateUserProfile(user) {
 async function fetchFamilyMembers() {
   try {
     const token = localStorage.getItem("token");
-    const response = await makeAuthenticatedRequest("/api/dashboard/family/members", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await makeAuthenticatedRequest(
+      "/api/dashboard/family/members",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
     if (!response.ok) {
       throw new Error("Failed to fetch family members");
@@ -190,17 +194,15 @@ function updateCalendar(events) {
   const monthYear = document.getElementById("monthYear");
   const eventList = document.getElementById("eventList");
 
-
-  let allEvents = handleRecurringEvents(events);
-
   // Sort events by date to find the next three
-  const upcomingEvents = allEvents
-    .filter(event => new Date(event.event_date) >= new Date())
+  const upcomingEvents = events
+    .filter((event) => new Date(event.event_date) >= new Date())
     .sort((a, b) => new Date(a.event_date) - new Date(b.event_date))
-    .slice(0, 3);  
+    .slice(0, 3);
+
   // Clear the event list and populate it with upcoming events
   eventList.innerHTML = "";
-  upcomingEvents.forEach(event => {
+  upcomingEvents.forEach((event) => {
     const eventDate = new Date(event.event_date);
     const listItem = document.createElement("li");
     listItem.className = `event-list-item event-${event.type || "default"}`;
@@ -210,31 +212,42 @@ function updateCalendar(events) {
         month: "short",
         day: "numeric",
       })}</div>
-      <div class="event-description" style="display: none;">${event.description || "No description available."}</div>
+      <div class="event-description" style="display: none;">${
+        event.description || "No description available."
+      }</div>
     `;
     listItem.addEventListener("click", function () {
       const description = this.querySelector(".event-description");
-      description.style.display = description.style.display === "none" ? "block" : "none";
+      description.style.display =
+        description.style.display === "none" ? "block" : "none";
     });
     eventList.appendChild(listItem);
   });
 
-  // Update the calendar as before
+  // Update the calendar
   calendarGrid.innerHTML = "";
   monthYear.textContent = `${currentDate.toLocaleString("default", {
     month: "long",
   })} ${currentDate.getFullYear()}`;
 
   // Add weekday headers
-  weekdays.forEach(day => {
+  weekdays.forEach((day) => {
     const weekdayEl = document.createElement("div");
     weekdayEl.className = "calendar-weekday";
     weekdayEl.textContent = day;
     calendarGrid.appendChild(weekdayEl);
   });
 
-  const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-  const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  const firstDay = new Date(
+    currentDate.getFullYear(),
+    currentDate.getMonth(),
+    1
+  );
+  const lastDay = new Date(
+    currentDate.getFullYear(),
+    currentDate.getMonth() + 1,
+    0
+  );
 
   // Add empty cells for days before the first day of the month
   for (let i = 0; i < firstDay.getDay(); i++) {
@@ -252,10 +265,19 @@ function updateCalendar(events) {
     dayNumber.textContent = i;
     day.appendChild(dayNumber);
 
-    const eventDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), i);
-    const dayEvents = allEvents.filter(event => {
+    const eventDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      i
+    );
+    const dayEvents = events.filter((event) => {
       const eventDay = new Date(event.event_date);
-      return eventDay.getDate() === i && eventDay.getMonth() === currentDate.getMonth() && eventDay.getFullYear() === currentDate.getFullYear();
+
+      return (
+        eventDay.getDate() === eventDate.getDate() &&
+        eventDay.getMonth() === eventDate.getMonth() &&
+        eventDay.getFullYear() === eventDate.getFullYear()
+      );
     });
 
     if (dayEvents.length > 0) {
@@ -263,12 +285,20 @@ function updateCalendar(events) {
       day.style.backgroundColor = "lightblue"; 
     }
 
-    if (i === new Date().getDate() && currentDate.getMonth() === new Date().getMonth() && currentDate.getFullYear() === new Date().getFullYear()) {
+    if (
+      i === new Date().getDate() &&
+      currentDate.getMonth() === new Date().getMonth() &&
+      currentDate.getFullYear() === new Date().getFullYear()
+    ) {
       day.classList.add("today");
     }
 
     day.addEventListener("click", () => {
-      const dateStr = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, "0")}-${i.toString().padStart(2, "0")}`;
+      const dateStr = `${currentDate.getFullYear()}-${(
+        currentDate.getMonth() + 1
+      )
+        .toString()
+        .padStart(2, "0")}-${i.toString().padStart(2, "0")}`;
       showEventDetails(dayEvents, dateStr);
     });
 
@@ -301,8 +331,8 @@ function showEventDetails(events, date) {
     eventForm.eventDescription.value = event.description;
     eventForm.isRecurring.checked = event.is_recurring;
 
-    if (event.owner_id === loggedInUserId) { 
-      console.log(loggedInUserId)
+    if (event.owner_id === loggedInUserId) {
+      console.log(loggedInUserId);
       deleteBtn.style.display = "block";
     } else {
       deleteBtn.style.display = "none";
@@ -326,9 +356,7 @@ async function saveEvent(event) {
     event_date: document.getElementById("eventDate").value,
     description: document.getElementById("eventDescription").value,
     is_recurring: document.getElementById("isRecurring").checked,
-
   };
-
 
   try {
     const token = localStorage.getItem("token");
@@ -372,21 +400,21 @@ async function saveEvent(event) {
 function handleRecurringEvents(events) {
   const today = new Date();
   const endOfYear = new Date(today.getFullYear() + 10, 11, 31); // Extend as necessary
-  
-  return events.flatMap(event => {
+
+  return events.flatMap((event) => {
     if (event.is_recurring) {
       const eventDates = [];
       let nextOccurrence = new Date(event.event_date);
-      
+
       // Generate yearly occurrences up to the end of the extended year
       while (nextOccurrence <= endOfYear) {
         eventDates.push({ ...event, event_date: nextOccurrence.toISOString() });
         nextOccurrence.setFullYear(nextOccurrence.getFullYear() + 1); // Move to the next year
       }
-      
+
       return eventDates;
     } else {
-      return [event]; 
+      return [event];
     }
   });
 }
@@ -397,12 +425,15 @@ async function deleteEvent() {
 
   try {
     const token = localStorage.getItem("token");
-    const response = await makeAuthenticatedRequest(`/api/dashboard/calendar/${eventId}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await makeAuthenticatedRequest(
+      `/api/dashboard/calendar/${eventId}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
     if (!response.ok) {
       throw new Error("Failed to delete event");
@@ -452,8 +483,6 @@ async function inviteFamilyMember(email) {
 
 // Main function to initialize the dashboard
 async function initDashboard() {
-
-
   try {
     const user = await fetchUserProfile();
     updateUserProfile(user);
@@ -507,7 +536,6 @@ async function initDashboard() {
       createFamilyForm.addEventListener("submit", async (e) => {
         e.preventDefault();
 
-
         const familyNameInput = document.getElementById("createFamilyName");
         if (!familyNameInput) {
           console.error("Family name input not found");
@@ -517,32 +545,31 @@ async function initDashboard() {
 
         const familyName = familyNameInput.value.trim();
 
-
         try {
           const token = localStorage.getItem("token");
           if (!token) {
             throw new Error("No token found in local storage");
           }
 
-          const response = await makeAuthenticatedRequest("/api/dashboard/families", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ familyName }),
-          });
-
+          const response = await makeAuthenticatedRequest(
+            "/api/dashboard/families",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ familyName }),
+            }
+          );
 
           const responseText = await response.text();
-
 
           if (!response.ok) {
             throw new Error(responseText || "Failed to create family");
           }
 
           const result = JSON.parse(responseText);
-
 
           const updatedUser = await fetchUserProfile();
           updateUserProfile(updatedUser);
@@ -569,7 +596,6 @@ async function initDashboard() {
         }
 
         const email = inviteEmailInput.value.trim();
-
 
         try {
           await inviteFamilyMember(email);
