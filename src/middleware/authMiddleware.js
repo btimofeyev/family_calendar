@@ -32,7 +32,6 @@ const authMiddleware = (req, res, next) => {
       id: parseInt(decoded.userId, 10) || null,
       family_id: parseInt(decoded.familyId, 10) || null
     };
-    console.log('req.user in authMiddleware:', req.user);
     return next();
   });
 };

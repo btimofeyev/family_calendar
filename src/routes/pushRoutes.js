@@ -11,19 +11,14 @@ router.use(authMiddleware);
 
 router.post('/subscribe', async (req, res) => {
     try {
-        console.log('Subscribe route hit');
         const userId = req.user.id;
         const subscription = req.body;
-
-        console.log('Received subscription:', JSON.stringify(subscription));
-        console.log('User ID:', userId);
-
         if (!subscription || !subscription.endpoint) {
             throw new Error('Invalid subscription object');
         }
 
         await saveSubscription(userId, subscription);
-        console.log('Subscription saved successfully');
+
         res.status(201).json({ message: 'Subscription saved' });
     } catch (error) {
         console.error('Error saving subscription:', error);
@@ -48,7 +43,7 @@ router.post("/test-notification", async (req, res) => {
     const payload = JSON.stringify({
       title: "Test Notification",
       body: "This is a test notification.",
-      url: "/dashboard.html", // Adjust this URL as needed
+      url: "/dashboard.html", 
     });
 
     subscriptions.forEach((subscription) => {

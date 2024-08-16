@@ -63,28 +63,25 @@ exports.declineInvitation = async (req, res) => {
 };
 exports.checkInvitation = async (req, res) => {
     const { token } = req.params;
-    console.log('Checking invitation token:', token);
     try {
         const invitation = await invitationService.getInvitationByToken(token);
-        console.log('Invitation found:', invitation);
+
         if (invitation) {
-            // Get family name directly using pool
             const familyQuery = {
                 text: 'SELECT family_name FROM families WHERE family_id = $1',
                 values: [invitation.family_id],
             };
             const familyResult = await pool.query(familyQuery);
             const family = familyResult.rows[0];
-            console.log('Family found:', family);
+
 
             if (family) {
                 res.json({ valid: true, email: invitation.email, familyName: family.family_name });
             } else {
-                console.log('Family not found for invitation:', invitation);
+
                 res.json({ valid: false, error: 'Family not found' });
             }
         } else {
-            console.log('No valid invitation found for token:', token);
             res.json({ valid: false });
         }
     } catch (error) {

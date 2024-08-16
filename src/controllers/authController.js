@@ -3,9 +3,6 @@ const pool = require('../config/db');
 const jwt = require('jsonwebtoken');
 const invitationService = require('../middleware/invite');
 
-
-
-
 const createAccessToken = (user) => {
   return jwt.sign({ userId: user.id, familyId: user.family_id }, process.env.JWT_SECRET, { expiresIn: '45m' });
 };
@@ -16,25 +13,18 @@ const createRefreshToken = (user) => {
 exports.register = async (req, res) => {
   try {
     const { email, password, name, invitationToken } = req.body;
-    console.log('Request body:', req.body);
-
-    console.log('Registering user:', email, 'with invitation token:', invitationToken);
-
     let user = await createUser({ email, password, name });
-    console.log('Created user:', user);
 
     if (invitationToken) {
       const invitation = await invitationService.getInvitationByToken(invitationToken);
-      console.log('Found invitation:', invitation);
 
       if (invitation && invitation.email === email) {
         const updateResult = await pool.query('UPDATE users SET family_id = $1 WHERE id = $2 RETURNING *', [invitation.family_id, user.id]);
         user = updateResult.rows[0];
-        console.log('Updated user after processing invitation:', user);
 
         await invitationService.markInvitationAsUsed(invitation.id);
       } else {
-        console.log('Invalid invitation or email mismatch');
+
       }
     }
 
@@ -44,9 +34,9 @@ exports.register = async (req, res) => {
     // Store the refresh token in an HTTP-only cookie
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+      secure: process.env.NODE_ENV === 'production', 
       path: '/api/auth/refresh-token',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000, 
     });
 
     res.status(201).json({ 
@@ -72,11 +62,9 @@ exports.registerInvited = async (req, res) => {
           return res.status(400).json({ error: 'Invalid invitation' });
       }
 
-      // Check if user already exists
       let user = await findUserByEmail(email);
       
       if (user) {
-          // Update existing user
           const updateQuery = {
               text: 'UPDATE users SET name = $1, family_id = $2 WHERE email = $3 RETURNING *',
               values: [name, invitation.family_id, email],
@@ -84,7 +72,6 @@ exports.registerInvited = async (req, res) => {
           const result = await pool.query(updateQuery);
           user = result.rows[0];
       } else {
-          // Create new user
           user = await createUser({ name, email, password, family_id: invitation.family_id });
       }
 
@@ -143,16 +130,13 @@ exports.login = async (req, res) => {
 };
 exports.checkInvitation = async (req, res) => {
   const { token } = req.params;
-  console.log('Checking invitation token:', token);
   try {
       const invitation = await invitationService.getInvitationByToken(token);
-      console.log('Invitation found:', invitation);
+
       if (invitation) {
           const family = await familyService.getFamilyById(invitation.family_id);
-          console.log('Family found:', family);
           res.json({ valid: true, email: invitation.email, familyName: family.name });
       } else {
-          console.log('No valid invitation found for token:', token);
           res.json({ valid: false });
       }
   } catch (error) {
@@ -161,28 +145,19 @@ exports.checkInvitation = async (req, res) => {
   }
 };
 exports.refreshToken = (req, res) => {
-  console.log('Refresh token endpoint hit');
-  console.log('Cookies:', req.cookies);
-  console.log('Headers:', req.headers);
-
   const { refreshToken } = req.cookies;
   if (!refreshToken) {
-    console.log('No refresh token provided');
     return res.status(401).json({ error: 'No refresh token provided' });
   }
 
   jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
     if (err) {
-      console.log('Invalid refresh token:', err);
       return res.status(403).json({ error: 'Invalid refresh token' });
     }
-
-    console.log('Decoded refresh token:', decoded);
 
     const user = { id: decoded.userId, family_id: decoded.familyId };
     const accessToken = createAccessToken(user);
 
-    console.log('New access token created');
     res.json({ token: accessToken });
   });
 };

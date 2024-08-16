@@ -1,7 +1,5 @@
 const pool = require('../config/db');
 
-
-
 exports.getUserProfile = async (req, res) => {
     try {
         const userId = req.user.id;
