@@ -42,12 +42,32 @@ function handleLinkPreview() {
   const urls = extractUrls(captionInput.value);
 
   if (urls.length > 0) {
-    fetchLinkPreview(urls[0]);
+    const url = urls[0];
+    if (isYouTubeLink(url)) {
+      const videoId = extractYouTubeVideoId(url);
+      mediaPreview.innerHTML = `
+        <div class="youtube-embed" style="text-align: center;">
+          <iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" 
+            frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen></iframe>
+        </div>`;
+    } else {
+      fetchLinkPreview(url);
+    }
   } else {
     mediaPreview.innerHTML = "";
   }
 }
+function isYouTubeLink(url) {
+  const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+  return youtubeRegex.test(url);
+}
 
+function extractYouTubeVideoId(url) {
+  const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+  const matches = youtubeRegex.exec(url);
+  return matches ? matches[1] : null;
+}
 function extractUrls(text) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   return text.match(urlRegex) || [];
@@ -229,21 +249,30 @@ function createPostElement(post) {
       mediaContent = `<video controls class="post-media"><source src="${post.signed_image_url || post.media_url}" type="video/mp4"></video>`;
     }
   } else if (post.link_preview) {
-    const linkPreview = post.link_preview;
-    const imageHtml = linkPreview.image
-      ? `<img src="${linkPreview.image}" alt="Link preview" style="max-width: 100%;">`
-      : "";
-    mediaContent = `
-      <a href="${linkPreview.url}" target="_blank" style="text-decoration: none; color: inherit;">
-        <div class="link-preview" style="border: 1px solid #ccc; padding: 10px; display: flex; flex-direction: column; align-items: center;">
-          ${imageHtml}
-          <div class="link-info" style="text-align: center;">
-            <h3>${linkPreview.title || "No title available"}</h3>
-            <p>${linkPreview.description || "No description available"}</p>
+    if (isYouTubeLink(post.link_preview.url)) {
+      const videoId = extractYouTubeVideoId(post.link_preview.url);
+      mediaContent = `
+        <div class="youtube-embed" style="text-align: center;">
+          <iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" 
+            frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen></iframe>
+        </div>`;
+    } else {
+      const linkPreview = post.link_preview;
+      const imageHtml = linkPreview.image
+        ? `<img src="${linkPreview.image}" alt="Link preview" style="max-width: 100%;">`
+        : "";
+      mediaContent = `
+        <a href="${linkPreview.url}" target="_blank" style="text-decoration: none; color: inherit;">
+          <div class="link-preview" style="border: 1px solid #ccc; padding: 10px; display: flex; flex-direction: column; align-items: center;">
+            ${imageHtml}
+            <div class="link-info" style="text-align: center;">
+              <h3>${linkPreview.title || "No title available"}</h3>
+              <p>${linkPreview.description || "No description available"}</p>
+            </div>
           </div>
-        </div>
-      </a>
-    `;
+        </a>`;
+    }
   }
 
   let captionContent = post.caption;

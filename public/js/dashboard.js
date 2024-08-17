@@ -48,6 +48,7 @@ async function createFamily(familyName) {
     updateUserProfile(updatedUser);
 
     const events = await fetchCalendarEvents();
+    
     updateCalendar(events);
 
     return result;
