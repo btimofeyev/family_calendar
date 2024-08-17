@@ -42,6 +42,23 @@ function handleLinkPreview() {
   const urls = extractUrls(captionInput.value);
 
   if (urls.length > 0) {
+    fetchLinkPreview(urls[0]);
+  } else {
+    mediaPreview.innerHTML = "";
+  }
+}
+
+function extractUrls(text) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.match(urlRegex) || [];
+}
+
+function handleLinkPreview() {
+  const captionInput = document.getElementById("captionInput");
+  const mediaPreview = document.getElementById("mediaPreview");
+  const urls = extractUrls(captionInput.value);
+
+  if (urls.length > 0) {
     const url = urls[0];
     if (isYouTubeLink(url)) {
       const videoId = extractYouTubeVideoId(url);
@@ -58,40 +75,15 @@ function handleLinkPreview() {
     mediaPreview.innerHTML = "";
   }
 }
-function isYouTubeLink(url) {
+
+const isYouTubeLink = (url) => {
   const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
   return youtubeRegex.test(url);
-}
-
+};
 function extractYouTubeVideoId(url) {
   const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
   const matches = youtubeRegex.exec(url);
   return matches ? matches[1] : null;
-}
-function extractUrls(text) {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.match(urlRegex) || [];
-}
-
-async function fetchLinkPreview(url) {
-  try {
-    const token = localStorage.getItem("token");
-    const response = await makeAuthenticatedRequest(
-      `/api/link-preview?url=${encodeURIComponent(url)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    if (!response.ok) {
-      throw new Error("Failed to fetch link preview");
-    }
-    const preview = await response.json();
-    displayLinkPreview(preview);
-  } catch (error) {
-    console.error("Error fetching link preview:", error);
-  }
 }
 
 function displayLinkPreview(preview) {
@@ -248,16 +240,17 @@ function createPostElement(post) {
     } else if (post.media_type === "video") {
       mediaContent = `<video controls class="post-media"><source src="${post.signed_image_url || post.media_url}" type="video/mp4"></video>`;
     }
-  } else if (post.link_preview) {
-    if (isYouTubeLink(post.link_preview.url)) {
-      const videoId = extractYouTubeVideoId(post.link_preview.url);
+  } else if (post.caption) {
+    const youtubeMatch = post.caption.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (youtubeMatch) {
+      const videoId = youtubeMatch[1];
       mediaContent = `
         <div class="youtube-embed" style="text-align: center;">
           <iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" 
             frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
             allowfullscreen></iframe>
         </div>`;
-    } else {
+    } else if (post.link_preview) {
       const linkPreview = post.link_preview;
       const imageHtml = linkPreview.image
         ? `<img src="${linkPreview.image}" alt="Link preview" style="max-width: 100%;">`
@@ -274,9 +267,10 @@ function createPostElement(post) {
         </a>`;
     }
   }
-
   let captionContent = post.caption;
-  if (post.link_preview) {
+  if (mediaContent.includes("youtube-embed")) {
+    captionContent = post.caption.replace(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/, "");
+  } else if (post.link_preview) {
     captionContent = post.caption.replace(/(https?:\/\/[^\s]+)/g, "");
   }
 

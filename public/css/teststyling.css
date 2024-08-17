@@ -377,8 +377,6 @@ textarea:focus {
 .post-content {
   flex-grow: 1;
   margin-bottom: 15px;
-  overflow: hidden; /* Ensure content does not overflow the card */
-  word-wrap: break-word;
 }
 
 .post-media {

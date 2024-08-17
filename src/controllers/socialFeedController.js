@@ -6,6 +6,15 @@ const {
 const { getLinkPreview } = require('link-preview-js');
 const { createNotification } = require('./notificationController');
 
+
+function isYouTubeLink(url) {
+  return /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/.test(url);
+}
+
+function getYouTubeVideoId(url) {
+  const match = url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+}
 exports.getPosts = async (req, res) => {
   try {
     const familyId = req.user.family_id;
@@ -75,17 +84,28 @@ exports.createPost = async (req, res) => {
     let linkPreview = null;
     const urls = extractUrls(caption);
     if (urls.length > 0) {
-      try {
-        const preview = await getLinkPreview(urls[0]);
+      const url = urls[0];
+      if (isYouTubeLink(url)) {
+        const videoId = getYouTubeVideoId(url);
         linkPreview = JSON.stringify({
-          title: preview.title,
-          description: preview.description,
-          image: preview.images[0] || '',
-          url: preview.url
+          title: "YouTube Video",
+          description: "Click to watch on YouTube",
+          image: `https://img.youtube.com/vi/${videoId}/0.jpg`,
+          url: url
         });
-      } catch (previewError) {
-        console.error('Error fetching link preview:', previewError);
-        // Continue without link preview if there's an error
+      } else {
+        try {
+          const preview = await getLinkPreview(url);
+          linkPreview = JSON.stringify({
+            title: preview.title,
+            description: preview.description,
+            image: preview.images[0] || '',
+            url: preview.url
+          });
+        } catch (previewError) {
+          console.error('Error fetching link preview:', previewError);
+          // Continue without link preview if there's an error
+        }
       }
     }
 
