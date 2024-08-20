@@ -31,12 +31,23 @@ function initializeNotifications() {
   document
     .getElementById("markAllRead")
     .addEventListener("click", markAllNotificationsAsRead);
+
+  document.addEventListener('click', handleOutsideClick);
+
+
 }
 
 function getCurrentUserId() {
   return localStorage.getItem("userId");
 }
-
+function handleOutsideClick(event) {
+  const dropdown = document.getElementById("notificationDropdown");
+  const notificationIcon = document.getElementById("notificationIcon");
+  
+  if (dropdown && !dropdown.contains(event.target) && event.target !== notificationIcon) {
+    closeNotificationMenu();
+  }
+}
 async function fetchNotifications() {
   try {
     const token = localStorage.getItem("token");
@@ -101,16 +112,58 @@ function createNotificationElement(notification) {
     </div>
   `;
 
-  // Add click event to navigate to the post
   if (notification.post_id) {
-    element.addEventListener("click", () => {
-      navigateToPost(notification.post_id);
+    element.addEventListener("click", async (event) => {
+      event.stopPropagation(); // Ensure this event doesn't bubble up
+      if (!notification.read) {
+        await markNotificationAsRead(notification.id);
+      }
+      if (notification.post_id) {
+        navigateToPost(notification.post_id);
+      }
+      closeNotificationMenu();
     });
   }
 
   return element;
 }
+async function markNotificationAsRead(notificationId) {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await fetch(`/api/notifications/${notificationId}/read`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
+    if (!response.ok) {
+      throw new Error("Failed to mark notification as read");
+    }
+
+    // Update local state
+    const notificationIndex = notifications.unread.findIndex(n => n.id === notificationId);
+    if (notificationIndex !== -1) {
+      notifications.unread.splice(notificationIndex, 1);
+    }
+    updateNotificationCount();
+    
+    // If we're on the unread tab, refresh the display
+    if (document.querySelector(".active-tab").id === "unreadTab") {
+      displayNotifications("unread");
+    }
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+  }
+}
+
+
+function closeNotificationMenu() {
+  const dropdown = document.getElementById("notificationDropdown");
+  if (dropdown) {
+    dropdown.style.display = "none";
+  }
+}
 function navigateToPost(postId) {
   const postElement = document.querySelector(
     `.social-post[data-post-id="${postId}"]`
@@ -168,11 +221,15 @@ function showTab(tab) {
   displayNotifications(tab);
 }
 
-function toggleNotificationDropdown() {
+function toggleNotificationDropdown(event) {
+  event.stopPropagation(); // Prevent this click from immediately closing the dropdown
   const dropdown = document.getElementById("notificationDropdown");
-  dropdown.style.display = dropdown.style.display === "none" ? "block" : "none";
+  if (dropdown.style.display === "none") {
+    dropdown.style.display = "block";
+  } else {
+    closeNotificationMenu();
+  }
 }
-
 async function markAllNotificationsAsRead() {
   try {
     const token = localStorage.getItem("token");

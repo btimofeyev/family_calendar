@@ -7,5 +7,7 @@ router.use(authMiddleware);
 
 router.get('/', getNotifications);
 router.post('/read-all', markAllAsRead);
-//router.post('/mark-as-read', markAsRead);
+router.post('/:id/read', markAsRead);
+
+
 module.exports = router;

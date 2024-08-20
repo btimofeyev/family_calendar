@@ -28,7 +28,7 @@ exports.createNotification = async (userId, type, content, postId = null, commen
         const payload = JSON.stringify({
           title: 'New Notification',
           body: content,
-          url: '/dashboard.html' // Adjust the URL as needed
+          url: '/dashboard.html' 
         });
 
         for (const subscription of subscriptions) {
@@ -37,7 +37,6 @@ exports.createNotification = async (userId, type, content, postId = null, commen
           } catch (error) {
             console.error('Error sending push notification:', error);
             if (error.statusCode === 410) {
-              // Subscription has expired or been unsubscribed
               await removeInvalidSubscription(userId, subscription.endpoint);
             }
           }
@@ -102,3 +101,33 @@ exports.getNotifications = async (req, res) => {
       res.status(500).json({ error: 'Internal server error' });
     }
   };
+  exports.markAsRead = async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const notificationId = req.params.id;
+  
+      const query = `
+        UPDATE notifications
+        SET read = true
+        WHERE id = $1 AND user_id = $2 AND read = false
+        RETURNING *
+      `;
+      const { rows } = await pool.query(query, [notificationId, userId]);
+  
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'Notification not found or already read' });
+      }
+  
+      const updatedNotification = rows[0];
+  
+      // Emit an event to update the client
+      const io = getIo();
+      io.to(userId.toString()).emit('notification_read', updatedNotification.id);
+  
+      res.json({ message: 'Notification marked as read', updatedNotification });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
+  
