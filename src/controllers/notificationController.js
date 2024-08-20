@@ -3,19 +3,20 @@ const { getIo } = require('../middleware/socket');
 const webpush = require('web-push');
 const { getUserPushSubscriptions, removeInvalidSubscription } = require('../models/subscriptionModel');
 
-exports.createNotification = async (userId, type, content) => {
+
+exports.createNotification = async (userId, type, content, postId = null, commentId = null) => {
   try {
     // Insert the notification into the database
     const query = `
-      INSERT INTO notifications (user_id, type, content, created_at)
-      VALUES ($1, $2, $3, NOW())
+      INSERT INTO notifications (user_id, type, content, post_id, comment_id, created_at)
+      VALUES ($1, $2, $3, $4, $5, NOW())
       RETURNING *
     `;
-    const values = [userId, type, content];
+    const values = [userId, type, content, postId, commentId];
     const { rows } = await pool.query(query, values);
 
     const notification = rows[0];
-
+    
     // Emit the notification to the user's room via socket
     const io = getIo();
     io.to(userId.toString()).emit('new_notification', notification);
@@ -52,34 +53,34 @@ exports.createNotification = async (userId, type, content) => {
     throw error;
   }
 };
-  exports.getNotifications = async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const query = `
-        SELECT n.*, 
-               CASE 
-                 WHEN n.type = 'like' THEN CONCAT(SUBSTRING(n.content FROM 1 FOR POSITION(' liked' IN n.content)), ' liked your post')
-                 WHEN n.type = 'comment' THEN CONCAT(SUBSTRING(n.content FROM 1 FOR POSITION(' commented' IN n.content)), ' commented on your post')
-                 ELSE n.content
-               END AS formatted_content
-        FROM notifications n
-        WHERE n.user_id = $1
-        ORDER BY n.created_at DESC
-      `;
-      const { rows } = await pool.query(query, [userId]);
-  
-      const unreadNotifications = rows.filter(n => !n.read);
-      const recentNotifications = rows.slice(0, 10);
-  
-      res.json({
-        unread: unreadNotifications,
-        recent: recentNotifications
-      });
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  };
+exports.getNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const query = `
+      SELECT n.*, 
+             CASE 
+               WHEN n.type = 'like' THEN CONCAT(SUBSTRING(n.content FROM 1 FOR POSITION(' liked' IN n.content)), ' liked your post')
+               WHEN n.type = 'comment' THEN CONCAT(SUBSTRING(n.content FROM 1 FOR POSITION(' commented' IN n.content)), ' commented on your post')
+               ELSE n.content
+             END AS formatted_content
+      FROM notifications n
+      WHERE n.user_id = $1
+      ORDER BY n.created_at DESC
+    `;
+    const { rows } = await pool.query(query, [userId]);
+
+    const unreadNotifications = rows.filter(n => !n.read);
+    const recentNotifications = rows.slice(0, 10);
+
+    res.json({
+      unread: unreadNotifications,
+      recent: recentNotifications
+    });
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
   exports.markAllAsRead = async (req, res) => {
     try {
       const userId = req.user.id;

@@ -391,13 +391,13 @@ textarea:focus {
   width: 100%;
   height: auto;
   max-width: 100%;
-  border-radius: 8px; /* To match the border radius of the card */
+  border-radius: 8px; 
   overflow: hidden;
 }
 .youtube-embed {
   position: relative;
   width: 100%;
-  padding-bottom: 56.25%; /* This sets a 16:9 aspect ratio */
+  padding-bottom: 56.25%; 
   height: 0;
   overflow: hidden;
   margin-top: 10px;
@@ -409,7 +409,7 @@ textarea:focus {
   left: 0;
   width: 100%;
   height: 100%;
-  border-radius: 8px; /* Match the card's border radius */
+  border-radius: 8px; 
 }
 .post-actions button {
   background-color: transparent;

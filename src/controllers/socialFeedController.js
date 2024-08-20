@@ -104,7 +104,6 @@ exports.createPost = async (req, res) => {
           });
         } catch (previewError) {
           console.error('Error fetching link preview:', previewError);
-          // Continue without link preview if there's an error
         }
       }
     }
@@ -207,8 +206,8 @@ exports.toggleLike = async (req, res) => {
       if (postRows.length > 0) {
         const authorId = postRows[0].author_id;
         const likerName = postRows[0].liker_name;
-        // Create notification for the post author
-        await createNotification(authorId, 'like', `${likerName} liked your post`);
+        // Create notification for the post author, passing null for commentId
+        await createNotification(authorId, 'like', `${likerName} liked your post`, postId, null);
       }
     }
 
@@ -222,6 +221,7 @@ exports.toggleLike = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
 // Add a comment to a post
 exports.addComment = async (req, res) => {
   const postId = req.params.postId;
@@ -253,12 +253,12 @@ exports.addComment = async (req, res) => {
 
     // Create notification for the post author (if the commenter is not the post author)
     if (comment.post_author_id !== authorId) {
-      await createNotification(comment.post_author_id, 'comment', `${comment.author_name} commented on your post`);
+      await createNotification(comment.post_author_id, 'comment', `${comment.author_name} commented on your post`, postId, comment.comment_id);
     }
 
     // If it's a reply, create notification for the parent comment author
     if (comment.parent_comment_author_id && comment.parent_comment_author_id !== authorId) {
-      await createNotification(comment.parent_comment_author_id, 'reply', `${comment.author_name} replied to your comment`);
+      await createNotification(comment.parent_comment_author_id, 'reply', `${comment.author_name} replied to your comment`, postId, comment.comment_id);
     }
 
     res.status(201).json(comment);

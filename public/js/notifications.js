@@ -83,16 +83,11 @@ function displayNotifications(tab) {
 
 function createNotificationElement(notification) {
   const element = document.createElement("div");
-  element.className = `notification-item ${
-    notification.read ? "read" : "unread"
-  }`;
+  element.className = `notification-item ${notification.read ? "read" : "unread"}`;
 
   let content = notification.formatted_content || notification.content;
   if (notification.type === "reply") {
-    content = content.replace(
-      "commented on your post",
-      "replied to your comment"
-    );
+    content = content.replace("commented on your post", "replied to your comment");
   }
 
   if (notification.type === "event") {
@@ -102,14 +97,35 @@ function createNotificationElement(notification) {
   element.innerHTML = `
     <div class="notification-content">
       <p>${content}</p>
-      <span class="notification-time">${formatTime(
-        notification.created_at
-      )}</span>
+      <span class="notification-time">${formatTime(notification.created_at)}</span>
     </div>
   `;
+
+  // Add click event to navigate to the post
+  if (notification.post_id) {
+    element.addEventListener("click", () => {
+      navigateToPost(notification.post_id);
+    });
+  }
+
   return element;
 }
 
+function navigateToPost(postId) {
+  const postElement = document.querySelector(
+    `.social-post[data-post-id="${postId}"]`
+  );
+  if (postElement) {
+    postElement.scrollIntoView({ behavior: "smooth" });
+    // Optional: Highlight the post for a moment
+    postElement.classList.add("highlighted");
+    setTimeout(() => {
+      postElement.classList.remove("highlighted");
+    }, 2000);
+  } else {
+    console.error(`Post with ID ${postId} not found.`);
+  }
+}
 function updateNotificationCount() {
   const unreadCount = notifications.unread.length;
   const countElement = document.getElementById("notificationCount");
