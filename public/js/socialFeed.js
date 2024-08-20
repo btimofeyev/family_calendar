@@ -1,15 +1,15 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const scrollToTopLink = document.getElementById('scrollToTop');
+  const scrollToTopLink = document.getElementById("scrollToTop");
   if (scrollToTopLink) {
-    scrollToTopLink.addEventListener('click', function(event) {
-      event.preventDefault(); 
-      document.querySelector('.center-column').scrollTo({
+    scrollToTopLink.addEventListener("click", function (event) {
+      event.preventDefault();
+      document.querySelector(".center-column").scrollTo({
         top: 0,
-        behavior: 'smooth' 
+        behavior: "smooth",
       });
     });
   } else {
-    console.error('Element with ID scrollToTop not found.');
+    console.error("Element with ID scrollToTop not found.");
   }
   initializeSocialFeed();
 });
@@ -77,11 +77,13 @@ function handleLinkPreview() {
 }
 
 const isYouTubeLink = (url) => {
-  const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+  const youtubeRegex =
+    /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
   return youtubeRegex.test(url);
 };
 function extractYouTubeVideoId(url) {
-  const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+  const youtubeRegex =
+    /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
   const matches = youtubeRegex.exec(url);
   return matches ? matches[1] : null;
 }
@@ -206,7 +208,7 @@ async function fetchAndDisplayPosts(page = 1, append = false) {
 function displayPosts(posts) {
   const socialFeedContent = document.getElementById("socialFeedContent");
   socialFeedContent.innerHTML = "";
-  
+
   posts.forEach((post) => {
     const postElement = createPostElement(post);
     socialFeedContent.appendChild(postElement);
@@ -232,16 +234,27 @@ function createPostElement(post) {
   const postElement = document.createElement("div");
   postElement.className = "social-post";
   postElement.dataset.postId = post.post_id;
+  postElement.addEventListener("click", (e) => {
+    if (!e.target.closest('button') && !e.target.closest('a')) {
+      showFullScreenPost(post);
+    }
+  });
 
   let mediaContent = "";
   if (post.media_url) {
     if (post.media_type === "image") {
-      mediaContent = `<img src="${post.signed_image_url || post.media_url}" alt="Post image" class="post-media">`;
+      mediaContent = `<img src="${
+        post.signed_image_url || post.media_url
+      }" alt="Post image" class="post-media">`;
     } else if (post.media_type === "video") {
-      mediaContent = `<video controls class="post-media"><source src="${post.signed_image_url || post.media_url}" type="video/mp4"></video>`;
+      mediaContent = `<video controls class="post-media"><source src="${
+        post.signed_image_url || post.media_url
+      }" type="video/mp4"></video>`;
     }
   } else if (post.caption) {
-    const youtubeMatch = post.caption.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    const youtubeMatch = post.caption.match(
+      /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+    );
     if (youtubeMatch) {
       const videoId = youtubeMatch[1];
       mediaContent = `
@@ -256,7 +269,9 @@ function createPostElement(post) {
         ? `<img src="${linkPreview.image}" alt="Link preview" style="max-width: 100%;">`
         : "";
       mediaContent = `
-        <a href="${linkPreview.url}" target="_blank" style="text-decoration: none; color: inherit;">
+        <a href="${
+          linkPreview.url
+        }" target="_blank" style="text-decoration: none; color: inherit;">
           <div class="link-preview" style="border: 1px solid #ccc; padding: 10px; display: flex; flex-direction: column; align-items: center;">
             ${imageHtml}
             <div class="link-info" style="text-align: center;">
@@ -269,7 +284,10 @@ function createPostElement(post) {
   }
   let captionContent = post.caption;
   if (mediaContent.includes("youtube-embed")) {
-    captionContent = post.caption.replace(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/, "");
+    captionContent = post.caption.replace(
+      /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+      ""
+    );
   } else if (post.link_preview) {
     captionContent = post.caption.replace(/(https?:\/\/[^\s]+)/g, "");
   }
@@ -277,7 +295,9 @@ function createPostElement(post) {
   postElement.innerHTML = `
     <div class="post-header">
       <span class="post-author">${post.author_name}</span>
-      <span class="post-date">${new Date(post.created_at).toLocaleString()}</span>
+      <span class="post-date">${new Date(
+        post.created_at
+      ).toLocaleString()}</span>
     </div>
     <div class="post-content">
       <p>${captionContent}</p>
@@ -314,6 +334,98 @@ function createPostElement(post) {
 
   return postElement;
 }
+function showFullScreenPost(post) {
+  const modal = document.getElementById("postModal");
+  const modalContent = document.getElementById("modalPostContent");
+  const closeBtn = document.getElementsByClassName("post-modal-close")[0];
+
+  modalContent.innerHTML = `
+    <div class="full-post">
+      <div class="post-header">
+        <span class="post-author">${post.author_name}</span>
+        <span class="post-date">${new Date(post.created_at).toLocaleString()}</span>
+      </div>
+      <div class="post-content">
+        ${getFullScreenMediaContent(post)}
+        <p>${post.caption}</p>
+      </div>
+      <div class="post-actions">
+        <button class="like-button" data-post-id="${post.post_id}">
+          <i class="fas fa-heart"></i> Like (${post.likes_count || 0})
+        </button>
+      </div>
+      <div class="comments-section" id="modal-comments-${post.post_id}"></div>
+      <form class="comment-form" data-post-id="${post.post_id}">
+        <input type="text" placeholder="Write a comment..." required>
+        <button type="submit">Post</button>
+      </form>
+    </div>
+  `;
+
+  // Fetch and display comments
+  fetchComments(post.post_id).then(comments => {
+    displayComments(`modal-comments-${post.post_id}`, comments);
+  });
+
+  // Add event listeners for like and comment buttons
+  const likeButton = modalContent.querySelector(".like-button");
+  likeButton.addEventListener("click", () => toggleLike(post.post_id));
+
+  const commentForm = modalContent.querySelector(".comment-form");
+  commentForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const commentText = commentForm.querySelector("input").value;
+    addComment(post.post_id, commentText);
+    commentForm.reset();
+  });
+
+  modal.style.display = "block";
+
+  closeBtn.onclick = function() {
+    modal.style.display = "none";
+  }
+
+  window.onclick = function(event) {
+    if (event.target == modal) {
+      modal.style.display = "none";
+    }
+  }
+}
+function getFullScreenMediaContent(post) {
+  if (post.media_url) {
+    if (post.media_type === "image") {
+      return `<img src="${post.signed_image_url || post.media_url}" alt="Post image" class="post-media">`;
+    } else if (post.media_type === "video") {
+      return `<video controls class="post-media"><source src="${post.signed_image_url || post.media_url}" type="video/mp4"></video>`;
+    }
+  } else if (post.caption) {
+    const youtubeMatch = post.caption.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (youtubeMatch) {
+      const videoId = youtubeMatch[1];
+      return `
+        <div class="youtube-embed">
+          <iframe src="https://www.youtube.com/embed/${videoId}" 
+            frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen></iframe>
+        </div>`;
+    }
+  }
+  return "";
+}
+function getMediaContent(post) {
+  if (post.media_url) {
+    if (post.media_type === "image") {
+      return `<img src="${
+        post.signed_image_url || post.media_url
+      }" alt="Post image" class="post-media">`;
+    } else if (post.media_type === "video") {
+      return `<video controls class="post-media"><source src="${
+        post.signed_image_url || post.media_url
+      }" type="video/mp4"></video>`;
+    }
+  }
+  return "";
+}
 function updateLoadMoreButton() {
   let loadMoreButton = document.getElementById("loadMoreButton");
   if (!loadMoreButton) {
@@ -333,9 +445,9 @@ async function loadMorePosts() {
     const loadMoreButton = document.getElementById("loadMoreButton");
     loadMoreButton.textContent = "Loading...";
     loadMoreButton.disabled = true;
-    
+
     await fetchAndDisplayPosts(currentPage + 1, true);
-    
+
     loadMoreButton.textContent = "Load More";
     loadMoreButton.disabled = false;
   } else {
@@ -343,12 +455,15 @@ async function loadMorePosts() {
 }
 async function toggleLike(postId) {
   try {
-    const response = await makeAuthenticatedRequest(`/api/posts/${postId}/like`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    });
+    const response = await makeAuthenticatedRequest(
+      `/api/posts/${postId}/like`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      }
+    );
 
     if (!response.ok) {
       throw new Error("Failed to toggle like");
@@ -380,25 +495,22 @@ async function fetchComments(postId) {
       throw new Error("Failed to fetch comments");
     }
 
-    const comments = await response.json();
-    displayComments(postId, comments);
+    return await response.json();
   } catch (error) {
     console.error("Error fetching comments:", error);
+    return [];
   }
 }
-
-function displayComments(postId, comments) {
-  const commentsSection = document.getElementById(`comments-${postId}`);
+function displayComments(commentsContainerId, comments) {
+  const commentsSection = document.getElementById(commentsContainerId);
   commentsSection.innerHTML = "";
 
   comments.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-
 
   const commentMap = new Map();
   comments.forEach((comment) =>
     commentMap.set(comment.comment_id, { ...comment, replies: [] })
   );
-
 
   const topLevelComments = [];
   comments.forEach((comment) => {
@@ -413,7 +525,7 @@ function displayComments(postId, comments) {
   });
 
   topLevelComments.forEach((comment) => {
-    const commentElement = createCommentElement(comment, postId);
+    const commentElement = createCommentElement(comment, commentsContainerId.split('-')[2]);
     commentsSection.appendChild(commentElement);
   });
 }
@@ -425,17 +537,20 @@ function toggleReplyForm(commentId) {
 async function addComment(postId, commentText, parentCommentId = null) {
   try {
     const token = localStorage.getItem("token");
-    const response = await makeAuthenticatedRequest(`/api/posts/${postId}/comment`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        text: commentText,
-        parentCommentId: parentCommentId,
-      }),
-    });
+    const response = await makeAuthenticatedRequest(
+      `/api/posts/${postId}/comment`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          text: commentText,
+          parentCommentId: parentCommentId,
+        }),
+      }
+    );
 
     const responseText = await response.text();
 
@@ -463,7 +578,6 @@ function appendComment(postId, comment) {
   updateCommentCount(postId);
 }
 function appendReply(postId, parentCommentId, reply) {
-
   const parentComment = document.querySelector(
     `.comment[data-comment-id="${parentCommentId}"]`
   );
@@ -501,18 +615,24 @@ function createCommentElement(comment, postId, isReply = false) {
     </div>
   `;
 
-  const replyButton = element.querySelector(`#replyButton-${comment.comment_id}`);
+  const replyButton = element.querySelector(
+    `#replyButton-${comment.comment_id}`
+  );
   const replyForm = element.querySelector(`#replyForm-${comment.comment_id}`);
-  const postReplyButton = element.querySelector(`#postReply-${comment.comment_id}`);
+  const postReplyButton = element.querySelector(
+    `#postReply-${comment.comment_id}`
+  );
 
-  replyButton.addEventListener('click', () => toggleReplyForm(comment.comment_id));
+  replyButton.addEventListener("click", () =>
+    toggleReplyForm(comment.comment_id)
+  );
 
-  postReplyButton.addEventListener('click', (e) => {
+  postReplyButton.addEventListener("click", (e) => {
     e.preventDefault();
-    const replyText = replyForm.querySelector('input').value;
+    const replyText = replyForm.querySelector("input").value;
     addComment(postId, replyText, comment.comment_id);
-    replyForm.querySelector('input').value = '';
-    replyForm.style.display = 'none';
+    replyForm.querySelector("input").value = "";
+    replyForm.style.display = "none";
   });
 
   // Render replies recursively
