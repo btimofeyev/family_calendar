@@ -273,14 +273,13 @@ function updateCalendar(events) {
     );
     const dayEvents = events.filter((event) => {
       const eventDay = new Date(event.event_date);
-
       return (
         eventDay.getDate() === eventDate.getDate() &&
         eventDay.getMonth() === eventDate.getMonth() &&
         eventDay.getFullYear() === eventDate.getFullYear()
       );
     });
-
+    
     if (dayEvents.length > 0) {
       day.classList.add("has-event");
       day.style.backgroundColor = "lightblue"; 
@@ -304,7 +303,9 @@ function updateCalendar(events) {
     });
 
     calendarGrid.appendChild(day);
+    
   }
+  
 }
 document.getElementById("prevMonth").addEventListener("click", () => {
   currentDate.setMonth(currentDate.getMonth() - 1);
@@ -325,15 +326,14 @@ function showEventDetails(events, date) {
 
   if (events.length === 1) {
     const event = events[0];
-    eventForm.eventId.value = event.id;
+    eventForm.eventId.value = event.isRecurrence ? '' : event.id;
     eventForm.eventType.value = event.type;
     eventForm.eventTitle.value = event.title;
     eventForm.eventDate.value = event.event_date;
     eventForm.eventDescription.value = event.description;
     eventForm.isRecurring.checked = event.is_recurring;
 
-    if (event.owner_id === loggedInUserId) {
-      console.log(loggedInUserId);
+    if (event.owner_id === loggedInUserId && !event.isRecurrence) {
       deleteBtn.style.display = "block";
     } else {
       deleteBtn.style.display = "none";
@@ -350,15 +350,17 @@ let currentEvents = [];
 async function saveEvent(event) {
   event.preventDefault();
 
+  const eventDate = new Date(document.getElementById("eventDate").value);
+  const formattedDate = eventDate.toISOString().split('T')[0];
+
   const eventData = {
     id: document.getElementById("eventId").value,
     type: document.getElementById("eventType").value,
     title: document.getElementById("eventTitle").value,
-    event_date: document.getElementById("eventDate").value,
+    event_date: formattedDate,
     description: document.getElementById("eventDescription").value,
     is_recurring: document.getElementById("isRecurring").checked,
   };
-
   try {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -400,17 +402,20 @@ async function saveEvent(event) {
 }
 function handleRecurringEvents(events) {
   const today = new Date();
-  const endOfYear = new Date(today.getFullYear() + 10, 11, 31); // Extend as necessary
+  const endOfYear = new Date(today.getFullYear() + 1, 11, 31); // Show events up to end of next year
 
   return events.flatMap((event) => {
     if (event.is_recurring) {
       const eventDates = [];
       let nextOccurrence = new Date(event.event_date);
 
-      // Generate yearly occurrences up to the end of the extended year
       while (nextOccurrence <= endOfYear) {
-        eventDates.push({ ...event, event_date: nextOccurrence.toISOString() });
-        nextOccurrence.setFullYear(nextOccurrence.getFullYear() + 1); // Move to the next year
+        eventDates.push({
+          ...event,
+          event_date: nextOccurrence.toISOString().split('T')[0],
+          isRecurrence: nextOccurrence.getTime() !== new Date(event.event_date).getTime()
+        });
+        nextOccurrence.setFullYear(nextOccurrence.getFullYear() + 1);
       }
 
       return eventDates;
