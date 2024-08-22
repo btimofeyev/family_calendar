@@ -197,14 +197,14 @@ function updateCalendar(events) {
 
   // Sort events by date to find the next three
   const upcomingEvents = events
-    .filter((event) => new Date(event.event_date) >= new Date())
-    .sort((a, b) => new Date(a.event_date) - new Date(b.event_date))
-    .slice(0, 3);
+  .filter((event) => new Date(event.event_date + 'T00:00:00Z') >= new Date())
+  .sort((a, b) => new Date(a.event_date + 'T00:00:00Z') - new Date(b.event_date + 'T00:00:00Z'))
+  .slice(0, 3);
 
   // Clear the event list and populate it with upcoming events
   eventList.innerHTML = "";
   upcomingEvents.forEach((event) => {
-    const eventDate = new Date(event.event_date);
+    const eventDate = new Date(event.event_date + 'T00:00:00Z');
     const listItem = document.createElement("li");
     listItem.className = `event-list-item event-${event.type || "default"}`;
     listItem.innerHTML = `
@@ -212,6 +212,7 @@ function updateCalendar(events) {
       <div class="event-date">${eventDate.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
+        timeZone: 'UTC'
       })}</div>
       <div class="event-description" style="display: none;">${
         event.description || "No description available."
@@ -267,16 +268,14 @@ function updateCalendar(events) {
     day.appendChild(dayNumber);
 
     const eventDate = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      i
+      Date.UTC(currentDate.getFullYear(), currentDate.getMonth(), i)
     );
-    const dayEvents = events.filter((event) => {
-      const eventDay = new Date(event.event_date);
+     const dayEvents = events.filter((event) => {
+      const eventDay = new Date(event.event_date + 'T00:00:00Z');
       return (
-        eventDay.getDate() === eventDate.getDate() &&
-        eventDay.getMonth() === eventDate.getMonth() &&
-        eventDay.getFullYear() === eventDate.getFullYear()
+        eventDay.getUTCDate() === eventDate.getUTCDate() &&
+        eventDay.getUTCMonth() === eventDate.getUTCMonth() &&
+        eventDay.getUTCFullYear() === eventDate.getUTCFullYear()
       );
     });
     
@@ -350,7 +349,7 @@ let currentEvents = [];
 async function saveEvent(event) {
   event.preventDefault();
 
-  const eventDate = new Date(document.getElementById("eventDate").value);
+  const eventDate = new Date(document.getElementById("eventDate").value + 'T00:00:00Z');
   const formattedDate = eventDate.toISOString().split('T')[0];
 
   const eventData = {
