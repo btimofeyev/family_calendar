@@ -16,7 +16,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
 let currentFamilyId = null;
 
-async function initializeSocialFeed() {
+async function initializeSocialFeed(familyId = null) {
+  if (familyId) {
+    currentFamilyId = familyId;
+  }
   await setupFamilySelector();
   setupPostForm();
   await fetchAndDisplayPosts();

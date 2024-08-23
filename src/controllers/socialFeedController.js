@@ -217,14 +217,15 @@ exports.toggleLike = async (req, res) => {
       await pool.query("INSERT INTO likes (post_id, user_id) VALUES ($1, $2)", [postId, userId]);
       action = 'liked';
 
-      // Fetch post author and user name
-      const postQuery = "SELECT p.author_id, u.name AS liker_name FROM posts p JOIN users u ON u.id = $2 WHERE p.post_id = $1";
+      // Fetch post author, user name, and family ID
+      const postQuery = "SELECT p.author_id, p.family_id, u.name AS liker_name FROM posts p JOIN users u ON u.id = $2 WHERE p.post_id = $1";
       const { rows: postRows } = await pool.query(postQuery, [postId, userId]);
-      
+
       if (postRows.length > 0) {
         const authorId = postRows[0].author_id;
+        const familyId = postRows[0].family_id;  // Get the family ID
         const likerName = postRows[0].liker_name;
-        await createNotification(authorId, 'like', `${likerName} liked your post`, postId, null);
+        await createNotification(authorId, 'like', `${likerName} liked your post`, postId, null, familyId);  // Pass familyId here
       }
     }
 
@@ -253,9 +254,9 @@ exports.addComment = async (req, res) => {
     `;
     const { rows } = await pool.query(query, [postId, authorId, text, parentCommentId]);
 
-    // Fetch author name, post author, and parent comment author (if it's a reply)
+    // Fetch author name, post author, parent comment author, and family ID
     const authorQuery = `
-      SELECT c.*, u.name as author_name, p.author_id as post_author_id,
+      SELECT c.*, u.name as author_name, p.author_id as post_author_id, p.family_id,
              CASE WHEN c.parent_comment_id IS NOT NULL THEN
                (SELECT author_id FROM comments WHERE comment_id = c.parent_comment_id)
              ELSE NULL END as parent_comment_author_id
@@ -270,12 +271,12 @@ exports.addComment = async (req, res) => {
 
     // Create notification for the post author (if the commenter is not the post author)
     if (comment.post_author_id !== authorId) {
-      await createNotification(comment.post_author_id, 'comment', `${comment.author_name} commented on your post`, postId, comment.comment_id);
+      await createNotification(comment.post_author_id, 'comment', `${comment.author_name} commented on your post`, postId, comment.comment_id, comment.family_id);  // Pass familyId here
     }
 
     // If it's a reply, create notification for the parent comment author
     if (comment.parent_comment_author_id && comment.parent_comment_author_id !== authorId) {
-      await createNotification(comment.parent_comment_author_id, 'reply', `${comment.author_name} replied to your comment`, postId, comment.comment_id);
+      await createNotification(comment.parent_comment_author_id, 'reply', `${comment.author_name} replied to your comment`, postId, comment.comment_id, comment.family_id);  // Pass familyId here
     }
 
     res.status(201).json(comment);
@@ -284,6 +285,7 @@ exports.addComment = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
 
 // Get comments for a post
 exports.getComments = async (req, res) => {

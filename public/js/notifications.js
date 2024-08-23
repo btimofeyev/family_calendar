@@ -119,7 +119,7 @@ function createNotificationElement(notification) {
         await markNotificationAsRead(notification.id);
       }
       if (notification.post_id) {
-        navigateToPost(notification.post_id);
+        navigateToPost(notification.post_id, notification.family_id); 
       }
       closeNotificationMenu();
     });
@@ -164,13 +164,22 @@ function closeNotificationMenu() {
     dropdown.style.display = "none";
   }
 }
-function navigateToPost(postId) {
+async function navigateToPost(postId, targetFamilyId) {
+  if (currentFamilyId !== targetFamilyId) {
+    // Change the family selection
+    const familySelector = document.getElementById("familySelector");
+    familySelector.value = targetFamilyId;
+    currentFamilyId = targetFamilyId;
+
+    // Fetch the new family's feed and events
+    await viewFamily(targetFamilyId);
+  }
+
   const postElement = document.querySelector(
     `.social-post[data-post-id="${postId}"]`
   );
   if (postElement) {
     postElement.scrollIntoView({ behavior: "smooth" });
-    // Optional: Highlight the post for a moment
     postElement.classList.add("highlighted");
     setTimeout(() => {
       postElement.classList.remove("highlighted");
@@ -179,6 +188,7 @@ function navigateToPost(postId) {
     console.error(`Post with ID ${postId} not found.`);
   }
 }
+
 function updateNotificationCount() {
   const unreadCount = notifications.unread.length;
   const countElement = document.getElementById("notificationCount");

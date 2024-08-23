@@ -4,19 +4,19 @@ const webpush = require('web-push');
 const { getUserPushSubscriptions, removeInvalidSubscription } = require('../models/subscriptionModel');
 
 
-exports.createNotification = async (userId, type, content, postId = null, commentId = null) => {
+exports.createNotification = async (userId, type, content, postId = null, commentId = null, familyId = null) => {
   try {
     // Insert the notification into the database
     const query = `
-      INSERT INTO notifications (user_id, type, content, post_id, comment_id, created_at)
-      VALUES ($1, $2, $3, $4, $5, NOW())
+      INSERT INTO notifications (user_id, type, content, post_id, comment_id, family_id, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
       RETURNING *
     `;
-    const values = [userId, type, content, postId, commentId];
+    const values = [userId, type, content, postId, commentId, familyId];
     const { rows } = await pool.query(query, values);
 
     const notification = rows[0];
-    
+
     // Emit the notification to the user's room via socket
     const io = getIo();
     io.to(userId.toString()).emit('new_notification', notification);
@@ -28,7 +28,7 @@ exports.createNotification = async (userId, type, content, postId = null, commen
         const payload = JSON.stringify({
           title: 'New Notification',
           body: content,
-          url: '/dashboard.html' 
+          url: '/dashboard.html'
         });
 
         for (const subscription of subscriptions) {
@@ -52,6 +52,7 @@ exports.createNotification = async (userId, type, content, postId = null, commen
     throw error;
   }
 };
+
 exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -73,13 +74,16 @@ exports.getNotifications = async (req, res) => {
 
     res.json({
       unread: unreadNotifications,
-      recent: recentNotifications
+      recent: recentNotifications,
+      notifications: rows 
     });
   } catch (error) {
     console.error('Error fetching notifications:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+
   exports.markAllAsRead = async (req, res) => {
     try {
       const userId = req.user.id;
