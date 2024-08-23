@@ -113,12 +113,29 @@ async function submitPost() {
     document.getElementById("mediaPreview").innerHTML = "";
     mediaInput.value = "";
     await fetchAndDisplayPosts();
+
+    // Close the post form on mobile
+    if (window.innerWidth <= 768) {
+      closePostForm();
+    }
+
   } catch (error) {
     console.error("Error creating post:", error);
     alert("Failed to create post. Please try again.");
   }
 }
-
+function closePostForm() {
+  const postForm = document.getElementById("postForm");
+  const overlay = document.getElementById("overlay");
+  
+  if (postForm) {
+    postForm.classList.remove("open");
+  }
+  
+  if (overlay) {
+    overlay.classList.remove("active");
+  }
+}
 async function fetchAndDisplayPosts(page = 1, append = false) {
   try {
     if (!currentFamilyId) {

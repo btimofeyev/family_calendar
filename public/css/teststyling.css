@@ -819,7 +819,7 @@ textarea:focus {
   transition: background-color 0.3s ease;
 }
 
-.family-button:hover {
+.family-button:hover, .family-button.selected {
   background-color: var(--primary-color);
 }
 
@@ -989,7 +989,36 @@ textarea:focus {
 
   .left-column,
   .right-column {
-    display: none;
+    display: none; /* Hide by default */
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    background-color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 1100;
+    width: 75%;
+    overflow-y: auto;
+    transition: transform 0.3s ease, visibility 0.3s ease;
+  }
+
+  .left-column {
+    transform: translateX(-100%); /* Initially off-screen to the left */
+    left: 0;
+  }
+
+  .right-column {
+    transform: translateX(100%); /* Initially off-screen to the right */
+    right: 0;
+  }
+
+  .left-column.open {
+    display: block;
+    transform: translateX(0); /* Slide in from the left */
+  }
+
+  .right-column.open {
+    display: block;
+    transform: translateX(0); /* Slide in from the right */
   }
 
   .center-column {
@@ -1021,35 +1050,12 @@ textarea:focus {
     cursor: pointer;
     font-size: 1.5rem;
   }
+
   .floating-icons .plus-icon {
     background-color: var(--accent-color);
   }
-  .left-column.open,
-  .right-column.open {
-    display: block;
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    background-color: #ffffff;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    z-index: 1100;
-    width: 75%;
-    overflow-y: auto;
-    transition: transform 0.3s ease;
-  }
-
-  .left-column.open {
-    left: 0;
-    transform: translateX(0);
-  }
-
-  .right-column.open {
-    right: 0;
-    transform: translateX(0);
-  }
 
   .plus-icon {
-    background-color: var(--accent-color);
     width: 60px;
     height: 60px;
     font-size: 30px;

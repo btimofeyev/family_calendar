@@ -580,7 +580,7 @@ function updateFamilySelector(families) {
         await viewFamily(selectedFamilyId);
       } else {
         updateFamilyView(null, []);
-        updateCalendar([]); // Update calendar with empty events when no family is selected
+        updateCalendar([]); 
       }
     });
   }
@@ -677,5 +677,47 @@ function setupEventListeners() {
     inviteMemberBtn.addEventListener("click", showInviteMemberModal);
   }
 }
+document.addEventListener("DOMContentLoaded", function() {
+  initDashboard();
 
-document.addEventListener("DOMContentLoaded", initDashboard);
+  // Add event listeners for the floating icons
+  document.getElementById("toggleLeftColumn").addEventListener("click", function() {
+      toggleElementVisibility("leftColumn");
+  });
+
+  document.getElementById("togglePostForm").addEventListener("click", function() {
+      toggleElementVisibility("postForm");
+  });
+
+  document.getElementById("toggleRightColumn").addEventListener("click", function() {
+      toggleElementVisibility("rightColumn");
+  });
+
+  // Add event listener for closing when clicking outside (on overlay)
+  document.getElementById("overlay").addEventListener("click", function() {
+      closeAllElements();
+  });
+});
+
+function toggleElementVisibility(elementId) {
+  const element = document.getElementById(elementId);
+  const overlay = document.getElementById("overlay");
+
+  if (element) {
+      if (element.classList.contains("open")) {
+          element.classList.remove("open");
+          overlay.classList.remove("active");
+      } else {
+          closeAllElements(); // Close any other open elements first
+          element.classList.add("open");
+          overlay.classList.add("active");
+      }
+  }
+}
+
+function closeAllElements() {
+  document.getElementById("leftColumn")?.classList.remove("open");
+  document.getElementById("rightColumn")?.classList.remove("open");
+  document.getElementById("postForm")?.classList.remove("open");
+  document.getElementById("overlay")?.classList.remove("active");
+}
