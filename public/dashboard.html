@@ -60,11 +60,8 @@
         </div>
 
         <div class="card family-management">
-          <h2>Family Management</h2>
-          <select id="familySelector">
-            <option value="">Select a family</option>
-          </select>
-          <button id="createFamilyBtn">Create New Family</button>
+          <h2>Your Families</h2>
+          <select id="familySelector"></select>
         </div>
 
         <div id="familyView" class="card family-view">
@@ -90,7 +87,9 @@
           </form>
           <div id="socialFeedContent"></div>
           <div class="load-more-container">
-            <button id="loadMoreButton" class="load-more-button" style="display: none;"><i class="fas fa-chevron-down"></i> </button>
+            <button id="loadMoreButton" class="load-more-button" style="display: none;">
+              <i class="fas fa-chevron-down"></i>
+            </button>
           </div>
         </div>
       </div>
@@ -162,5 +161,8 @@
     <script src="js/dashboard.js"></script>
     <script src="js/socialFeed.js"></script>
     <script src="js/notifications.js"></script>
+    <script>
+      const API_BASE_URL = '/api/dashboard'; // Add this line
+    </script>
   </body>
 </html>

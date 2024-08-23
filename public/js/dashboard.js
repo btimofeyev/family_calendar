@@ -99,6 +99,10 @@ async function viewFamily(familyId) {
     const events = await fetchCalendarEvents(familyId);
     currentEvents = handleRecurringEvents(events);
     updateCalendar(currentEvents);
+
+    // Update social feed
+    await updateSocialFeed(familyId);
+
   } catch (error) {
     console.error("Error viewing family:", error);
   }
@@ -173,35 +177,67 @@ function updateFamilyView(familyDetails, familyMembers) {
   }
 }
 
-function showInviteMemberModal(familyId) {
-  const modal = document.getElementById("inviteMemberModal");
-  modal.style.display = "block";
+function showInviteMemberModal() {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <h2>Invite Family Member</h2>
+      <form id="inviteMemberForm">
+        <input type="email" id="inviteEmail" placeholder="Enter email address" required>
+        <button type="submit">Send Invitation</button>
+      </form>
+      <button id="closeModal">Cancel</button>
+    </div>
+  `;
 
-  const inviteForm = document.getElementById("inviteMemberForm");
-  inviteForm.onsubmit = async (e) => {
-    e.preventDefault();
-    const email = document.getElementById("inviteEmail").value;
-    await inviteFamilyMember(familyId, email);
-    modal.style.display = "none";
+  document.body.appendChild(modal);
+
+  const closeModal = () => {
+    document.body.removeChild(modal);
   };
+
+  document.getElementById('closeModal').addEventListener('click', closeModal);
+  document.getElementById('inviteMemberForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('inviteEmail').value;
+    await inviteFamilyMember(email);
+    closeModal();
+  });
 }
 
-async function inviteFamilyMember(familyId, email) {
+async function inviteFamilyMember(email) {
   try {
-    const response = await makeAuthenticatedRequest(`/api/dashboard/families/${familyId}/invite`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+    const selectedFamilyId = document.getElementById('familySelector').value;
+    if (!selectedFamilyId) {
+      throw new Error("No family selected");
+    }
+
+    console.log('Inviting member:', email, 'to family:', selectedFamilyId);
+
+    const response = await makeAuthenticatedRequest(`/api/invitations/invite`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, familyId: selectedFamilyId }),
     });
 
     if (!response.ok) {
-      throw new Error("Failed to invite family member");
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to invite family member');
     }
 
-    alert("Invitation sent successfully!");
+    const result = await response.json();
+    console.log('Invitation result:', result);
+
+    alert('Invitation sent successfully!');
+    // Refresh the family members list
+    const familyMembers = await fetchFamilyMembers(selectedFamilyId);
+    updateFamilyView({ family_id: selectedFamilyId }, familyMembers);
   } catch (error) {
-    console.error("Error inviting family member:", error);
-    alert("Failed to invite family member. Please try again.");
+    console.error('Error inviting family member:', error);
+    alert(`Failed to invite family member: ${error.message}`);
   }
 }
 
@@ -490,28 +526,17 @@ function closeModal() {
     console.error("Modal element not found");
   }
 }
-async function inviteFamilyMember(email) {
+
+async function fetchCalendarEvents(familyId) {
   try {
-    const token = localStorage.getItem("token");
-    const response = await makeAuthenticatedRequest("/api/invitations/invite", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ email }),
-    });
-
+    const response = await makeAuthenticatedRequest(`/api/dashboard/calendar/${familyId}`);
     if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`HTTP error! status: ${response.status}: ${errorBody}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-
-    const result = await response.json();
-    return result;
+    return await response.json();
   } catch (error) {
-    console.error("Error sending invitation:", error);
-    throw error;
+    console.error("Error fetching calendar events:", error);
+    return [];
   }
 }
 
@@ -524,11 +549,12 @@ async function initDashboard() {
     updateFamilySelector(families);
 
     if (families.length > 0) {
-      const selectedFamilyId = families[0].family_id;
-      await viewFamily(selectedFamilyId);
+      const familySelector = document.getElementById("familySelector");
+      familySelector.value = families[0].family_id;
+      await viewFamily(families[0].family_id);
     } else {
       updateFamilyView(null, []);
-      updateCalendar([]); // Update calendar with empty events when no family is selected
+      updateCalendar([]);
     }
 
     setupEventListeners();
@@ -560,6 +586,86 @@ function updateFamilySelector(families) {
   }
 }
 
+function showCreateFamilyModal() {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <h2>Create New Family</h2>
+      <form id="createFamilyForm">
+        <input type="text" id="familyName" placeholder="Enter family name" required>
+        <button type="submit">Create Family</button>
+      </form>
+      <button id="closeModal">Cancel</button>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeModal = () => {
+    document.body.removeChild(modal);
+  };
+
+  document.getElementById('closeModal').addEventListener('click', closeModal);
+  document.getElementById('createFamilyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const familyName = document.getElementById('familyName').value;
+    await createFamily(familyName);
+    closeModal();
+  });
+}
+
+async function createFamily(familyName) {
+  try {
+    const response = await makeAuthenticatedRequest('/api/dashboard/families', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ familyName }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    alert(`Family "${familyName}" created successfully!`);
+
+    // Refresh the family list and view the new family
+    const families = await fetchUserFamilies();
+    updateFamilySelector(families);
+    await viewFamily(result.familyId);
+
+  } catch (error) {
+    console.error('Error creating family:', error);
+    alert('Failed to create family. Please try again.');
+  }
+}
+
+async function updateSocialFeed(familyId) {
+  // Clear existing posts
+  const socialFeedContent = document.getElementById("socialFeedContent");
+  if (socialFeedContent) {
+    socialFeedContent.innerHTML = "";
+  }
+
+  // Update currentFamilyId in socialFeed.js
+  if (typeof updateCurrentFamilyId === "function") {
+    updateCurrentFamilyId(familyId);
+  }
+
+  // Fetch and display new posts
+  if (typeof fetchAndDisplayPosts === "function") {
+    await fetchAndDisplayPosts();
+  }
+
+  // Update load more button
+  if (typeof updateLoadMoreButton === "function") {
+    updateLoadMoreButton();
+  }
+}
+
 function setupEventListeners() {
   const createFamilyBtn = document.getElementById("createFamilyBtn");
   if (createFamilyBtn) {
@@ -569,28 +675,6 @@ function setupEventListeners() {
   const inviteMemberBtn = document.getElementById("inviteMemberBtn");
   if (inviteMemberBtn) {
     inviteMemberBtn.addEventListener("click", showInviteMemberModal);
-  }
-}
-
-function showCreateFamilyModal() {
-  // Implement the modal for creating a new family
-}
-
-function showInviteMemberModal() {
-  // Implement the modal for inviting a new member
-}
-
-// Add this function near the top of the file, after other function definitions
-async function fetchCalendarEvents(familyId) {
-  try {
-    const response = await makeAuthenticatedRequest(`/api/dashboard/calendar/${familyId}`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return await response.json();
-  } catch (error) {
-    console.error("Error fetching calendar events:", error);
-    return [];
   }
 }
 

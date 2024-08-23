@@ -40,14 +40,15 @@ exports.createFamily = async (req, res) => {
 };
 
 exports.addFamilyMember = async (req, res) => {
-  const { email, familyId } = req.body;
-  const userId = req.user.id;
+  const { familyId } = req.params;
+  const { email } = req.body;
+  const inviterId = req.user.id;
 
   try {
-    // Check if the user is a member of the family
+    // Check if the inviter is a member of the family
     const checkMembershipQuery = {
       text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
-      values: [userId, familyId],
+      values: [inviterId, familyId],
     };
     const membershipResult = await pool.query(checkMembershipQuery);
 
@@ -55,7 +56,7 @@ exports.addFamilyMember = async (req, res) => {
       return res.status(403).json({ error: "You are not a member of this family" });
     }
 
-    // Get the user ID of the invited user
+    // Check if the invited user exists
     const getUserQuery = {
       text: "SELECT id FROM users WHERE email = $1",
       values: [email],
@@ -63,21 +64,18 @@ exports.addFamilyMember = async (req, res) => {
     const userResult = await pool.query(getUserQuery);
 
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      // If the user doesn't exist, you might want to send an invitation email here
+      return res.status(404).json({ error: "User not found. An invitation email will be sent." });
     }
 
     const invitedUserId = userResult.rows[0].id;
 
     // Add the invited user to the family
     const addMemberQuery = {
-      text: "INSERT INTO user_families (user_id, family_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *",
+      text: "INSERT INTO user_families (user_id, family_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
       values: [invitedUserId, familyId],
     };
-    const addResult = await pool.query(addMemberQuery);
-
-    if (addResult.rows.length === 0) {
-      return res.status(400).json({ error: "User is already a member of this family" });
-    }
+    await pool.query(addMemberQuery);
 
     res.status(200).json({ message: "Family member added successfully" });
   } catch (error) {

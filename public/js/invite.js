@@ -11,14 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Check invitation validity
     fetch(`/api/invitations/check/${token}`)
-    .then(response => {
-        if (!response.ok) {
-            return response.text().then(text => {
-                throw new Error(`HTTP error! status: ${response.status}, message: ${text}`);
-            });
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         if (data.valid) {
             messageDiv.textContent = `You've been invited to join ${data.familyName}!`;
@@ -36,20 +29,18 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = document.getElementById('name').value;
-        const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
 
         try {
-            const response = await fetch('/api/auth/register-invited', {
+            const response = await fetch(`/api/invitations/accept/${token}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, password, token })
+                body: JSON.stringify({ name, password })
             });
             const data = await response.json();
             if (response.ok) {
                 localStorage.setItem('token', data.token);
-                localStorage.setItem('userId', data.user.id);
-                localStorage.setItem('familyId', data.user.family_id);
+                localStorage.setItem('userId', data.userId);
                 window.location.href = 'dashboard.html';
             } else {
                 messageDiv.textContent = data.error || 'Registration failed. Please try again.';
