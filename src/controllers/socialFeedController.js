@@ -17,10 +17,22 @@ function getYouTubeVideoId(url) {
 }
 exports.getPosts = async (req, res) => {
   try {
-    const familyId = req.user.family_id;
+    const userId = req.user.id;
+    const { familyId } = req.params;
     const page = parseInt(req.query.page) || 1;
     const limit = 10; // Number of posts per page
     const offset = (page - 1) * limit;
+
+    // Check if the user is a member of the family
+    const checkMembershipQuery = {
+      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
+      values: [userId, familyId],
+    };
+    const membershipResult = await pool.query(checkMembershipQuery);
+
+    if (membershipResult.rows.length === 0) {
+      return res.status(403).json({ error: "You are not a member of this family" });
+    }
 
     // Get total count of posts
     const countQuery = "SELECT COUNT(*) FROM posts WHERE family_id = $1";
@@ -71,16 +83,22 @@ exports.getPosts = async (req, res) => {
 };
 // Create a new post
 exports.createPost = async (req, res) => {
-  const { caption } = req.body;
+  const { caption, familyId } = req.body;
   const mediaUrl = req.file ? req.file.location : null;
   const authorId = req.user.id;
-  const familyId = req.user.family_id;
-
-  if (!familyId) {
-    return res.status(400).json({ error: 'User does not belong to a family' });
-  }
 
   try {
+    // Check if the user is a member of the family
+    const checkMembershipQuery = {
+      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
+      values: [authorId, familyId],
+    };
+    const membershipResult = await pool.query(checkMembershipQuery);
+
+    if (membershipResult.rows.length === 0) {
+      return res.status(403).json({ error: "You are not a member of this family" });
+    }
+
     let linkPreview = null;
     const urls = extractUrls(caption);
     if (urls.length > 0) {
@@ -206,7 +224,6 @@ exports.toggleLike = async (req, res) => {
       if (postRows.length > 0) {
         const authorId = postRows[0].author_id;
         const likerName = postRows[0].liker_name;
-        // Create notification for the post author, passing null for commentId
         await createNotification(authorId, 'like', `${likerName} liked your post`, postId, null);
       }
     }

@@ -1,12 +1,10 @@
 const pool = require("../config/db");
 
 exports.createFamily = async (req, res) => {
-
   const { familyName } = req.body;
   const userId = req.user.id;
 
   if (!familyName) {
-
     return res.status(400).json({ error: "Family name is required" });
   }
 
@@ -22,14 +20,13 @@ exports.createFamily = async (req, res) => {
     const familyResult = await pool.query(createFamilyQuery);
     const familyId = familyResult.rows[0].family_id;
 
-
-    // Update user's family_id
-    const updateUserQuery = {
-      text: "UPDATE users SET family_id = $1 WHERE id = $2",
-      values: [familyId, userId],
+    // Add user to the new family
+    const addUserToFamilyQuery = {
+      text: "INSERT INTO user_families (user_id, family_id) VALUES ($1, $2)",
+      values: [userId, familyId],
     };
 
-    await pool.query(updateUserQuery);
+    await pool.query(addUserToFamilyQuery);
 
     // Commit the transaction
     await pool.query("COMMIT");
@@ -43,65 +40,74 @@ exports.createFamily = async (req, res) => {
 };
 
 exports.addFamilyMember = async (req, res) => {
-  const { email } = req.body;
+  const { email, familyId } = req.body;
   const userId = req.user.id;
 
   try {
-    const getFamilyIdQuery = {
-      text: "SELECT family_id FROM users WHERE id = $1",
-      values: [userId],
+    // Check if the user is a member of the family
+    const checkMembershipQuery = {
+      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
+      values: [userId, familyId],
     };
-    const familyResult = await pool.query(getFamilyIdQuery);
-    const familyId = familyResult.rows[0].family_id;
+    const membershipResult = await pool.query(checkMembershipQuery);
 
-    if (!familyId) {
-      return res
-        .status(400)
-        .json({ error: "User does not belong to a family" });
+    if (membershipResult.rows.length === 0) {
+      return res.status(403).json({ error: "You are not a member of this family" });
     }
 
-    // Update the invited user's family_id
-    const updateMemberQuery = {
-      text: "UPDATE users SET family_id = $1 WHERE email = $2 RETURNING id, name, email",
-      values: [familyId, email],
+    // Get the user ID of the invited user
+    const getUserQuery = {
+      text: "SELECT id FROM users WHERE email = $1",
+      values: [email],
     };
-    const memberResult = await pool.query(updateMemberQuery);
+    const userResult = await pool.query(getUserQuery);
 
-    if (memberResult.rows.length === 0) {
+    if (userResult.rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res
-      .status(200)
-      .json({
-        message: "Family member added successfully",
-        member: memberResult.rows[0],
-      });
+    const invitedUserId = userResult.rows[0].id;
+
+    // Add the invited user to the family
+    const addMemberQuery = {
+      text: "INSERT INTO user_families (user_id, family_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *",
+      values: [invitedUserId, familyId],
+    };
+    const addResult = await pool.query(addMemberQuery);
+
+    if (addResult.rows.length === 0) {
+      return res.status(400).json({ error: "User is already a member of this family" });
+    }
+
+    res.status(200).json({ message: "Family member added successfully" });
   } catch (error) {
     console.error("Error in addFamilyMember:", error);
     res.status(500).json({ error: error.message });
   }
 };
+
 exports.getFamilyMembers = async (req, res) => {
+  const { familyId } = req.params;
   const userId = req.user.id;
 
   try {
-    const getFamilyIdQuery = {
-      text: "SELECT family_id FROM users WHERE id = $1",
-      values: [userId],
+    // Check if the user is a member of the family
+    const checkMembershipQuery = {
+      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
+      values: [userId, familyId],
     };
-    const familyResult = await pool.query(getFamilyIdQuery);
-    const familyId = familyResult.rows[0].family_id;
+    const membershipResult = await pool.query(checkMembershipQuery);
 
-    if (!familyId) {
-      return res
-        .status(400)
-        .json({ error: "User does not belong to a family" });
+    if (membershipResult.rows.length === 0) {
+      return res.status(403).json({ error: "You are not a member of this family" });
     }
 
     // Fetch all members of the family
     const getMembersQuery = {
-      text: "SELECT id, name, email FROM users WHERE family_id = $1",
+      text: `SELECT u.id, u.name, u.email 
+             FROM users u
+             JOIN user_families uf ON u.id = uf.user_id
+             WHERE uf.family_id = $1`,
       values: [familyId],
     };
     const membersResult = await pool.query(getMembersQuery);
@@ -109,6 +115,59 @@ exports.getFamilyMembers = async (req, res) => {
     res.status(200).json(membersResult.rows);
   } catch (error) {
     console.error("Error in getFamilyMembers:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getUserFamilies = async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const query = {
+      text: `SELECT f.family_id, f.family_name 
+             FROM families f
+             JOIN user_families uf ON f.family_id = uf.family_id
+             WHERE uf.user_id = $1`,
+      values: [userId],
+    };
+    const result = await pool.query(query);
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error("Error in getUserFamilies:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getFamilyDetails = async (req, res) => {
+  const { familyId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // Check if the user is a member of the family
+    const checkMembershipQuery = {
+      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
+      values: [userId, familyId],
+    };
+    const membershipResult = await pool.query(checkMembershipQuery);
+
+    if (membershipResult.rows.length === 0) {
+      return res.status(403).json({ error: "You are not a member of this family" });
+    }
+
+    // Fetch family details
+    const getFamilyQuery = {
+      text: "SELECT * FROM families WHERE family_id = $1",
+      values: [familyId],
+    };
+    const familyResult = await pool.query(getFamilyQuery);
+
+    if (familyResult.rows.length === 0) {
+      return res.status(404).json({ error: "Family not found" });
+    }
+
+    res.status(200).json(familyResult.rows[0]);
+  } catch (error) {
+    console.error("Error in getFamilyDetails:", error);
     res.status(500).json({ error: error.message });
   }
 };

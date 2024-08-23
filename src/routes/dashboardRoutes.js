@@ -12,7 +12,7 @@ router.use(authMiddleware);
 
 // Dashboard routes
 router.get('/profile', dashboardController.getUserProfile);
-router.get('/calendar', dashboardController.getFamilyCalendar);
+router.get('/calendar/:familyId', dashboardController.getFamilyCalendar);
 
 // Calendar routes
 router.post('/calendar', calendarController.createEvent);
@@ -22,8 +22,10 @@ router.delete('/calendar/:id', calendarController.deleteEvent);
 
 // Family routes
 router.post('/families', familyController.createFamily);
-router.post('/family/member', familyController.addFamilyMember);
-router.get('/family/members', familyController.getFamilyMembers);
+router.post('/families/:familyId/members', familyController.addFamilyMember);
+router.get('/families/:familyId/members', familyController.getFamilyMembers);
+router.get('/user/families', familyController.getUserFamilies);
+router.get('/families/:familyId', familyController.getFamilyDetails); // Added this route
 
 router.get('/users/:userId', userController.getUserProfile);
 

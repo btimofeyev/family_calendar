@@ -54,37 +54,24 @@
             <div id="userAvatar" class="avatar"></div>
             <div>
               <h3 id="userName"></h3>
-              <p id="userFamilyName"></p>
+              <p id="userEmail"></p>
             </div>
           </div>
         </div>
-        <form id="createFamilyForm">
-          <input
-            type="text"
-            id="createFamilyName"
-            name="familyName"
-            required
-            placeholder="Enter family name"
-          />
-          <button type="submit">Create Family</button>
-        </form>
-        <div class="card add-member">
-          <h2>Add Family Member</h2>
-          <form id="inviteMemberForm">
-            <input
-              type="email"
-              id="inviteEmail"
-              placeholder="Enter member's email"
-              required
-            />
-            <button type="submit">
-              <i class="fas fa-paper-plane"></i> Send Invitation
-            </button>
-          </form>
+
+        <div class="card family-management">
+          <h2>Family Management</h2>
+          <select id="familySelector">
+            <option value="">Select a family</option>
+          </select>
+          <button id="createFamilyBtn">Create New Family</button>
         </div>
-        <div class="card member-list">
-          <h2>Family Members</h2>
-          <ul id="memberListContent"></ul>
+
+        <div id="familyView" class="card family-view">
+          <h2 id="familyName"></h2>
+          <h3>Family Members</h3>
+          <ul id="memberList"></ul>
+          <button id="inviteMemberBtn">Invite Member</button>
         </div>
       </div>
       <div class="center-column">

@@ -13,10 +13,52 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   initializeSocialFeed();
 });
-function initializeSocialFeed() {
+
+let currentFamilyId = null;
+
+async function initializeSocialFeed() {
+  await setupFamilySelector();
   setupPostForm();
-  fetchAndDisplayPosts();
+  await fetchAndDisplayPosts();
   updateLoadMoreButton();
+}
+
+async function setupFamilySelector() {
+  const families = await fetchUserFamilies();
+  const familySelector = document.getElementById("familySelector");
+  
+  if (familySelector) {
+    families.forEach(family => {
+      const option = document.createElement("option");
+      option.value = family.family_id;
+      option.textContent = family.family_name;
+      familySelector.appendChild(option);
+    });
+
+    familySelector.addEventListener("change", async (e) => {
+      currentFamilyId = e.target.value;
+      await fetchAndDisplayPosts();
+    });
+
+    if (families.length > 0) {
+      currentFamilyId = families[0].family_id;
+    }
+  } else {
+    console.error("Family selector element not found");
+  }
+}
+
+async function fetchUserFamilies() {
+  try {
+    const response = await makeAuthenticatedRequest("/api/dashboard/user/families");
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching user families:", error);
+    return [];
+  }
 }
 
 function setupPostForm() {
@@ -36,95 +78,6 @@ function setupPostForm() {
   });
 }
 
-function handleLinkPreview() {
-  const captionInput = document.getElementById("captionInput");
-  const mediaPreview = document.getElementById("mediaPreview");
-  const urls = extractUrls(captionInput.value);
-
-  if (urls.length > 0) {
-    fetchLinkPreview(urls[0]);
-  } else {
-    mediaPreview.innerHTML = "";
-  }
-}
-
-function extractUrls(text) {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.match(urlRegex) || [];
-}
-
-function handleLinkPreview() {
-  const captionInput = document.getElementById("captionInput");
-  const mediaPreview = document.getElementById("mediaPreview");
-  const urls = extractUrls(captionInput.value);
-
-  if (urls.length > 0) {
-    const url = urls[0];
-    if (isYouTubeLink(url)) {
-      const videoId = extractYouTubeVideoId(url);
-      mediaPreview.innerHTML = `
-        <div class="youtube-embed" style="text-align: center;">
-          <iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" 
-            frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-            allowfullscreen></iframe>
-        </div>`;
-    } else {
-      fetchLinkPreview(url);
-    }
-  } else {
-    mediaPreview.innerHTML = "";
-  }
-}
-
-const isYouTubeLink = (url) => {
-  const youtubeRegex =
-    /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-  return youtubeRegex.test(url);
-};
-function extractYouTubeVideoId(url) {
-  const youtubeRegex =
-    /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-  const matches = youtubeRegex.exec(url);
-  return matches ? matches[1] : null;
-}
-
-function displayLinkPreview(preview) {
-  const mediaPreview = document.getElementById("mediaPreview");
-  const imageHtml = preview.image
-    ? `<img src="${preview.image}" alt="Link preview" style="max-width: 100%;">`
-    : "";
-  mediaPreview.innerHTML = `
-    <div class="link-preview" style="border: 1px solid #ccc; padding: 10px; display: flex; flex-direction: column; align-items: center;">
-      ${imageHtml}
-      <div class="link-info" style="text-align: center;">
-        <h3>${preview.title || "No title available"}</h3>
-        <p>${preview.description || "No description available"}</p>
-      </div>
-    </div>
-  `;
-}
-
-function handleFileSelection(file) {
-  const preview = document.getElementById("mediaPreview");
-  preview.innerHTML = "";
-
-  if (file) {
-    if (file.type.startsWith("image/")) {
-      const img = document.createElement("img");
-      img.src = URL.createObjectURL(file);
-      img.onload = () => URL.revokeObjectURL(img.src);
-      img.style.maxWidth = "100%";
-      preview.appendChild(img);
-    } else if (file.type.startsWith("video/")) {
-      const video = document.createElement("video");
-      video.src = URL.createObjectURL(file);
-      video.controls = true;
-      video.style.maxWidth = "100%";
-      preview.appendChild(video);
-    }
-  }
-}
-
 async function submitPost() {
   const caption = document.getElementById("captionInput").value;
   const mediaInput = document.getElementById("mediaInput");
@@ -137,17 +90,14 @@ async function submitPost() {
 
   const formData = new FormData();
   formData.append("caption", caption);
+  formData.append("familyId", currentFamilyId);
   if (mediaFile) {
     formData.append("media", mediaFile);
   }
 
   try {
-    const token = localStorage.getItem("token");
-    const response = await makeAuthenticatedRequest("/api/posts", {
+    const response = await makeAuthenticatedRequest(`/api/family/${currentFamilyId}/posts`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
       body: formData,
     });
 
@@ -166,17 +116,14 @@ async function submitPost() {
   }
 }
 
-let currentPage = 1;
-let totalPages = 1;
-
 async function fetchAndDisplayPosts(page = 1, append = false) {
   try {
-    const token = localStorage.getItem("token");
-    const response = await makeAuthenticatedRequest(`/api/posts?page=${page}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    if (!currentFamilyId) {
+      console.error("No family selected");
+      return;
+    }
+
+    const response = await makeAuthenticatedRequest(`/api/family/${currentFamilyId}/posts?page=${page}`);
 
     if (!response.ok) {
       throw new Error("Failed to fetch posts");
@@ -205,6 +152,7 @@ async function fetchAndDisplayPosts(page = 1, append = false) {
     socialFeedContent.innerHTML += `<p>Error loading posts. Please try again later.</p>`;
   }
 }
+
 function displayPosts(posts) {
   const socialFeedContent = document.getElementById("socialFeedContent");
   socialFeedContent.innerHTML = "";
@@ -222,6 +170,7 @@ function displayPosts(posts) {
     });
   }
 }
+
 function appendPosts(posts) {
   const socialFeedContent = document.getElementById("socialFeedContent");
 
@@ -230,6 +179,7 @@ function appendPosts(posts) {
     socialFeedContent.appendChild(postElement);
   });
 }
+
 function createPostElement(post) {
   const postElement = document.createElement("div");
   postElement.className = "social-post";
@@ -320,6 +270,7 @@ function createPostElement(post) {
 
   return postElement;
 }
+
 function showFullScreenPost(post) {
   const modal = document.getElementById("postModal");
   const modalContent = document.getElementById("modalPostContent");
@@ -379,6 +330,7 @@ function showFullScreenPost(post) {
     }
   };
 }
+
 function toggleComments(postId) {
   const commentsSection = document.getElementById(`comments-${postId}`);
   if (commentsSection.style.display === "none" || commentsSection.style.display === "") {
@@ -390,6 +342,7 @@ function toggleComments(postId) {
     commentsSection.style.display = "none";
   }
 }
+
 function getFullScreenMediaContent(post) {
   if (post.media_url) {
     if (post.media_type === "image") {
@@ -417,6 +370,7 @@ function getFullScreenMediaContent(post) {
   }
   return "";
 }
+
 function getMediaContent(post) {
   if (post.media_url) {
     if (post.media_type === "image") {
@@ -431,6 +385,7 @@ function getMediaContent(post) {
   }
   return "";
 }
+
 function updateLoadMoreButton() {
   let loadMoreButton = document.getElementById("loadMoreButton");
   if (!loadMoreButton) {
@@ -445,6 +400,7 @@ function updateLoadMoreButton() {
 
   loadMoreButton.style.display = currentPage < totalPages ? "block" : "none";
 }
+
 async function loadMorePosts() {
   if (currentPage < totalPages) {
     const loadMoreButton = document.getElementById("loadMoreButton");
@@ -458,6 +414,7 @@ async function loadMorePosts() {
   } else {
   }
 }
+
 async function toggleLike(postId) {
   try {
     const response = await makeAuthenticatedRequest(
@@ -509,6 +466,7 @@ async function fetchComments(postId) {
     return [];
   }
 }
+
 function displayComments(commentsContainerId, comments) {
   const commentsSection = document.getElementById(commentsContainerId);
   commentsSection.innerHTML = "";
@@ -537,11 +495,13 @@ function displayComments(commentsContainerId, comments) {
     commentsSection.appendChild(commentElement);
   });
 }
+
 function toggleReplyForm(commentId) {
   const replyForm = document.getElementById(`replyForm-${commentId}`);
   replyForm.style.display =
     replyForm.style.display === "none" ? "block" : "none";
 }
+
 async function addComment(postId, commentText, parentCommentId = null) {
   try {
     const token = localStorage.getItem("token");
@@ -585,6 +545,7 @@ function appendComment(postId, comment) {
 
   updateCommentCount(postId);
 }
+
 function appendReply(postId, parentCommentId, reply) {
   const parentComment = document.querySelector(
     `.comment[data-comment-id="${parentCommentId}"]`
@@ -597,6 +558,7 @@ function appendReply(postId, parentCommentId, reply) {
     console.error(`Parent comment not found: ${parentCommentId}`);
   }
 }
+
 function createCommentElement(comment, postId, isReply = false) {
   const element = document.createElement("div");
   element.className = isReply ? "reply" : "comment";
@@ -665,10 +627,52 @@ function formatDate(dateString) {
     day: "numeric",
   });
 }
+
 function updateCommentCount(postId) {
   const commentButton = document.querySelector(
     `.comment-button[data-post-id="${postId}"]`
   );
   const currentCount = parseInt(commentButton.textContent.match(/\d+/)[0]);
   commentButton.textContent = `Comment (${currentCount + 1})`;
+}
+
+function handleLinkPreview(event) {
+  const captionInput = event.target;
+  const mediaPreview = document.getElementById("mediaPreview");
+  const urls = extractUrls(captionInput.value);
+
+  if (urls.length > 0) {
+    fetchLinkPreview(urls[0]);
+  } else {
+    mediaPreview.innerHTML = "";
+  }
+}
+
+async function fetchLinkPreview(url) {
+  try {
+    const response = await makeAuthenticatedRequest(`/api/link-preview?url=${encodeURIComponent(url)}`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch link preview");
+    }
+    const preview = await response.json();
+    displayLinkPreview(preview);
+  } catch (error) {
+    console.error("Error fetching link preview:", error);
+  }
+}
+
+function displayLinkPreview(preview) {
+  const mediaPreview = document.getElementById("mediaPreview");
+  mediaPreview.innerHTML = `
+    <div class="link-preview">
+      <img src="${preview.image}" alt="Link preview image">
+      <h3>${preview.title}</h3>
+      <p>${preview.description}</p>
+    </div>
+  `;
+}
+
+function extractUrls(text) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.match(urlRegex) || [];
 }

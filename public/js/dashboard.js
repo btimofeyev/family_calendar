@@ -6,6 +6,7 @@ if ("serviceWorker" in navigator) {
     );
   });
 }
+
 let loggedInUserId;
 async function fetchUserProfile() {
   try {
@@ -25,169 +26,185 @@ async function fetchUserProfile() {
     return null;
   }
 }
-async function createFamily(familyName) {
+
+async function fetchUserFamilies() {
   try {
-    const token = localStorage.getItem("token");
-    const response = await makeAuthenticatedRequest("/api/dashboard/families", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ familyName }),
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`HTTP error! status: ${response.status}: ${errorBody}`);
-    }
-
-    const result = await response.json();
-
-    const updatedUser = await fetchUserProfile();
-    updateUserProfile(updatedUser);
-
-    const events = await fetchCalendarEvents();
-    
-    updateCalendar(events);
-
-    return result;
-  } catch (error) {
-    console.error("Error creating family:", error);
-    alert(`Failed to create family: ${error.message}`);
-    throw error;
-  }
-}
-
-async function addFamilyMember(email) {
-  try {
-    const token = localStorage.getItem("token");
-    const response = await makeAuthenticatedRequest(
-      "/api/dashboard/family/member",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ email }),
-      }
-    );
-
+    const response = await makeAuthenticatedRequest("/api/dashboard/user/families");
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const result = await response.json();
-    return result;
+    return await response.json();
   } catch (error) {
-    console.error("Error adding family member:", error);
-    throw error;
+    console.error("Error fetching user families:", error);
+    return [];
   }
 }
-// Function to update UI with user data
+
 function updateUserProfile(user) {
   if (user) {
     const userAvatar = document.getElementById("userAvatar");
     const userName = document.getElementById("userName");
     const userEmail = document.getElementById("userEmail");
-    const userFamilyName = document.getElementById("userFamilyName");
     const createFamilySection = document.getElementById("createFamilySection");
-    const addMemberSection = document.getElementById("addMemberSection");
-    const familyCalendar = document.getElementById("familyCalendar");
+    const familySection = document.getElementById("familySection");
 
     if (userAvatar) userAvatar.textContent = user.name.charAt(0);
     if (userName) userName.textContent = user.name;
     if (userEmail) userEmail.textContent = user.email;
 
-    if (user.family_id) {
-      if (userFamilyName)
-        userFamilyName.textContent = `Family: ${user.family_name}`;
-      if (createFamilySection) createFamilySection.style.display = "none";
-      if (addMemberSection) addMemberSection.style.display = "block";
-      if (familyCalendar) familyCalendar.style.display = "block";
-    } else {
-      if (userFamilyName) userFamilyName.textContent = "No family assigned";
-      if (createFamilySection) createFamilySection.style.display = "block";
-      if (addMemberSection) addMemberSection.style.display = "none";
-      if (familyCalendar) familyCalendar.style.display = "none";
-    }
+    if (createFamilySection) createFamilySection.style.display = "block";
+    if (familySection) familySection.style.display = "block";
   } else {
     console.error("No user data provided to updateUserProfile");
     const userProfile = document.getElementById("userProfile");
-    if (userProfile)
-      userProfile.innerHTML = "<p>Failed to load user profile</p>";
-    const familyCalendar = document.getElementById("familyCalendar");
-    if (familyCalendar) familyCalendar.style.display = "none";
-  }
-}
-async function fetchFamilyMembers() {
-  try {
-    const token = localStorage.getItem("token");
-    const response = await makeAuthenticatedRequest(
-      "/api/dashboard/family/members",
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch family members");
-    }
-
-    const members = await response.json();
-    updateFamilyMembersList(members);
-  } catch (error) {
-    console.error("Error fetching family members:", error);
+    if (userProfile) userProfile.innerHTML = "<p>Failed to load user profile</p>";
   }
 }
 
-function updateFamilyMembersList(members) {
-  const memberListContent = document.getElementById("memberListContent");
-  memberListContent.innerHTML = "";
+async function updateFamilyList() {
+  const families = await fetchUserFamilies();
+  const familyList = document.getElementById("familyList");
+  familyList.innerHTML = "";
 
-  members.forEach((member) => {
+  families.forEach(family => {
     const listItem = document.createElement("li");
-    listItem.className = "member-item";
     listItem.innerHTML = `
-            <div class="member-avatar">${member.name.charAt(0)}</div>
-            <div class="member-info">
-                <p class="user-name">${member.name}</p>
-                <p class="user-email">${member.email}</p>
-            </div>
-        `;
-    listItem.addEventListener("click", () => {
-      window.location.href = `profile.html?id=${member.id}`;
+      <span>${family.family_name}</span>
+      <button class="view-family" data-family-id="${family.family_id}">View</button>
+    `;
+    familyList.appendChild(listItem);
+  });
+
+  // Add event listeners to view buttons
+  document.querySelectorAll('.view-family').forEach(button => {
+    button.addEventListener('click', (e) => {
+      const familyId = e.target.getAttribute('data-family-id');
+      viewFamily(familyId);
     });
-    memberListContent.appendChild(listItem);
   });
 }
-async function fetchCalendarEvents() {
+
+async function viewFamily(familyId) {
   try {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      throw new Error("No token found");
+    const familyDetails = await fetchFamilyDetails(familyId);
+    if (!familyDetails) {
+      console.warn(`Unable to view family with id ${familyId}`);
+      return;
     }
+    const familyMembers = await fetchFamilyMembers(familyId);
+    updateFamilyView(familyDetails, familyMembers);
 
-    const response = await fetch("/api/dashboard/calendar", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch calendar events");
-    }
-
-    currentEvents = await response.json();
-    return currentEvents;
+    // Fetch and update calendar events
+    const events = await fetchCalendarEvents(familyId);
+    currentEvents = handleRecurringEvents(events);
+    updateCalendar(currentEvents);
   } catch (error) {
-    console.error("Error fetching calendar events:", error);
+    console.error("Error viewing family:", error);
+  }
+}
+
+async function fetchFamilyDetails(familyId) {
+  try {
+    const response = await makeAuthenticatedRequest(`/api/dashboard/families/${familyId}`);
+    if (response.status === 404) {
+      console.warn(`Family with id ${familyId} not found`);
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching family details:", error);
+    return null;
+  }
+}
+
+async function fetchFamilyMembers(familyId) {
+  try {
+    const response = await makeAuthenticatedRequest(`/api/dashboard/families/${familyId}/members`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching family members:", error);
     return [];
   }
 }
+
+function updateFamilyView(familyDetails, familyMembers) {
+  const familyView = document.getElementById("familyView");
+  if (!familyView) {
+    console.warn("Family view element not found");
+    return;
+  }
+
+  familyView.innerHTML = `
+    <h2>${familyDetails ? familyDetails.family_name : 'Family'}</h2>
+    <h3>Members:</h3>
+    <ul id="memberList"></ul>
+    <button id="inviteMemberBtn">Invite Member</button>
+  `;
+
+  const memberList = document.getElementById("memberList");
+  if (memberList) {
+    familyMembers.forEach(member => {
+      const listItem = document.createElement("li");
+      listItem.className = "member-item";
+      listItem.innerHTML = `
+        <div class="member-avatar">${member.name.charAt(0)}</div>
+        <div class="member-info">
+          <p class="user-name">${member.name}</p>
+          <p class="user-email">${member.email}</p>
+        </div>
+      `;
+      listItem.addEventListener("click", () => {
+        window.location.href = `/profile.html?userId=${member.id}`;
+      });
+      memberList.appendChild(listItem);
+    });
+  }
+
+  const inviteMemberBtn = document.getElementById("inviteMemberBtn");
+  if (inviteMemberBtn) {
+    inviteMemberBtn.addEventListener("click", showInviteMemberModal);
+  }
+}
+
+function showInviteMemberModal(familyId) {
+  const modal = document.getElementById("inviteMemberModal");
+  modal.style.display = "block";
+
+  const inviteForm = document.getElementById("inviteMemberForm");
+  inviteForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("inviteEmail").value;
+    await inviteFamilyMember(familyId, email);
+    modal.style.display = "none";
+  };
+}
+
+async function inviteFamilyMember(familyId, email) {
+  try {
+    const response = await makeAuthenticatedRequest(`/api/dashboard/families/${familyId}/invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to invite family member");
+    }
+
+    alert("Invitation sent successfully!");
+  } catch (error) {
+    console.error("Error inviting family member:", error);
+    alert("Failed to invite family member. Please try again.");
+  }
+}
+
 let currentDate = new Date();
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 function updateCalendar(events) {
@@ -308,12 +325,24 @@ function updateCalendar(events) {
 }
 document.getElementById("prevMonth").addEventListener("click", () => {
   currentDate.setMonth(currentDate.getMonth() - 1);
-  fetchCalendarEvents().then(updateCalendar);
+  const selectedFamilyId = document.getElementById("familySelector").value;
+  if (selectedFamilyId) {
+    fetchCalendarEvents(selectedFamilyId).then(events => {
+      currentEvents = handleRecurringEvents(events);
+      updateCalendar(currentEvents);
+    });
+  }
 });
 
 document.getElementById("nextMonth").addEventListener("click", () => {
   currentDate.setMonth(currentDate.getMonth() + 1);
-  fetchCalendarEvents().then(updateCalendar);
+  const selectedFamilyId = document.getElementById("familySelector").value;
+  if (selectedFamilyId) {
+    fetchCalendarEvents(selectedFamilyId).then(events => {
+      currentEvents = handleRecurringEvents(events);
+      updateCalendar(currentEvents);
+    });
+  }
 });
 
 function showEventDetails(events, date) {
@@ -486,177 +515,83 @@ async function inviteFamilyMember(email) {
   }
 }
 
-// Main function to initialize the dashboard
 async function initDashboard() {
   try {
     const user = await fetchUserProfile();
     updateUserProfile(user);
-    if (user && user.family_id) {
-      let events = await fetchCalendarEvents();
-      events = handleRecurringEvents(events);
-      updateCalendar(events);
+    
+    const families = await fetchUserFamilies();
+    updateFamilySelector(families);
 
-      await fetchFamilyMembers();
+    if (families.length > 0) {
+      const selectedFamilyId = families[0].family_id;
+      await viewFamily(selectedFamilyId);
     } else {
-      const familyCalendar = document.getElementById("familyCalendar");
-      if (familyCalendar) {
-        familyCalendar.innerHTML = "<p>No family calendar available</p>";
-      }
+      updateFamilyView(null, []);
+      updateCalendar([]); // Update calendar with empty events when no family is selected
     }
 
-    // Event listeners
-    const eventForm = document.getElementById("eventForm");
-    if (eventForm) {
-      eventForm.addEventListener("submit", saveEvent);
-    }
-
-    const deleteEventBtn = document.getElementById("deleteEvent");
-    if (deleteEventBtn) {
-      deleteEventBtn.addEventListener("click", deleteEvent);
-    }
-
-    const addEventBtn = document.getElementById("addEventBtn");
-    if (addEventBtn) {
-      addEventBtn.addEventListener("click", () => showEventDetails([]));
-    }
-
-    const closeModalBtn = document.getElementById("closeModalButton");
-    if (closeModalBtn) {
-      closeModalBtn.addEventListener("click", closeModal);
-    } else {
-      console.error("Close modal button not found");
-    }
-
-    // Close modal when clicking outside
-    window.addEventListener("click", (event) => {
-      const modal = document.getElementById("eventModal");
-      if (event.target === modal) {
-        closeModal();
-      }
-    });
-
-    // Handle create family form
-    const createFamilyForm = document.getElementById("createFamilyForm");
-    if (createFamilyForm) {
-      createFamilyForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const familyNameInput = document.getElementById("createFamilyName");
-        if (!familyNameInput) {
-          console.error("Family name input not found");
-          alert("There was an error with the form. Please try again later.");
-          return;
-        }
-
-        const familyName = familyNameInput.value.trim();
-
-        try {
-          const token = localStorage.getItem("token");
-          if (!token) {
-            throw new Error("No token found in local storage");
-          }
-
-          const response = await makeAuthenticatedRequest(
-            "/api/dashboard/families",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ familyName }),
-            }
-          );
-
-          const responseText = await response.text();
-
-          if (!response.ok) {
-            throw new Error(responseText || "Failed to create family");
-          }
-
-          const result = JSON.parse(responseText);
-
-          const updatedUser = await fetchUserProfile();
-          updateUserProfile(updatedUser);
-          alert("Family created successfully!");
-          familyNameInput.value = "";
-        } catch (error) {
-          console.error("Error creating family:", error);
-          alert(`Failed to create family: ${error.message}`);
-        }
-      });
-    } else {
-      console.error("Create family form not found");
-    }
-    const inviteMemberForm = document.getElementById("inviteMemberForm");
-    if (inviteMemberForm) {
-      inviteMemberForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const inviteEmailInput = document.getElementById("inviteEmail");
-        if (!inviteEmailInput) {
-          console.error("Invite email input not found");
-          alert("There was an error with the form. Please try again later.");
-          return;
-        }
-
-        const email = inviteEmailInput.value.trim();
-
-        try {
-          await inviteFamilyMember(email);
-          alert("Invitation sent successfully!");
-          inviteEmailInput.value = "";
-        } catch (error) {
-          console.error("Error sending invitation:", error);
-          alert(`Failed to send invitation: ${error.message}`);
-        }
-      });
-    } else {
-      console.error("Invite member form not found");
-    }
+    setupEventListeners();
   } catch (error) {
     console.error("Error initializing dashboard:", error);
   }
 }
 
-// Call the init function when the page loads
-document.addEventListener("DOMContentLoaded", () => {
-  initDashboard();
-  const leftColumn = document.querySelector(".left-column");
-  const rightColumn = document.querySelector(".right-column");
-  const postForm = document.querySelector("#postForm");
-  const toggleLeftColumn = document.getElementById("toggleLeftColumn");
-  const toggleRightColumn = document.getElementById("toggleRightColumn");
-  const togglePostForm = document.getElementById("togglePostForm");
-  const overlay = document.getElementById("overlay");
+function updateFamilySelector(families) {
+  const familySelector = document.getElementById("familySelector");
+  if (familySelector) {
+    familySelector.innerHTML = "<option value=''>Select a family</option>";
+    families.forEach(family => {
+      const option = document.createElement("option");
+      option.value = family.family_id;
+      option.textContent = family.family_name;
+      familySelector.appendChild(option);
+    });
 
-  toggleLeftColumn.addEventListener("click", () => {
-    leftColumn.classList.toggle("open");
-    rightColumn.classList.remove("open");
-    postForm.classList.remove("open");
-    overlay.classList.toggle("active", leftColumn.classList.contains("open"));
-  });
+    familySelector.addEventListener("change", async (e) => {
+      const selectedFamilyId = e.target.value;
+      if (selectedFamilyId) {
+        await viewFamily(selectedFamilyId);
+      } else {
+        updateFamilyView(null, []);
+        updateCalendar([]); // Update calendar with empty events when no family is selected
+      }
+    });
+  }
+}
 
-  toggleRightColumn.addEventListener("click", () => {
-    rightColumn.classList.toggle("open");
-    leftColumn.classList.remove("open");
-    postForm.classList.remove("open");
-    overlay.classList.toggle("active", rightColumn.classList.contains("open"));
-  });
+function setupEventListeners() {
+  const createFamilyBtn = document.getElementById("createFamilyBtn");
+  if (createFamilyBtn) {
+    createFamilyBtn.addEventListener("click", showCreateFamilyModal);
+  }
 
-  togglePostForm.addEventListener("click", () => {
-    postForm.classList.toggle("open");
-    leftColumn.classList.remove("open");
-    rightColumn.classList.remove("open");
-    overlay.classList.toggle("active", postForm.classList.contains("open"));
-    window.scrollTo(0, postForm.offsetTop);
-  });
+  const inviteMemberBtn = document.getElementById("inviteMemberBtn");
+  if (inviteMemberBtn) {
+    inviteMemberBtn.addEventListener("click", showInviteMemberModal);
+  }
+}
 
-  // Hide columns and form when clicking outside
-  overlay.addEventListener("click", () => {
-    leftColumn.classList.remove("open");
-    rightColumn.classList.remove("open");
-    postForm.classList.remove("open");
-    overlay.classList.remove("active");
-  });
-});
+function showCreateFamilyModal() {
+  // Implement the modal for creating a new family
+}
+
+function showInviteMemberModal() {
+  // Implement the modal for inviting a new member
+}
+
+// Add this function near the top of the file, after other function definitions
+async function fetchCalendarEvents(familyId) {
+  try {
+    const response = await makeAuthenticatedRequest(`/api/dashboard/calendar/${familyId}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching calendar events:", error);
+    return [];
+  }
+}
+
+document.addEventListener("DOMContentLoaded", initDashboard);
