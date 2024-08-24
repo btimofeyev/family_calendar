@@ -67,11 +67,26 @@ function logout() {
 function showLogoutModal() {
   const logoutModal = document.getElementById("logoutModal");
   if (logoutModal) {
+    console.log("Showing logout modal");
     logoutModal.style.display = "flex"; // Show the modal
     const loginRedirectButton = document.getElementById("loginRedirect");
-    loginRedirectButton.addEventListener("click", () => {
-      window.location.href = "index.html"; // Redirect to the login page
-    });
+    if (loginRedirectButton) {
+      console.log("Attaching click event to loginRedirectButton");
+      loginRedirectButton.addEventListener("click", (event) => {
+        event.preventDefault(); 
+        console.log("Login redirect button clicked");
+
+        // Hide the modal
+        logoutModal.style.display = "none";
+
+        // Perform the redirect
+        window.location.href = "index.html";
+      });
+    } else {
+      console.error("loginRedirectButton not found");
+    }
+  } else {
+    console.error("logoutModal not found");
   }
 }
 

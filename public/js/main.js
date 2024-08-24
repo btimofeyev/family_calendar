@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   authModal = document.getElementById("auth-modal");
   const loginForm = document.getElementById("login-form");
   const signupForm = document.getElementById("signup-form");
@@ -7,10 +7,33 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeBtn = document.querySelector(".close");
   let deferredPrompt;
 
-
+  // Check if token exists in localStorage
   if (localStorage.getItem("token")) {
-    window.location.href = "dashboard.html";
-    return; 
+    try {
+      // Verify token with server
+      const response = await fetch('/api/auth/verify-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      // If the token is valid, redirect to dashboard
+      if (response.ok) {
+        window.location.href = "dashboard.html";
+        return;
+      } else {
+        // If the token is invalid, remove it and show the logout modal
+        localStorage.removeItem("token");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("familyId");
+        showLogoutModal();
+      }
+    } catch (error) {
+      console.error("Error verifying token:", error);
+      showLogoutModal();
+    }
   }
 
   // Capture the beforeinstallprompt event
@@ -173,5 +196,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("signup").addEventListener("submit", signup);
 
   // Check if user is already logged in
+  // Execute handleInvitation if applicable
   handleInvitation();
 });
