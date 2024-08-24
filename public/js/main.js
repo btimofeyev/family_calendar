@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
   authModal = document.getElementById("auth-modal");
   const loginForm = document.getElementById("login-form");
   const signupForm = document.getElementById("signup-form");
@@ -7,33 +7,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const closeBtn = document.querySelector(".close");
   let deferredPrompt;
 
-  // Check if token exists in localStorage
+  // If a token exists in localStorage, assume the user is logged in and redirect
   if (localStorage.getItem("token")) {
-    try {
-      // Verify token with server
-      const response = await fetch('/api/auth/verify-token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-
-      // If the token is valid, redirect to dashboard
-      if (response.ok) {
-        window.location.href = "dashboard.html";
-        return;
-      } else {
-        // If the token is invalid, remove it and show the logout modal
-        localStorage.removeItem("token");
-        localStorage.removeItem("userId");
-        localStorage.removeItem("familyId");
-        showLogoutModal();
-      }
-    } catch (error) {
-      console.error("Error verifying token:", error);
-      showLogoutModal();
-    }
+    window.location.href = "dashboard.html";
+    return;
   }
 
   // Capture the beforeinstallprompt event
@@ -53,7 +30,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // modal functionality
+  // Modal functionality
   function showModal() {
     authModal.classList.remove("hidden");
   }
@@ -177,7 +154,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         localStorage.setItem("userId", data.user.id);
         if (data.user.family_id) {
           localStorage.setItem("familyId", data.user.family_id);
-        } else {
         }
         localStorage.removeItem("invitationToken");
 
@@ -195,7 +171,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("login").addEventListener("submit", login);
   document.getElementById("signup").addEventListener("submit", signup);
 
-  // Check if user is already logged in
   // Execute handleInvitation if applicable
   handleInvitation();
 });

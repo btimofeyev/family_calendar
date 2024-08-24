@@ -1,22 +1,23 @@
 async function refreshAccessToken() {
-    try {
-      const response = await fetch('/api/auth/refresh-token', {
-        method: 'POST',
-        credentials: 'include',
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      localStorage.setItem('token', data.token);
-      return data.token;
-    } catch (error) {
-      console.error('Error refreshing access token:', error);
-      return null;
+  try {
+    const response = await fetch('/api/auth/refresh-token', {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+
+    const data = await response.json();
+    localStorage.setItem('token', data.token);
+    return data.token;
+  } catch (error) {
+    console.error('Error refreshing access token:', error);
+    return null;
   }
+}
+
 async function makeAuthenticatedRequest(url, options = {}) {
   let token = localStorage.getItem("token");
 
@@ -39,13 +40,14 @@ async function makeAuthenticatedRequest(url, options = {}) {
       localStorage.setItem("token", token);
       response = await makeRequest(token);
     } else {
-      showLogoutModal();
+      showLogoutModal();  // Show the logout modal only if token refresh fails
       return null;
     }
   }
 
   return response;
 }
+
 function logout() {
   fetch("/api/auth/logout", {
     method: "POST",
@@ -67,26 +69,11 @@ function logout() {
 function showLogoutModal() {
   const logoutModal = document.getElementById("logoutModal");
   if (logoutModal) {
-    console.log("Showing logout modal");
     logoutModal.style.display = "flex"; // Show the modal
     const loginRedirectButton = document.getElementById("loginRedirect");
-    if (loginRedirectButton) {
-      console.log("Attaching click event to loginRedirectButton");
-      loginRedirectButton.addEventListener("click", (event) => {
-        event.preventDefault(); 
-        console.log("Login redirect button clicked");
-
-        // Hide the modal
-        logoutModal.style.display = "none";
-
-        // Perform the redirect
-        window.location.href = "index.html";
-      });
-    } else {
-      console.error("loginRedirectButton not found");
-    }
-  } else {
-    console.error("logoutModal not found");
+    loginRedirectButton.addEventListener("click", () => {
+      window.location.href = "index.html"; // Redirect to the login page
+    });
   }
 }
 
