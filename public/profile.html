@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Profile</title>
     <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
 <body>
     <div class="dashboard">
@@ -12,19 +13,14 @@
             <div id="userAvatar" class="avatar"></div>
             <h1 id="userName"></h1>
             <p id="userEmail"></p>
+            <p id="familyStatus"></p>
             <button class="back-button" onclick="window.location.href='dashboard.html'">Back</button>
         </div>
-        <div class="profile-content">
-            <div class="profile-tabs">
-                <button class="tab-button active" data-tab="allPosts">All Posts</button>
-                <button class="tab-button" data-tab="images">Images</button>
-            </div>
-            <div id="socialFeed" class="social-feed">
-                <div id="allPostsTab" class="tab-content active"></div>
-                <div id="imagesTab" class="tab-content"></div>
-            </div>
+        <div id="profileContent" class="profile-content">
+            <!-- Post grid will be inserted here by JavaScript -->
         </div>
     </div>
+    <script src="js/utils.js"></script>
     <script src="js/profile.js"></script>
 </body>
 </html>

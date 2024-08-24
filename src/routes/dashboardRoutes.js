@@ -25,9 +25,10 @@ router.post('/families', familyController.createFamily);
 router.post('/families/:familyId/members', familyController.addFamilyMember);
 router.get('/families/:familyId/members', familyController.getFamilyMembers);
 router.get('/user/families', familyController.getUserFamilies);
-router.get('/families/:familyId', familyController.getFamilyDetails); // Added this route
+router.get('/families/:familyId', familyController.getFamilyDetails); 
 
 router.get('/users/:userId', userController.getUserProfile);
+router.get('/users/:userId/family/:familyId', userController.getUserProfileInFamily);
 
 
 

@@ -160,6 +160,8 @@ function updateFamilyView(familyDetails, familyMembers) {
     return;
   }
 
+  const familyId = familyDetails ? familyDetails.family_id : null;
+
   familyView.innerHTML = `
     <h2>${familyDetails ? familyDetails.family_name : 'Family'}</h2>
     <h3>Members:</h3>
@@ -180,7 +182,7 @@ function updateFamilyView(familyDetails, familyMembers) {
         </div>
       `;
       listItem.addEventListener("click", () => {
-        window.location.href = `/profile.html?userId=${member.id}`;
+        window.location.href = `/profile.html?userId=${member.id}&familyId=${familyId}`;
       });
       memberList.appendChild(listItem);
     });
@@ -689,13 +691,8 @@ async function updateSocialFeed(familyId) {
   }
 
   // Fetch and display new posts
-  if (typeof fetchAndDisplayPosts === "function") {
-    await fetchAndDisplayPosts();
-  }
-
-  // Update load more button
-  if (typeof updateLoadMoreButton === "function") {
-    updateLoadMoreButton();
+  if (typeof initializeSocialFeed === "function") {
+    await initializeSocialFeed(familyId);
   }
 }
 

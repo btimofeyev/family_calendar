@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const scrollToTopLink = document.getElementById("scrollToTop");
   if (scrollToTopLink) {
     scrollToTopLink.addEventListener("click", function (event) {
@@ -11,22 +11,48 @@ document.addEventListener("DOMContentLoaded", () => {
   } else {
     console.error("Element with ID scrollToTop not found.");
   }
-  initializeSocialFeed();
+  
+  // Fetch the user's families and set the default family
+  await setDefaultFamily();
+  await initializeSocialFeed();
 });
 
 let currentFamilyId = null;
+let currentPage = 1;
+let totalPages = 1;
+
+async function setDefaultFamily() {
+  try {
+    const families = await fetchUserFamilies();
+    if (families.length > 0) {
+      currentFamilyId = families[0].family_id;
+    }
+  } catch (error) {
+    console.error("Error setting default family:", error);
+  }
+}
 
 async function initializeSocialFeed(familyId = null) {
   if (familyId) {
     currentFamilyId = familyId;
   }
   setupPostForm();
-  await fetchAndDisplayPosts();
-  updateLoadMoreButton();
+  if (currentFamilyId) {
+    await fetchAndDisplayPosts();
+    updateLoadMoreButton();
+  } else {
+    console.warn("No family selected. Please select a family to view posts.");
+    const socialFeedContent = document.getElementById("socialFeedContent");
+    if (socialFeedContent) {
+      socialFeedContent.innerHTML = "<p>Please select a family to view posts.</p>";
+    }
+  }
 }
 
 async function updateSocialFeed(familyId) {
   currentFamilyId = familyId;
+  currentPage = 1;
+  totalPages = 1;
   await fetchAndDisplayPosts();
   updateLoadMoreButton();
 }
@@ -179,7 +205,7 @@ function closePostForm() {
 async function fetchAndDisplayPosts(page = 1, append = false) {
   try {
     if (!currentFamilyId) {
-      console.error("No family selected");
+      console.warn("No family selected");
       return;
     }
 
@@ -455,7 +481,10 @@ function updateLoadMoreButton() {
     loadMoreButton.addEventListener("click", () => {
       loadMorePosts();
     });
-    document.querySelector(".social-feed").appendChild(loadMoreButton);
+    const socialFeed = document.querySelector(".social-feed");
+    if (socialFeed) {
+      socialFeed.appendChild(loadMoreButton);
+    }
   }
 
   loadMoreButton.style.display = currentPage < totalPages ? "block" : "none";
@@ -694,4 +723,18 @@ function updateCommentCount(postId) {
   );
   const currentCount = parseInt(commentButton.textContent.match(/\d+/)[0]);
   commentButton.textContent = `Comment (${currentCount + 1})`;
+}
+
+// Add this function to fetch user families
+async function fetchUserFamilies() {
+  try {
+    const response = await makeAuthenticatedRequest("/api/dashboard/user/families");
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching user families:", error);
+    return [];
+  }
 }
