@@ -20,48 +20,15 @@ async function initializeSocialFeed(familyId = null) {
   if (familyId) {
     currentFamilyId = familyId;
   }
-  await setupFamilySelector();
   setupPostForm();
   await fetchAndDisplayPosts();
   updateLoadMoreButton();
 }
 
-async function setupFamilySelector() {
-  const families = await fetchUserFamilies();
-  const familySelector = document.getElementById("familySelector");
-  
-  if (familySelector) {
-    families.forEach(family => {
-      const option = document.createElement("option");
-      option.value = family.family_id;
-      option.textContent = family.family_name;
-      familySelector.appendChild(option);
-    });
-
-    familySelector.addEventListener("change", async (e) => {
-      currentFamilyId = e.target.value;
-      await fetchAndDisplayPosts();
-    });
-
-    if (families.length > 0) {
-      currentFamilyId = families[0].family_id;
-    }
-  } else {
-    console.error("Family selector element not found");
-  }
-}
-
-async function fetchUserFamilies() {
-  try {
-    const response = await makeAuthenticatedRequest("/api/dashboard/user/families");
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return await response.json();
-  } catch (error) {
-    console.error("Error fetching user families:", error);
-    return [];
-  }
+async function updateSocialFeed(familyId) {
+  currentFamilyId = familyId;
+  await fetchAndDisplayPosts();
+  updateLoadMoreButton();
 }
 
 function setupPostForm() {
@@ -73,12 +40,80 @@ function setupPostForm() {
     handleFileSelection(event.target.files[0]);
   });
 
-  captionInput.addEventListener("input", handleLinkPreview);
+  captionInput.addEventListener("input", handleCaptionInput);
 
   postForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     await submitPost();
   });
+}
+
+function handleFileSelection(file) {
+  const mediaPreview = document.getElementById("mediaPreview");
+  
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const previewElement = document.createElement(file.type.startsWith("image/") ? "img" : "video");
+      previewElement.src = e.target.result;
+      previewElement.className = "media-preview-item";
+      if (previewElement.tagName === "VIDEO") {
+        previewElement.setAttribute("controls", "");
+      }
+      mediaPreview.innerHTML = ''; // Clear existing content
+      mediaPreview.appendChild(previewElement);
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function handleCaptionInput(event) {
+  const captionInput = event.target;
+  const mediaPreview = document.getElementById("mediaPreview");
+  const urls = extractUrls(captionInput.value);
+
+  // Check if there's already a media preview (image or video)
+  const existingMediaPreview = mediaPreview.querySelector('.media-preview-item');
+  
+  if (urls.length > 0 && !existingMediaPreview) {
+    fetchLinkPreview(urls[0]);
+  } else if (urls.length === 0 && !existingMediaPreview) {
+    mediaPreview.innerHTML = "";
+  }
+  // If there's an existing media preview, we don't change it
+}
+
+async function fetchLinkPreview(url) {
+  try {
+    const response = await makeAuthenticatedRequest(`/api/link-preview?url=${encodeURIComponent(url)}`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch link preview");
+    }
+    const preview = await response.json();
+    displayLinkPreview(preview);
+  } catch (error) {
+    console.error("Error fetching link preview:", error);
+  }
+}
+
+function displayLinkPreview(preview) {
+  const mediaPreview = document.getElementById("mediaPreview");
+  const existingMediaPreview = mediaPreview.querySelector('.media-preview-item');
+  
+  if (!existingMediaPreview) {
+    mediaPreview.innerHTML = `
+      <div class="link-preview">
+        <img src="${preview.image}" alt="Link preview image">
+        <h3>${preview.title}</h3>
+        <p>${preview.description}</p>
+      </div>
+    `;
+  }
+}
+
+function extractUrls(text) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.match(urlRegex) || [];
 }
 
 async function submitPost() {
@@ -88,6 +123,11 @@ async function submitPost() {
 
   if (!caption && !mediaFile) {
     alert("Please enter a caption or select a media file.");
+    return;
+  }
+
+  if (!currentFamilyId) {
+    alert("No family selected. Please select a family before posting.");
     return;
   }
 
@@ -169,7 +209,7 @@ async function fetchAndDisplayPosts(page = 1, append = false) {
   } catch (error) {
     console.error("Error fetching posts:", error);
     const socialFeedContent = document.getElementById("socialFeedContent");
-    socialFeedContent.innerHTML += `<p>Error loading posts. Please try again later.</p>`;
+    socialFeedContent.innerHTML = `<p>Error loading posts. Please try again later.</p>`;
   }
 }
 
@@ -654,45 +694,4 @@ function updateCommentCount(postId) {
   );
   const currentCount = parseInt(commentButton.textContent.match(/\d+/)[0]);
   commentButton.textContent = `Comment (${currentCount + 1})`;
-}
-
-function handleLinkPreview(event) {
-  const captionInput = event.target;
-  const mediaPreview = document.getElementById("mediaPreview");
-  const urls = extractUrls(captionInput.value);
-
-  if (urls.length > 0) {
-    fetchLinkPreview(urls[0]);
-  } else {
-    mediaPreview.innerHTML = "";
-  }
-}
-
-async function fetchLinkPreview(url) {
-  try {
-    const response = await makeAuthenticatedRequest(`/api/link-preview?url=${encodeURIComponent(url)}`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch link preview");
-    }
-    const preview = await response.json();
-    displayLinkPreview(preview);
-  } catch (error) {
-    console.error("Error fetching link preview:", error);
-  }
-}
-
-function displayLinkPreview(preview) {
-  const mediaPreview = document.getElementById("mediaPreview");
-  mediaPreview.innerHTML = `
-    <div class="link-preview">
-      <img src="${preview.image}" alt="Link preview image">
-      <h3>${preview.title}</h3>
-      <p>${preview.description}</p>
-    </div>
-  `;
-}
-
-function extractUrls(text) {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.match(urlRegex) || [];
 }

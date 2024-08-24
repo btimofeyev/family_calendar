@@ -95,13 +95,28 @@ async function viewFamily(familyId) {
     const familyMembers = await fetchFamilyMembers(familyId);
     updateFamilyView(familyDetails, familyMembers);
 
+    // Highlight the selected family button
+    const familySelector = document.getElementById("familySelector");
+    if (familySelector) {
+      familySelector.querySelectorAll('.family-button').forEach(btn => {
+        btn.classList.remove('selected');
+        if (btn.dataset.familyId === familyId) {
+          btn.classList.add('selected');
+        }
+      });
+    }
+
     // Fetch and update calendar events
     const events = await fetchCalendarEvents(familyId);
     currentEvents = handleRecurringEvents(events);
     updateCalendar(currentEvents);
 
     // Update social feed
-    await updateSocialFeed(familyId);
+    if (typeof updateSocialFeed === "function") {
+      await updateSocialFeed(familyId);
+    } else {
+      console.error("updateSocialFeed function not found");
+    }
 
   } catch (error) {
     console.error("Error viewing family:", error);
@@ -208,10 +223,11 @@ function showInviteMemberModal() {
 
 async function inviteFamilyMember(email) {
   try {
-    const selectedFamilyId = document.getElementById('familySelector').value;
-    if (!selectedFamilyId) {
+    const selectedFamilyButton = document.querySelector('.family-button.selected');
+    if (!selectedFamilyButton) {
       throw new Error("No family selected");
     }
+    const selectedFamilyId = selectedFamilyButton.dataset.familyId;
 
     console.log('Inviting member:', email, 'to family:', selectedFamilyId);
 
@@ -361,8 +377,9 @@ function updateCalendar(events) {
 }
 document.getElementById("prevMonth").addEventListener("click", () => {
   currentDate.setMonth(currentDate.getMonth() - 1);
-  const selectedFamilyId = document.getElementById("familySelector").value;
-  if (selectedFamilyId) {
+  const selectedFamilyButton = document.querySelector('.family-button.selected');
+  if (selectedFamilyButton) {
+    const selectedFamilyId = selectedFamilyButton.dataset.familyId;
     fetchCalendarEvents(selectedFamilyId).then(events => {
       currentEvents = handleRecurringEvents(events);
       updateCalendar(currentEvents);
@@ -372,8 +389,9 @@ document.getElementById("prevMonth").addEventListener("click", () => {
 
 document.getElementById("nextMonth").addEventListener("click", () => {
   currentDate.setMonth(currentDate.getMonth() + 1);
-  const selectedFamilyId = document.getElementById("familySelector").value;
-  if (selectedFamilyId) {
+  const selectedFamilyButton = document.querySelector('.family-button.selected');
+  if (selectedFamilyButton) {
+    const selectedFamilyId = selectedFamilyButton.dataset.familyId;
     fetchCalendarEvents(selectedFamilyId).then(events => {
       currentEvents = handleRecurringEvents(events);
       updateCalendar(currentEvents);
@@ -549,8 +567,6 @@ async function initDashboard() {
     updateFamilySelector(families);
 
     if (families.length > 0) {
-      const familySelector = document.getElementById("familySelector");
-      familySelector.value = families[0].family_id;
       await viewFamily(families[0].family_id);
     } else {
       updateFamilyView(null, []);
@@ -566,23 +582,40 @@ async function initDashboard() {
 function updateFamilySelector(families) {
   const familySelector = document.getElementById("familySelector");
   if (familySelector) {
-    familySelector.innerHTML = "<option value=''>Select a family</option>";
+    familySelector.innerHTML = ''; // Clear existing content
     families.forEach(family => {
-      const option = document.createElement("option");
-      option.value = family.family_id;
-      option.textContent = family.family_name;
-      familySelector.appendChild(option);
+      const button = document.createElement("button");
+      button.className = "family-button";
+      button.textContent = family.family_name;
+      button.dataset.familyId = family.family_id;
+      familySelector.appendChild(button);
     });
 
-    familySelector.addEventListener("change", async (e) => {
-      const selectedFamilyId = e.target.value;
-      if (selectedFamilyId) {
-        await viewFamily(selectedFamilyId);
-      } else {
-        updateFamilyView(null, []);
-        updateCalendar([]); 
+    familySelector.addEventListener("click", async (e) => {
+      if (e.target.classList.contains("family-button")) {
+        const selectedFamilyId = e.target.dataset.familyId;
+        if (selectedFamilyId) {
+          // Remove 'selected' class from all buttons
+          familySelector.querySelectorAll('.family-button').forEach(btn => {
+            btn.classList.remove('selected');
+          });
+          // Add 'selected' class to clicked button
+          e.target.classList.add('selected');
+          await viewFamily(selectedFamilyId);
+        }
       }
     });
+
+    // Select the first family by default
+    if (families.length > 0) {
+      const firstFamilyButton = familySelector.querySelector('.family-button');
+      if (firstFamilyButton) {
+        firstFamilyButton.classList.add('selected');
+        viewFamily(families[0].family_id);
+      }
+    }
+  } else {
+    console.error("Family selector element not found");
   }
 }
 

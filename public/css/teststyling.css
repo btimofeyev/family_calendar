@@ -340,11 +340,13 @@ textarea:focus {
   background-color: var(--primary-color);
 }
 
-#mediaPreview {
+.media-preview-item {
   max-width: 100%;
-  margin-top: 10px;
+  max-height: 300px;
+  object-fit: contain;
   border-radius: 8px;
 }
+
 
 .social-post {
   background-color: #fff;
@@ -801,12 +803,16 @@ textarea:focus {
 
 .family-management {
   margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 #familySelector {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
 }
 
 .family-button {
@@ -819,8 +825,15 @@ textarea:focus {
   transition: background-color 0.3s ease;
 }
 
-.family-button:hover, .family-button.selected {
+.family-button:hover {
   background-color: var(--primary-color);
+}
+
+.family-button.selected {
+  background-color: var(--primary-color);
+  font-weight: bold;
+  border: 2px solid var(--accent-color);
+
 }
 
 #createFamilyBtn {
@@ -832,6 +845,8 @@ textarea:focus {
   cursor: pointer;
   transition: background-color 0.3s ease;
   margin-top: 10px;
+  width: 100%;
+  max-width: 200px;
 }
 
 #createFamilyBtn:hover {
