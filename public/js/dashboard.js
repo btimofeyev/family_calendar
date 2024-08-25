@@ -108,7 +108,9 @@ async function viewFamily(familyId) {
 
     // Fetch and update calendar events
     const events = await fetchCalendarEvents(familyId);
+    console.log("Events before handling recurring:", events); // Add this line
     currentEvents = handleRecurringEvents(events);
+    console.log("Events after handling recurring:", currentEvents); // Add this line
     updateCalendar(currentEvents);
 
     // Update social feed
@@ -262,15 +264,21 @@ async function inviteFamilyMember(email) {
 let currentDate = new Date();
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 function updateCalendar(events) {
+  console.log("Updating calendar with events:", events);
   const calendarGrid = document.getElementById("calendarGrid");
   const monthYear = document.getElementById("monthYear");
   const eventList = document.getElementById("eventList");
 
   // Sort events by date to find the next three
   const upcomingEvents = events
-  .filter((event) => new Date(event.event_date + 'T00:00:00Z') >= new Date())
-  .sort((a, b) => new Date(a.event_date + 'T00:00:00Z') - new Date(b.event_date + 'T00:00:00Z'))
-  .slice(0, 3);
+    .filter((event) => {
+      const eventDate = new Date(event.event_date + 'T00:00:00Z');
+      return eventDate >= new Date();
+    })
+    .sort((a, b) => new Date(a.event_date + 'T00:00:00Z') - new Date(b.event_date + 'T00:00:00Z'))
+    .slice(0, 3);
+
+  console.log("Upcoming events:", upcomingEvents);
 
   // Clear the event list and populate it with upcoming events
   eventList.innerHTML = "";
@@ -338,10 +346,8 @@ function updateCalendar(events) {
     dayNumber.textContent = i;
     day.appendChild(dayNumber);
 
-    const eventDate = new Date(
-      Date.UTC(currentDate.getFullYear(), currentDate.getMonth(), i)
-    );
-     const dayEvents = events.filter((event) => {
+    const eventDate = new Date(Date.UTC(currentDate.getFullYear(), currentDate.getMonth(), i));
+    const dayEvents = events.filter((event) => {
       const eventDay = new Date(event.event_date + 'T00:00:00Z');
       return (
         eventDay.getUTCDate() === eventDate.getUTCDate() &&
@@ -350,6 +356,8 @@ function updateCalendar(events) {
       );
     });
     
+    console.log(`Events for ${eventDate.toDateString()}:`, dayEvents);
+
     if (dayEvents.length > 0) {
       day.classList.add("has-event");
       day.style.backgroundColor = "lightblue"; 
@@ -373,9 +381,7 @@ function updateCalendar(events) {
     });
 
     calendarGrid.appendChild(day);
-    
   }
-  
 }
 document.getElementById("prevMonth").addEventListener("click", () => {
   currentDate.setMonth(currentDate.getMonth() - 1);
@@ -437,6 +443,13 @@ async function saveEvent(event) {
   const eventDate = new Date(document.getElementById("eventDate").value + 'T00:00:00Z');
   const formattedDate = eventDate.toISOString().split('T')[0];
 
+  const selectedFamilyButton = document.querySelector('.family-button.selected');
+  if (!selectedFamilyButton) {
+    alert("Please select a family before saving an event.");
+    return;
+  }
+  const familyId = selectedFamilyButton.dataset.familyId;
+
   const eventData = {
     id: document.getElementById("eventId").value,
     type: document.getElementById("eventType").value,
@@ -444,16 +457,13 @@ async function saveEvent(event) {
     event_date: formattedDate,
     description: document.getElementById("eventDescription").value,
     is_recurring: document.getElementById("isRecurring").checked,
+    family_id: familyId
   };
+
   try {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      throw new Error("No authentication token found");
-    }
     const response = await makeAuthenticatedRequest("/api/dashboard/calendar", {
       method: eventData.id ? "PUT" : "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(eventData),
@@ -466,17 +476,13 @@ async function saveEvent(event) {
     }
 
     const savedEvent = await response.json();
-    // Update currentEvents array
-    if (eventData.id) {
-      const index = currentEvents.findIndex((e) => e.id === savedEvent.id);
-      if (index !== -1) {
-        currentEvents[index] = savedEvent;
-      }
-    } else {
-      currentEvents.push(savedEvent);
-    }
-    let updatedEvents = handleRecurringEvents(currentEvents);
-    updateCalendar(updatedEvents);
+    console.log("Saved event:", savedEvent); // Add this line
+
+    // Refresh the calendar events
+    const updatedEvents = await fetchCalendarEvents(familyId);
+    currentEvents = handleRecurringEvents(updatedEvents);
+    updateCalendar(currentEvents);
+
     closeModal();
     alert("Event saved successfully!");
   } catch (error) {
@@ -484,27 +490,32 @@ async function saveEvent(event) {
     alert(`Failed to save event: ${error.message}`);
   }
 }
+
+// Add this event listener to the form
+document.getElementById("eventForm").addEventListener("submit", saveEvent);
+
 function handleRecurringEvents(events) {
   const today = new Date();
   const endOfYear = new Date(today.getFullYear() + 1, 11, 31); // Show events up to end of next year
 
   return events.flatMap((event) => {
+    const eventDate = new Date(event.event_date);
     if (event.is_recurring) {
       const eventDates = [];
-      let nextOccurrence = new Date(event.event_date);
+      let nextOccurrence = new Date(eventDate);
 
       while (nextOccurrence <= endOfYear) {
         eventDates.push({
           ...event,
           event_date: nextOccurrence.toISOString().split('T')[0],
-          isRecurrence: nextOccurrence.getTime() !== new Date(event.event_date).getTime()
+          isRecurrence: nextOccurrence.getTime() !== eventDate.getTime()
         });
         nextOccurrence.setFullYear(nextOccurrence.getFullYear() + 1);
       }
 
       return eventDates;
     } else {
-      return [event];
+      return [{...event, event_date: eventDate.toISOString().split('T')[0]}];
     }
   });
 }
@@ -553,7 +564,9 @@ async function fetchCalendarEvents(familyId) {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    return await response.json();
+    const events = await response.json();
+    console.log("Fetched events:", events); // Add this line
+    return events;
   } catch (error) {
     console.error("Error fetching calendar events:", error);
     return [];
