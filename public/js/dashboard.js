@@ -285,8 +285,9 @@ function updateCalendar(events) {
   upcomingEvents.forEach((event) => {
     const eventDate = new Date(event.event_date + 'T00:00:00Z');
     const listItem = document.createElement("li");
-    listItem.className = `event-list-item event-${event.type || "default"}`;
+    listItem.className = `event-list-item event-${event.type || "other"}`;
     listItem.innerHTML = `
+      <div class="event-type-indicator"></div>
       <div class="event-title">${event.title}</div>
       <div class="event-date">${eventDate.toLocaleDateString("en-US", {
         month: "short",
@@ -360,7 +361,24 @@ function updateCalendar(events) {
 
     if (dayEvents.length > 0) {
       day.classList.add("has-event");
-      day.style.backgroundColor = "lightblue"; 
+      const eventIndicator = document.createElement("div");
+      eventIndicator.className = "event-indicator";
+      dayEvents.forEach(event => {
+        const dot = document.createElement("span");
+        dot.className = `event-dot ${event.type || "other"}`;
+        eventIndicator.appendChild(dot);
+      });
+      day.appendChild(eventIndicator);
+
+      // Add tooltip
+      const tooltip = document.createElement("div");
+      tooltip.className = "event-tooltip";
+      dayEvents.forEach(event => {
+        const eventInfo = document.createElement("p");
+        eventInfo.textContent = `${event.title} (${event.type || "other"})`;
+        tooltip.appendChild(eventInfo);
+      });
+      day.appendChild(tooltip);
     }
 
     if (
@@ -525,14 +543,10 @@ async function deleteEvent() {
   if (!eventId) return;
 
   try {
-    const token = localStorage.getItem("token");
     const response = await makeAuthenticatedRequest(
       `/api/dashboard/calendar/${eventId}`,
       {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       }
     );
 
@@ -543,11 +557,15 @@ async function deleteEvent() {
     currentEvents = currentEvents.filter((e) => e.id !== eventId);
     updateCalendar(currentEvents);
     closeModal();
+    alert("Event deleted successfully!");
   } catch (error) {
     console.error("Error deleting event:", error);
     alert("Failed to delete event. Please try again.");
   }
 }
+
+// Add this event listener to the delete button
+document.getElementById("deleteEvent").addEventListener("click", deleteEvent);
 
 function closeModal() {
   const modal = document.getElementById("eventModal");

@@ -601,20 +601,55 @@ textarea:focus {
 }
 .family-calendar {
   font-size: 0.875rem;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.calendar-header button {
+  background-color: var(--primary-color);
+  color: #ffffff;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.calendar-header button:hover {
+  background-color: var(--secondary-color);
 }
 
 .calendar {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
+  gap: 5px;
+}
+
+.calendar-weekday {
+  text-align: center;
+  font-weight: bold;
+  padding: 5px;
+  background-color: var(--secondary-color);
+  color: #ffffff;
+  border-radius: 4px;
 }
 
 .calendar-day {
   aspect-ratio: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: #ffffff;
+  background-color: #f0f0f0;
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.3s ease;
@@ -632,12 +667,67 @@ textarea:focus {
   font-weight: bold;
 }
 
+.calendar-day.has-event {
+  background-color: #e6f3ff;
+}
+
+.day-number {
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.event-indicator {
+  display: flex;
+  gap: 2px;
+}
+
+.event-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.event-dot.birthday {
+  background-color: #ff9999;
+}
+
+.event-dot.anniversary {
+  background-color: #99ff99;
+}
+
+.event-dot.other {
+  background-color: #9999ff;
+}
+
+.event-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #ffffff;
+  border: 1px solid #ccc;
+  padding: 5px;
+  border-radius: 4px;
+  z-index: 10;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-day:hover .event-tooltip {
+  display: block;
+}
+
+.event-list {
+  margin-top: 20px;
+}
+
 .event-list-item {
   display: flex;
   align-items: center;
   padding: 10px;
-  margin-bottom: 8px;
-  background-color: var(--background-color);
+  margin-bottom: 10px;
+  background-color: #ffffff;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: background-color 0.3s ease;
@@ -645,23 +735,37 @@ textarea:focus {
 }
 
 .event-list-item:hover {
-  background-color: var(--accent-color);
+  background-color: #f0f0f0;
 }
 
 .event-list-item .event-title {
   font-weight: bold;
   flex-grow: 1;
 }
+
 .event-list-item .event-date {
-  margin: 10px;
+  margin-left: 10px;
   font-size: 0.85rem;
   color: var(--text-color);
 }
 
-.event-list-item .event-icon {
-  font-size: 1.5rem;
+.event-list-item .event-type-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
   margin-right: 10px;
-  color: var(--primary-color);
+}
+
+.event-list-item.event-birthday .event-type-indicator {
+  background-color: #ff9999;
+}
+
+.event-list-item.event-anniversary .event-type-indicator {
+  background-color: #99ff99;
+}
+
+.event-list-item.event-other .event-type-indicator {
+  background-color: #9999ff;
 }
 
 .event-description {
