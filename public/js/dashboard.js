@@ -168,7 +168,12 @@ function updateFamilyView(familyDetails, familyMembers) {
     <h2>${familyDetails ? familyDetails.family_name : 'Family'}</h2>
     <h3>Members:</h3>
     <ul id="memberList"></ul>
-    <button id="inviteMemberBtn">Invite Member</button>
+    <div class="invite-button-container">
+      <button id="inviteMemberBtn" class="invite-member-btn">
+        <i class="fas fa-user-plus"></i>
+        <span>Invite Member</span>
+      </button>
+    </div>
   `;
 
   const memberList = document.getElementById("memberList");

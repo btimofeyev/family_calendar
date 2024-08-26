@@ -1017,57 +1017,84 @@ textarea:focus {
 .modal-content button {
   margin-top: 10px;
 }
+.member-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 90%;
+  margin: 15px 0;
+}
+
 .member-list ul {
   list-style-type: none;
   padding: 0;
+  width: 100%;
 }
 
 .member-item {
   display: flex;
   align-items: center;
   margin-bottom: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+  transition: all 0.3s ease;
   cursor: pointer;
-  transition: background-color 0.3s ease;
-  padding: 10px;
-  border-radius: 4px;
-  border-bottom: 1px solid var(--border-color);
 }
 
 .member-item:hover {
-  background-color: var(--accent-color);
+  background-color: var(--secondary-color);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-
 .member-avatar {
-  width: 40px; 
-  height: 40px; 
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background-color: var(--secondary-color);
-  color: #ffffff;
+  background-color: var(--primary-color);
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 15px; 
+  font-size: 1.2rem;
   font-weight: bold;
-  font-size: 1rem;
+  margin-right: 15px;
 }
 
 .member-info {
   flex-grow: 1;
 }
 
-.user-name {
-  font-weight: 600;
+.member-info .user-name {
+  font-weight: bold;
+  color: var(--primary-color);
   margin: 0;
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
-.user-email {
-  font-size: 0.75rem;
+.member-info .user-email {
+  color: var(--text-color);
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.member-item:hover .user-name,
+.member-item:hover .user-email {
+  color: white;
+}
+
+.member-item:hover .member-avatar {
+  background-color: white;
   color: var(--secondary-color);
-  margin: 0;
 }
-
+.invite-member-btn {
+  background-color: var(--accent-color);
+}
+.invite-member-btn i {
+  color: gold; 
+}
 @media (max-width: 1024px) {
   .dashboard {
     grid-template-columns: 1fr 1fr;
