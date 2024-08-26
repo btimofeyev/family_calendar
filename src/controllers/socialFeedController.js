@@ -5,16 +5,32 @@ const {
 } = require("../middleware/imageUpload");
 const { getLinkPreview } = require('link-preview-js');
 const { createNotification } = require('./notificationController');
+const axios = require('axios');
 
 
 function isYouTubeLink(url) {
   return /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/.test(url);
 }
 
+function isTwitterLink(url) {
+  return /^https?:\/\/(www\.)?(twitter\.com|x\.com)\//.test(url);
+}
 function getYouTubeVideoId(url) {
   const match = url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
   return match ? match[1] : null;
 }
+
+async function getTwitterEmbedHtml(tweetUrl) {
+  try {
+    const response = await axios.get(`https://publish.twitter.com/oembed?url=${encodeURIComponent(tweetUrl)}&omit_script=true`);
+    console.log('Twitter/X Embed HTML:', response.data.html);  // Log the fetched HTML
+    return response.data.html;
+  } catch (error) {
+    console.error('Error fetching Twitter/X embed:', error);
+    return null;
+  }
+}
+
 exports.getPosts = async (req, res) => {
   try {
       const userId = req.user.id;
@@ -112,17 +128,44 @@ exports.createPost = async (req, res) => {
           image: `https://img.youtube.com/vi/${videoId}/0.jpg`,
           url: url
         });
+      }  else if (isTwitterLink(url)) {
+        const twitterEmbedHtml = await getTwitterEmbedHtml(url);
+        if (twitterEmbedHtml) {
+          linkPreview = JSON.stringify({
+            type: 'twitter',
+            html: twitterEmbedHtml,
+            url: url
+          });
+          console.log('Twitter Link Preview:', linkPreview);  // Log the link preview
+        } else {
+          linkPreview = JSON.stringify({
+            type: 'link',
+            title: 'Twitter Post',
+            description: 'View this post on Twitter',
+            url: url
+          });
+        }
       } else {
         try {
-          const preview = await getLinkPreview(url);
+          const preview = await getLinkPreview(url, {
+            timeout: 3000,
+            followRedirects: 'follow',
+          });
           linkPreview = JSON.stringify({
-            title: preview.title,
-            description: preview.description,
-            image: preview.images[0] || '',
-            url: preview.url
+            title: preview.title || '',
+            description: preview.description || '',
+            image: preview.images && preview.images.length > 0 ? preview.images[0] : '',
+            url: preview.url || url
           });
         } catch (previewError) {
           console.error('Error fetching link preview:', previewError);
+          // Fallback to a basic preview if fetching fails
+          linkPreview = JSON.stringify({
+            title: 'Link',
+            description: 'Visit the link for more information',
+            image: '',
+            url: url
+          });
         }
       }
     }

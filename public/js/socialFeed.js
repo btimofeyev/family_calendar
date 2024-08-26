@@ -127,13 +127,22 @@ function displayLinkPreview(preview) {
   const existingMediaPreview = mediaPreview.querySelector('.media-preview-item');
   
   if (!existingMediaPreview) {
-    mediaPreview.innerHTML = `
-      <div class="link-preview">
-        <img src="${preview.image}" alt="Link preview image">
-        <h3>${preview.title}</h3>
-        <p>${preview.description}</p>
-      </div>
-    `;
+    if (preview.type === 'twitter') {
+      mediaPreview.innerHTML = `
+        <div class="twitter-embed">
+          ${preview.html}
+        </div>
+      `;
+      loadTwitterWidget(); // Ensure Twitter widgets load for this preview
+    } else {
+      mediaPreview.innerHTML = `
+        <div class="link-preview">
+          ${preview.image ? `<img src="${preview.image}" alt="Link preview image">` : ''}
+          <h3>${preview.title}</h3>
+          <p>${preview.description}</p>
+        </div>
+      `;
+    }
   }
 }
 
@@ -248,6 +257,8 @@ function displayPosts(posts) {
     socialFeedContent.appendChild(postElement);
   });
 
+  loadTwitterWidget();
+
   // Add this block at the end of the function
   const loadMoreButton = document.getElementById("loadMoreButton");
   if (loadMoreButton) {
@@ -272,6 +283,8 @@ function createPostElement(post) {
   postElement.dataset.postId = post.post_id;
 
   let mediaContent = "";
+  let captionContent = post.caption;
+
   if (post.media_url) {
     if (post.media_type === "image") {
       mediaContent = `<img src="${
@@ -286,6 +299,7 @@ function createPostElement(post) {
     const youtubeMatch = post.caption.match(
       /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
     );
+    
     if (youtubeMatch) {
       const videoId = youtubeMatch[1];
       mediaContent = `
@@ -294,26 +308,31 @@ function createPostElement(post) {
             frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
             allowfullscreen></iframe>
         </div>`;
-    } else if (post.link_preview) {
+      captionContent = post.caption.replace(
+        /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+        ""
+      );
+    } else if (post.link_preview && post.link_preview.type === 'twitter') {
       mediaContent = `
-        <div class="link-preview">
-          <img src="${post.link_preview.image}" alt="Link preview image">
-          <h3>${post.link_preview.title}</h3>
-          <p>${post.link_preview.description}</p>
-          <a href="${post.link_preview.url}" target="_blank" rel="noopener noreferrer">Visit Link</a>
+        <div class="twitter-embed">
+          ${post.link_preview.html}
         </div>
       `;
+      captionContent = post.caption.replace(post.link_preview.url, "");
+    } else if (post.link_preview) {
+      mediaContent = `
+        <a href="${post.link_preview.url}" target="_blank" rel="noopener noreferrer" class="link-preview-wrapper">
+          <div class="link-preview">
+            ${post.link_preview.image ? `<img src="${post.link_preview.image}" alt="Link preview image">` : ''}
+            <div class="link-info">
+              <h3>${post.link_preview.title}</h3>
+              <p>${post.link_preview.description}</p>
+            </div>
+          </div>
+        </a>
+      `;
+      captionContent = post.caption.replace(/(https?:\/\/[^\s]+)/g, "");
     }
-  }
-
-  let captionContent = post.caption;
-  if (mediaContent.includes("youtube-embed")) {
-    captionContent = post.caption.replace(
-      /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
-      ""
-    );
-  } else if (post.link_preview) {
-    captionContent = post.caption.replace(/(https?:\/\/[^\s]+)/g, "");
   }
 
   postElement.innerHTML = `
@@ -422,8 +441,12 @@ function showFullScreenPost(post) {
       modal.style.display = "none";
     }
   };
-}
 
+  // Ensure Twitter/X embeds are correctly loaded
+  if (post.link_preview && post.link_preview.type === 'twitter') {
+    loadTwitterWidget();
+  }
+}
 function toggleComments(postId) {
   const commentsSection = document.getElementById(`comments-${postId}`);
   if (commentsSection.style.display === "none" || commentsSection.style.display === "") {
@@ -435,7 +458,6 @@ function toggleComments(postId) {
     commentsSection.style.display = "none";
   }
 }
-
 function getFullScreenMediaContent(post) {
   if (post.media_url) {
     if (post.media_type === "image") {
@@ -459,10 +481,29 @@ function getFullScreenMediaContent(post) {
             frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
             allowfullscreen></iframe>
         </div>`;
+    } else if (post.link_preview && post.link_preview.type === 'twitter') {
+      return `
+        <div class="twitter-embed">
+          ${post.link_preview.html}
+        </div>
+      `;
+    } else if (post.link_preview) {
+      return `
+        <a href="${post.link_preview.url}" target="_blank" rel="noopener noreferrer" class="link-preview-wrapper">
+          <div class="link-preview">
+            ${post.link_preview.image ? `<img src="${post.link_preview.image}" alt="Link preview image">` : ''}
+            <div class="link-info">
+              <h3>${post.link_preview.title}</h3>
+              <p>${post.link_preview.description}</p>
+            </div>
+          </div>
+        </a>
+      `;
     }
   }
   return "";
 }
+
 
 function getMediaContent(post) {
   if (post.media_url) {
@@ -743,5 +784,17 @@ async function fetchUserFamilies() {
   } catch (error) {
     console.error("Error fetching user families:", error);
     return [];
+  }
+}
+
+// Add this function at the end of the file
+function loadTwitterWidget() {
+  if (window.twttr) {
+    window.twttr.widgets.load();
+  } else {
+    const script = document.createElement('script');
+    script.src = 'https://platform.twitter.com/widgets.js';
+    script.charset = 'utf-8';
+    document.body.appendChild(script);
   }
 }

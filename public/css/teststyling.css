@@ -429,11 +429,22 @@ textarea:focus {
   border-radius: 20px;
 }
 
+.link-preview-wrapper {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  margin-top: 10px;
+}
+
 .link-preview {
   border: 1px solid #e1e4e8;
   border-radius: 8px;
   overflow: hidden;
-  margin-top: 10px;
+  transition: box-shadow 0.3s ease;
+}
+
+.link-preview-wrapper:hover .link-preview {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .link-preview img {
@@ -446,17 +457,28 @@ textarea:focus {
   padding: 15px;
 }
 
+.link-info h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: #0366d6;
+}
 
 .link-info p {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: 14px;
   color: #586069;
 }
 
-.link-info a {
-  color: #0366d6;
-  text-decoration: none;
-  font-size: 14px;
+.twitter-embed {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.twitter-embed iframe {
+  border: none !important;
 }
 
 .comments-section {
@@ -960,47 +982,6 @@ textarea:focus {
 
 #createFamilyBtn:hover {
   background-color: var(--primary-color);
-}
-
-.member-item {
-  display: flex;
-  align-items: center;
-  padding: 10px;
-  border-bottom: 1px solid var(--border-color);
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.member-item:hover {
-  background-color: var(--background-color);
-}
-
-.member-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: var(--secondary-color);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 10px;
-  font-weight: bold;
-}
-
-.member-info {
-  flex-grow: 1;
-}
-
-.user-name {
-  font-weight: bold;
-  margin: 0;
-}
-
-.user-email {
-  font-size: 0.8em;
-  color: var(--text-color);
-  margin: 0;
 }
 
 .modal {
