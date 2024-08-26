@@ -429,8 +429,9 @@ function showEventDetails(events, date) {
   const modal = document.getElementById("eventModal");
   const eventForm = document.getElementById("eventForm");
   const deleteBtn = document.getElementById("deleteEvent");
+  const closeBtn = document.getElementById("closeModalButton");
 
-  modal.style.display = "block";
+  modal.style.display = "flex";
 
   if (events.length === 1) {
     const event = events[0];
@@ -452,6 +453,16 @@ function showEventDetails(events, date) {
     eventForm.eventDate.value = date;
     deleteBtn.style.display = "none";
   }
+
+  // Add event listener for the close button
+  closeBtn.onclick = closeModal;
+
+  // Add event listener for clicking outside the modal
+  window.onclick = function(event) {
+    if (event.target == modal) {
+      closeModal();
+    }
+  };
 }
 
 let currentEvents = [];
