@@ -712,6 +712,7 @@ textarea:focus {
   z-index: 10;
   white-space: nowrap;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  color: var(--accent-color)
 }
 
 .calendar-day:hover .event-tooltip {

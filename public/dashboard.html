@@ -51,25 +51,31 @@
         <div class="card user-profile">
           <h2>User Profile</h2>
           <div class="profile-content">
-            <div id="userAvatar" class="avatar"></div>
-            <div>
-              <h3 id="userName"></h3>
-              <p id="userEmail"></p>
+            <div id="userAvatar" class="avatar pulse"></div>
+            <div class="user-info">
+              <h3 id="userName" class="slide-in"></h3>
+              <p id="userEmail" class="slide-in"></p>
             </div>
           </div>
         </div>
 
         <div class="card family-management">
           <h2>Your Families</h2>
-          <div id="familySelector"></div>
-          <button id="createFamilyBtn">Create New Family</button>
+          <div id="familySelector" class="family-list"></div>
+          <button id="createFamilyBtn" class="create-family-btn">
+            <span class="btn-text">Create New Family</span>
+            <span class="btn-icon">+</span>
+          </button>
         </div>
 
         <div id="familyView" class="card family-view">
-          <h2 id="familyName"></h2>
+          <h2 id="familyName" class="family-name"></h2>
           <h3>Family Members</h3>
-          <ul id="memberList"></ul>
-          <button id="inviteMemberBtn">Invite Member</button>
+          <ul id="memberList" class="member-list"></ul>
+          <button id="inviteMemberBtn" class="invite-member-btn">
+            <span class="btn-text">Invite Member</span>
+            <span class="btn-icon">👋</span>
+          </button>
         </div>
       </div>
       <div class="center-column">

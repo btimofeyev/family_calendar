@@ -295,7 +295,14 @@ function createPostElement(post) {
             allowfullscreen></iframe>
         </div>`;
     } else if (post.link_preview) {
-      // ... (existing link preview code)
+      mediaContent = `
+        <div class="link-preview">
+          <img src="${post.link_preview.image}" alt="Link preview image">
+          <h3>${post.link_preview.title}</h3>
+          <p>${post.link_preview.description}</p>
+          <a href="${post.link_preview.url}" target="_blank" rel="noopener noreferrer">Visit Link</a>
+        </div>
+      `;
     }
   }
 
