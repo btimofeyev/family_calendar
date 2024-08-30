@@ -136,8 +136,7 @@ exports.createPost = async (req, res) => {
             html: twitterEmbedHtml,
             url: url
           });
-          console.log('Twitter Link Preview:', linkPreview);  // Log the link preview
-        } else {
+          console.log('Twitter Link Preview:', linkPreview);  
           linkPreview = JSON.stringify({
             type: 'link',
             title: 'Twitter Post',

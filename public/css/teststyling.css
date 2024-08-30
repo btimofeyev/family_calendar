@@ -983,7 +983,57 @@ textarea:focus {
 #createFamilyBtn:hover {
   background-color: var(--primary-color);
 }
+.memories-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px;
+  background-color: #ffd700; /* Bright gold color to make it stand out */
+  color: #333; /* Dark text color for contrast */
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: bold;
+  position: relative;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
 
+.memories-button .fas.fa-star {
+  color: #ff4500; /* A bright orange/red star */
+  margin-right: 10px;
+}
+
+.memories-button .feature-tag {
+  background-color: #ff4500; /* Matching the star color */
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  margin-left: 10px;
+}
+
+.memories-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Optional: Add a glowing effect */
+.memories-button::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  bottom: -5px;
+  border-radius: 10px;
+  background: linear-gradient(45deg, #ff9d00, #ff4500);
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.memories-button:hover::before {
+  opacity: 0.7;
+}
 .modal {
   display: flex;
   position: fixed;

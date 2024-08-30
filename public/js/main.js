@@ -9,7 +9,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // If a token exists in localStorage, assume the user is logged in and redirect
   if (localStorage.getItem("token")) {
-    window.location.href = "dashboard.html";
+    // Add a check to see if the token is actually valid
+    fetch('/api/auth/verify-token', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem("token")}`
+      }
+    })
+    .then(response => {
+      if (response.ok) {
+        window.location.href = "dashboard.html";
+      } else {
+        // If token is invalid, clear localStorage
+        localStorage.removeItem("token");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("familyId");
+      }
+    })
+    .catch(error => {
+      console.error('Error verifying token:', error);
+      // In case of error, clear localStorage
+      localStorage.removeItem("token");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("familyId");
+    });
     return;
   }
 

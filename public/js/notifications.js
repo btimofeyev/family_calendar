@@ -1,7 +1,7 @@
 let socket;
 let notifications = { unread: [], recent: [] };
 
-function initializeNotifications() {
+window.initializeNotifications = function() {
   const userId = getCurrentUserId();
   if (!userId) {
     console.error("No user ID found");
@@ -19,9 +19,13 @@ function initializeNotifications() {
 
   fetchNotifications();
 
-  document
-    .getElementById("notificationIcon")
-    .addEventListener("click", toggleNotificationDropdown);
+  const notificationIcon = document.getElementById("notificationIcon");
+  if (notificationIcon) {
+    notificationIcon.addEventListener("click", toggleNotificationDropdown);
+  } else {
+    console.error("Notification icon not found");
+  }
+
   document
     .getElementById("unreadTab")
     .addEventListener("click", () => showTab("unread"));
@@ -33,9 +37,7 @@ function initializeNotifications() {
     .addEventListener("click", markAllNotificationsAsRead);
 
   document.addEventListener('click', handleOutsideClick);
-
-
-}
+};
 
 function getCurrentUserId() {
   return localStorage.getItem("userId");
@@ -123,10 +125,29 @@ function createNotificationElement(notification) {
       }
       closeNotificationMenu();
     });
+  } else if (notification.memory_id) {
+    element.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      if (!notification.read) {
+        await markNotificationAsRead(notification.id);
+      }
+      navigateToMemory(notification.memory_id, notification.family_id);
+      closeNotificationMenu();
+    });
   }
 
   return element;
 }
+
+function navigateToMemory(memoryId, familyId) {
+  // Store the memory and family IDs in localStorage
+  localStorage.setItem('targetMemoryId', memoryId);
+  localStorage.setItem('targetFamilyId', familyId);
+  
+  // Redirect to the memories page
+  window.location.href = '/memories.html';
+}
+
 async function markNotificationAsRead(notificationId) {
   try {
     const token = localStorage.getItem("token");
@@ -234,7 +255,7 @@ function showTab(tab) {
 function toggleNotificationDropdown(event) {
   event.stopPropagation(); // Prevent this click from immediately closing the dropdown
   const dropdown = document.getElementById("notificationDropdown");
-  if (dropdown.style.display === "none") {
+  if (dropdown.style.display === "none" || dropdown.style.display === "") {
     dropdown.style.display = "block";
   } else {
     closeNotificationMenu();
