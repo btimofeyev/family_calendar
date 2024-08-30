@@ -35,13 +35,13 @@ async function makeAuthenticatedRequest(url, options = {}) {
   let response = await makeRequest(token);
 
   if (response.status === 403) {
-    // Simulate token refresh failure
-    token = null;
+    token = await refreshAccessToken();
     if (token) {
       localStorage.setItem("token", token);
       response = await makeRequest(token);
     } else {
-      showLogoutModal();  // Show the logout modal
+      // Only show the logout modal if token refresh fails
+      showLogoutModal();
       return null;
     }
   }
@@ -73,11 +73,11 @@ function showLogoutModal() {
     logoutModal.style.display = "flex"; // Show the modal
     const loginRedirectButton = document.getElementById("loginRedirect");
     loginRedirectButton.addEventListener("click", () => {
-      // Clear local storage and redirect to login page
+      // Clear local storage before redirecting
       localStorage.removeItem("token");
       localStorage.removeItem("userId");
       localStorage.removeItem("familyId");
-      window.location.href = "index.html";
+      window.location.href = "index.html"; // Redirect to the login page
     });
   }
 }
@@ -87,7 +87,4 @@ document.addEventListener("DOMContentLoaded", () => {
   if (logoutIcon) {
     logoutIcon.addEventListener("click", logout);
   }
-
-  // Show the logout modal on page load
-  showLogoutModal();
 });
