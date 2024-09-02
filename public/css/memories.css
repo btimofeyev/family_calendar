@@ -73,8 +73,9 @@ body {
   display: none;
   position: absolute;
   top: 60px;
-  right: 300px;
+  right: 10px; /* Changed from 300px to 10px */
   width: 300px;
+  max-width: calc(100% - 20px); /* Added max-width */
   background-color: white;
   border: 1px solid #e9ecef;
   border-radius: 4px;
@@ -730,6 +731,15 @@ button:hover {
   #imgCaption {
     font-size: 14px;
     padding: 5px;
+  }
+
+  /* Add this media query for mobile devices */
+  .notification-dropdown {
+    top: 50px; /* Adjust based on your mobile header height */
+    right: 10px;
+    left: 10px; /* Add left positioning */
+    width: auto; /* Let it take the full width */
+    max-width: none; /* Remove max-width constraint */
   }
 }
 
