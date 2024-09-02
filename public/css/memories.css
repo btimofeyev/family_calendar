@@ -169,67 +169,45 @@ body {
 
 .memories-container {
   display: flex;
-  max-width: 1200px;
-  margin: 2rem auto;
-  padding: 0 1rem;
+  width: 100%;
+  height: calc(100vh - 60px); /* Adjust based on your header height */
 }
 
 .memories-sidebar {
-  width: 300px;
-  padding-right: 2rem;
+  width: 250px;
+  background-color: #f5f5f5;
+  padding: 20px;
+  overflow-y: auto;
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
 }
 
-.memory-view {
-  flex-grow: 1;
-}
-
-.intro-text {
-  font-size: 1.1rem;
-  line-height: 1.6;
-  color: var(--text-color);
-  background-color: rgba(255, 255, 255, 0.8);
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
-  text-align: center;
-}
-
-.create-memory-btn {
-  background-color: var(--secondary-color);
-  color: white;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 30px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  display: block;
-  margin: 0 auto;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-}
-
-/* Hover state for the button */
-.create-memory-btn:hover {
-  background-color: var(--primary-color);
+#familySelector {
+  margin-bottom: 20px;
 }
 
 #familySelector select {
   width: 100%;
-  padding: 0.75rem;
+  padding: 8px;
+  border-radius: 4px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 1rem;
-  background-color: white;
-  color: var(--text-color);
-  margin-bottom: 1rem;
+}
+
+.create-memory-btn {
+  width: 100%;
+  margin-bottom: 20px;
 }
 
 .memories-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.memory-view {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
 }
 
 .memory-item {
@@ -328,25 +306,39 @@ body {
 .modal {
   display: none;
   position: fixed;
-  z-index: 1000;
+  z-index: 1001;
   left: 0;
   top: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(5px);
-  overflow-y: auto; /* Allow scrolling on mobile */
+  overflow: auto;
+  background-color: rgba(0,0,0,0.4);
 }
 
 .modal-content {
-  background-color: white;
-  margin: 10% auto;
-  padding: 2rem;
+  background-color: #fefefe;
+  margin: 15% auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%;
+  max-width: 400px;
   border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  position: relative; /* For positioning the close button */
+}
+
+@media (max-width: 768px) {
+  .modal-content {
+    width: 90%;
+    margin: 10% auto;
+    padding: 15px;
+  }
+
+  #createMemoryForm input,
+  #createMemoryForm textarea,
+  #createMemoryForm button {
+    width: 100%;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+  }
 }
 
 .close {
@@ -650,378 +642,143 @@ button:hover {
   color: var(--primary-color);
 }
 
-.mobile-menu {
-  position: fixed;
-  top: 0;
-  left: -100%;
-  width: 80%;
-  max-width: 300px;
-  height: 100%;
-  background-color: white;
-  z-index: 1001;
-  transition: left 0.3s ease-in-out;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-  overflow-y: auto;
-}
-
-.mobile-menu.open {
-  left: 0;
-}
-
-.mobile-menu-overlay {
+/* Bottom Navigation Bar */
+.bottom-nav {
   display: none;
   position: fixed;
-  top: 0;
+  bottom: 0;
   left: 0;
   width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--background-color);
+  border-top: 1px solid var(--border-color);
   z-index: 1000;
-  opacity: 0;
-  transition: opacity 0.3s ease-in-out;
+  padding: 10px 20px;
+  box-sizing: border-box;
 }
 
-.mobile-menu-overlay.active {
-  display: block;
-  opacity: 1;
+.mobile-menu-btn,
+.mobile-create-memory-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 5px 10px;
 }
 
-body.menu-open {
-  overflow: hidden;
+.mobile-menu-btn {
+  float: left;
 }
 
-/* Mobile Responsive Styles */
+.mobile-create-memory-btn {
+  float: right;
+}
+
 @media (max-width: 768px) {
-  body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    font-size: 14px;
-    padding-bottom: 80px; 
-  }
-
-  .dashboard-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    background-color: var(--background-color);
-  }
-
-  .intro-text {
-    font-size: 1rem;
-    padding: 1rem;
-    margin: 60px 1rem 1rem; 
-  }
-
   .memories-container {
-    display: flex;
     flex-direction: column;
-    height: 100vh; 
-    margin: 0;
   }
 
   .memories-sidebar {
-    width: 100%;
-    flex-grow: 1; 
-    padding-right: 0;
-    margin-bottom: 1rem;
-    background-color: var(--background-color); 
-    overflow-y: auto; 
+    position: fixed;
+    left: -100%;
+    top: 0;
+    width: 80%;
+    max-width: 250px;
+    height: 100%;
+    background-color: #f5f5f5;
+    padding: 20px;
+    overflow-y: auto;
+    border-right: 1px solid #e0e0e0;
+    transition: left 0.3s ease;
+    z-index: 1000;
+  }
+
+  .memories-sidebar.show {
+    left: 0;
   }
 
   .memory-view {
-    width: 100%;
+    margin-top: 60px; /* Adjust based on your header height */
+    padding: 0 15px; /* Add some padding on mobile */
   }
 
-.create-memory-btn {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: auto;
-    margin: 0;
-    padding: 12px 20px;
-    border-radius: 30px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
-    background-color: var(--secondary-color);
-    color: white;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-}
-
-  #familySelector select {
-    width: 100%;
-    margin-bottom: 1rem;
+  .bottom-nav {
+    display: block;
   }
 
-  .memory-item {
-    flex-direction: row;
-    align-items: center;
-    padding: 15px;
+  .create-memory-btn {
+    display: none; /* Hide the desktop create memory button on mobile */
   }
 
-  .memory-item-info {
-    flex: 1;
+  /* Adjust the memory view to account for the bottom nav */
+  .memory-view {
+    margin-bottom: 60px; /* Adjust based on your bottom nav height */
   }
 
-  .memory-item-previews {
-    display: flex;
-    gap: 5px;
-    margin-left: 10px;
-  }
-
-  .memory-album {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  }
-
-  .add-photo-btn {
-    width: auto;
-    padding: 10px 20px;
-  }
-
-  .modal-content {
-    width: 90%;
-    max-width: none;
-    padding: 1.5rem;
-    margin: 5% auto;
-  }
-
-  .comment-header {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .add-comment-form {
-    flex-direction: row;
-    align-items: center;
-  }
-
-  .add-comment-form input {
-    flex: 1;
-    margin-right: 10px;
-    margin-bottom: 0;
-  }
-
-  .add-comment-form button {
-    width: auto;
-  }
-
+  /* Optimize image viewer for mobile */
   .image-viewer-modal img {
-    max-width: 95%;
-    max-height: 80vh;
+    max-width: 90%;
+    max-height: 70vh;
   }
 
-  .prev,
-  .next {
-    padding: 15px;
-    font-size: 24px;
+  .prev, .next {
+    padding: 8px;
+    font-size: 16px;
   }
 
   #imgCaption {
     font-size: 14px;
-    padding: 10px;
-  }
-
-  .close {
-    top: 15px;
-    right: 15px;
-    font-size: 36px;
-  }
-
-  .memories-sidebar {
-    display: none;
-  }
-
-  .mobile-menu-btn {
-    display: block;
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    z-index: 1000;
-    background-color: var(--secondary-color);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    font-size: 1.5rem;
-    cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  }
-
-  .mobile-menu {
-    display: none;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 0;
-    background-color: white;
-    z-index: 1001;
-    overflow-y: auto;
-    transition: height 0.3s ease-in-out;
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-  }
-
-  .mobile-menu-content {
-    padding: 20px;
-  }
-
-  .mobile-menu.open {
-    display: block;
-    height: 80%; /* Adjust this value as needed */
-  }
-
-  .create-memory-btn {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 1000;
+    padding: 5px;
   }
 }
 
-/* Additional styles for very small screens */
-@media (max-width: 480px) {
-  .memory-album {
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  }
-
-  .album-item {
-    aspect-ratio: 1;
-  }
-
-  .memory-item-preview {
-    width: 40px;
-    height: 40px;
-  }
-
-  .memory-item-preview-count {
-    width: 40px;
-    height: 40px;
-    font-size: 0.8rem;
-  }
-
-  .create-memory-btn {
-    padding: 10px 16px;
-    font-size: 0.9rem;
-  }
+.intro-text {
+  background-color: var(--secondary-color);
+  color: white;
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin: 1.5rem auto;
+  max-width: 800px;
+  text-align: center;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  position: relative;
+  overflow: hidden;
 }
 
-/* Mobile Sidebar Styles */
+.intro-text::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to bottom right,
+    rgba(255, 255, 255, 0.2),
+    rgba(255, 255, 255, 0.05)
+  );
+  transform: rotate(-30deg);
+  pointer-events: none;
+}
+
+.intro-text strong {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--accent-color);
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.1);
+}
+
 @media (max-width: 768px) {
-  .mobile-menu {
-    position: fixed;
-    top: 0;
-    left: -100%;
-    width: 80%;
-    max-width: 300px;
-    height: 100%;
-    background-color: white;
-    z-index: 1001;
-    transition: left 0.3s ease-in-out;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .mobile-menu.open {
-    left: 0;
-  }
-
-  .mobile-menu-content {
-    padding: 20px;
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .mobile-menu-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 20px;
-  }
-
-  .mobile-menu-title {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: var(--primary-color);
-  }
-
-  .mobile-menu-close {
-    font-size: 1.5rem;
-    color: var(--text-color);
-    cursor: pointer;
-  }
-
-  #mobileFamilySelector select {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 20px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+  .intro-text {
     font-size: 1rem;
-    background-color: white;
-    color: var(--text-color);
+    padding: 1.2rem;
+    margin: 1rem 15px;
   }
 
-  #mobileMemoriesList {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    flex-grow: 1;
-    overflow-y: auto;
+  .intro-text strong {
+    font-size: 1.1rem;
   }
-
-  .mobile-menu-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1000;
-    opacity: 0;
-    transition: opacity 0.3s ease-in-out;
-  }
-
-  .mobile-menu-overlay.active {
-    display: block;
-    opacity: 1;
-  }
-
-  body.menu-open {
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  .mobile-menu-btn {
-    display: block;
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    z-index: 999;
-    background-color: var(--secondary-color);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 60px;
-    height: 60px;
-    font-size: 1.5rem;
-    cursor: pointer;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    transition: background-color 0.3s ease, transform 0.3s ease;
-  }
-
 }

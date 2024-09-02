@@ -116,7 +116,7 @@ function createNotificationElement(notification) {
 
   if (notification.post_id) {
     element.addEventListener("click", async (event) => {
-      event.stopPropagation(); // Ensure this event doesn't bubble up
+      event.stopPropagation();
       if (!notification.read) {
         await markNotificationAsRead(notification.id);
       }

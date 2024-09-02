@@ -547,7 +547,8 @@ function handleRecurringEvents(events) {
         nextOccurrence.setFullYear(nextOccurrence.getFullYear() + 1);
       }
 
-      return eventDates;
+      // Only return the next occurrence
+      return eventDates.length > 0 ? [eventDates[0]] : [];
     } else {
       return [{...event, event_date: eventDate.toISOString().split('T')[0]}];
     }

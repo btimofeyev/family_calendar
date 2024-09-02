@@ -13,8 +13,8 @@
   <body>
     <div class="dashboard-header">
       <div class="logo">
-        <a href="#" id="scrollToTop">
-          <img src="./icons/512x512.png" alt="Logo" class="logo-img">
+        <a href="dashboard.html" id="scrollToTop">
+          <img src="./icons/logo.png" alt="Logo" class="logo-img">
         </a>
       </div>
       <div class="notification-icon" id="notificationIcon">
@@ -37,12 +37,12 @@
       <div id="notificationList" class="notification-list"></div>
     </div>
     <p class="intro-text">
-      Start creating memories that matter. Give your memory a name—like "Summer 2020" or "Grandma's 80th Birthday." Upload your best photos and videos to bring it to life. Then, invite your family to contribute their own stories and snapshots. Together, you'll create a rich, shared memory that everyone can enjoy and revisit.
+      <strong>Start creating memories that matter.</strong> Give your memory a name—like <strong>"Summer 2020"</strong> or <strong>"Grandma's 80th Birthday."</strong> Upload your best photos and videos to bring it to life. Then, invite your family to contribute their own stories and snapshots. Together, you'll create a rich, shared memory that everyone can enjoy and revisit.
     </p>
     <div class="memories-container">
-      <button id="createMemoryBtn" class="create-memory-btn">Create New Memory</button>
-      <div class="memories-sidebar">
+      <div class="memories-sidebar" id="memoriesSidebar">
         <div id="familySelector"></div>
+        <button id="createMemoryBtn" class="create-memory-btn">Create New Memory</button>
         <div id="memoriesList" class="memories-list"></div>
       </div>
       <div class="memory-view">
@@ -70,37 +70,38 @@
         </div>
       </div>
     </div>
-    <!-- Add this new button for mobile menu -->
-    <button id="mobileMenuBtn" class="mobile-menu-btn">
-      <i class="fas fa-bars"></i>
-    </button>
-    <!-- Update the mobile menu structure -->
-    <div id="mobileMenu" class="mobile-menu">
-      <div class="mobile-menu-content">
-        <div class="mobile-menu-header">
-          <span class="mobile-menu-title">Family Memories</span>
-          <span class="mobile-menu-close" id="mobileMenuClose">&times;</span>
-        </div>
-        <div id="mobileFamilySelector"></div>
-        <div id="mobileMemoriesList" class="memories-list"></div>
-      </div>
+    <div id="imageViewerModal" class="image-viewer-modal">
+      <span class="close" onclick="closeImageViewer()">&times;</span>
+      <img class="modal-content" id="imgModalContent">
+      <div id="imgCaption"></div>
+      <a class="prev" onclick="showPreviousImage()">&#10094;</a>
+      <a class="next" onclick="showNextImage()">&#10095;</a>
     </div>
-    <div id="mobileMenuOverlay" class="mobile-menu-overlay"></div>
-    <div id="memoryModal" class="modal">
-      <div class="modal-content">
-        <span class="close">&times;</span>
-        <h2>Create New Memory</h2>
-        <form id="createMemoryForm">
-          <input type="text" id="memoryTitle" placeholder="Memory Title" required />
-          <textarea id="memoryDescription" placeholder="Memory Description" required></textarea>
-          <button type="submit">Create Memory</button>
-        </form>
-      </div>
+    <div class="bottom-nav">
+      <button id="mobileMenuBtn" class="mobile-menu-btn">
+        <i class="fas fa-bars"></i>
+      </button>
+      <button id="mobileCreateMemoryBtn" class="mobile-create-memory-btn">
+        <i class="fas fa-plus"></i>
+      </button>
     </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/pushNotifications.js"></script>
     <script src="js/notifications.js"></script>
     <script src="js/memories.js"></script>
+    <!-- Add this modal structure if it's not already present -->
+    <div id="memoryModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Create New Memory</h2>
+        <p id="selectedFamilyName"></p>
+        <form id="createMemoryForm">
+          <input type="text" id="memoryTitle" placeholder="Memory Title" required>
+          <textarea id="memoryDescription" placeholder="Memory Description" required></textarea>
+          <button type="submit">Create Memory</button>
+        </form>
+      </div>
+    </div>
   </body>
 </html>

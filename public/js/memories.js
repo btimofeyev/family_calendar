@@ -1,9 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOMContentLoaded event fired');
-    fetchUserFamilies();
+    initializeMemories();
     setupEventListeners();
     initializeNotifications();
     checkForTargetMemory();
+    setupMobileMenu();
 });
 
 let currentFamilyId = null;
@@ -26,6 +27,20 @@ function checkForTargetMemory() {
     }
 }
 
+async function initializeMemories() {
+    currentFamilyId = localStorage.getItem('selectedFamilyId');
+    if (!currentFamilyId) {
+        const families = await fetchUserFamilies();
+        if (families.length > 0) {
+            currentFamilyId = families[0].family_id;
+        }
+    }
+    await fetchUserFamilies();
+    if (currentFamilyId) {
+        fetchMemories(currentFamilyId);
+    }
+}
+
 async function fetchUserFamilies() {
     try {
         const response = await makeAuthenticatedRequest('/api/dashboard/user/families');
@@ -34,39 +49,59 @@ async function fetchUserFamilies() {
         }
         const families = await response.json();
         updateFamilySelector(families);
+        return families;
     } catch (error) {
         console.error('Error fetching user families:', error);
+        return [];
     }
 }
 
 function updateFamilySelector(families) {
     const familySelector = document.getElementById('familySelector');
-    const mobileFamilySelector = document.getElementById('mobileFamilySelector');
     
-    if (familySelector && mobileFamilySelector) {
-        const selectHTML = '<select id="familySelect"><option value="">Select a family</option></select>';
-        familySelector.innerHTML = selectHTML;
-        mobileFamilySelector.innerHTML = selectHTML;
-
-        const desktopSelect = familySelector.querySelector('select');
-        const mobileSelect = mobileFamilySelector.querySelector('select');
+    if (familySelector) {
+        familySelector.innerHTML = '<select id="familySelect"><option value="">Select a family</option></select>';
+        const select = familySelector.querySelector('select');
 
         families.forEach(family => {
             const option = document.createElement('option');
             option.value = family.family_id;
             option.textContent = family.family_name;
-            desktopSelect.appendChild(option.cloneNode(true));
-            mobileSelect.appendChild(option);
+            if (family.family_id === currentFamilyId) {
+                option.selected = true;
+            }
+            select.appendChild(option);
         });
 
-        [desktopSelect, mobileSelect].forEach(select => {
-            select.addEventListener('change', (e) => {
-                currentFamilyId = e.target.value;
-                if (currentFamilyId) {
-                    fetchMemories(currentFamilyId);
-                }
-            });
+        select.addEventListener('change', (e) => {
+            currentFamilyId = e.target.value;
+            localStorage.setItem('selectedFamilyId', currentFamilyId);
+            if (currentFamilyId) {
+                fetchMemories(currentFamilyId);
+                updateCurrentFamilyDisplay();
+            }
         });
+
+        updateCurrentFamilyDisplay();
+    }
+}
+
+function updateCurrentFamilyDisplay() {
+    const currentFamilyDisplay = document.getElementById('currentFamilyDisplay');
+    const selectedFamilyName = document.getElementById('selectedFamilyName');
+    const familySelect = document.getElementById('familySelect');
+    
+    if (currentFamilyId && familySelect) {
+        const selectedOption = familySelect.querySelector(`option[value="${currentFamilyId}"]`);
+        if (selectedOption) {
+            const familyName = selectedOption.textContent;
+            if (currentFamilyDisplay) {
+                currentFamilyDisplay.textContent = `Current Family: ${familyName}`;
+            }
+            if (selectedFamilyName) {
+                selectedFamilyName.textContent = `Creating memory for: ${familyName}`;
+            }
+        }
     }
 }
 
@@ -85,25 +120,22 @@ async function fetchMemories(familyId) {
 
 function displayMemories(memories) {
     const memoriesList = document.getElementById('memoriesList');
-    const mobileMemoriesList = document.getElementById('mobileMemoriesList');
-    const memoryDetails = document.getElementById('memoryDetails');
     
-    [memoriesList, mobileMemoriesList].forEach(list => {
-        if (list) {
-            list.innerHTML = '';
+    if (memoriesList) {
+        memoriesList.innerHTML = '';
 
-            if (memories.length === 0) {
-                list.innerHTML = '<p>No memories yet. Create your first memory!</p>';
-                return;
-            }
-
-            memories.forEach(memory => {
-                const memoryItem = createMemoryItem(memory);
-                list.appendChild(memoryItem);
-            });
+        if (memories.length === 0) {
+            memoriesList.innerHTML = '<p>No memories yet. Create your first memory!</p>';
+            return;
         }
-    });
 
+        memories.forEach(memory => {
+            const memoryItem = createMemoryItem(memory);
+            memoriesList.appendChild(memoryItem);
+        });
+    }
+
+    const memoryDetails = document.getElementById('memoryDetails');
     if (memoryDetails) {
         memoryDetails.style.display = 'none';
     }
@@ -128,9 +160,6 @@ function createMemoryItem(memory) {
 
         memoryItem.addEventListener('click', () => {
             openMemoryDetails(memory);
-            if (window.innerWidth <= 768) {
-                toggleMobileMenu(); // Close mobile menu after selecting a memory
-            }
         });
     });
 
@@ -174,10 +203,6 @@ function setupEventListeners() {
     const fileInput = document.getElementById('fileInput');
     const memoryAlbum = document.getElementById('memoryAlbum');
     const closeModalBtn = document.querySelector('.close');
-    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-    const mobileMenu = document.getElementById('mobileMenu');
-    const mobileMenuClose = document.getElementById('mobileMenuClose');
-    const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
 
     if (createMemoryBtn) {
         createMemoryBtn.addEventListener('click', (event) => {
@@ -190,7 +215,7 @@ function setupEventListeners() {
         console.error('Create memory button not found');
     }
 
-    if (closeModalBtn) {
+    if (closeModalBtn && memoryModal) {
         closeModalBtn.addEventListener('click', closeMemoryModal);
     }
 
@@ -241,52 +266,21 @@ function setupEventListeners() {
         });
     }
 
-    if (mobileMenuBtn && mobileMenu) {
-        console.log('Mobile menu button found:', mobileMenuBtn);
-        mobileMenuBtn.addEventListener('click', (e) => {
-            console.log('Mobile menu button clicked');
-            e.preventDefault();
-            e.stopPropagation();
-            toggleMobileMenu();
-        });
-    } else {
-        console.error('Mobile menu button or menu not found');
-    }
-
-    if (mobileMenuClose) {
-        mobileMenuClose.addEventListener('click', toggleMobileMenu);
-    }
-
-    if (mobileMenuOverlay) {
-        mobileMenuOverlay.addEventListener('click', toggleMobileMenu);
-    }
-
-    // Close mobile menu when clicking outside
-    if (mobileMenu) {
-        document.addEventListener('click', (event) => {
-            if (mobileMenu.classList.contains('open') && 
-                !mobileMenu.contains(event.target) && 
-                event.target !== mobileMenuBtn) {
-                toggleMobileMenu();
+    const memoriesList = document.getElementById('memoriesList');
+    if (memoriesList) {
+        memoriesList.addEventListener('click', (event) => {
+            if (event.target.closest('.memory-item')) {
+                closeSidebar();
             }
         });
     }
 }
 
-function openMemoryModal() {
-    const memoryModal = document.getElementById('memoryModal');
-    if (memoryModal) {
-        memoryModal.style.display = 'block';
-        document.body.style.overflow = 'hidden'; // Prevent scrolling behind modal
-    } else {
-        console.error('Memory modal not found');
-    }
-}
-
 function closeMemoryModal() {
     const memoryModal = document.getElementById('memoryModal');
-    memoryModal.style.display = 'none';
-    document.body.style.overflow = ''; // Restore scrolling
+    if (memoryModal) {
+        memoryModal.style.display = 'none';
+    }
 }
 
 async function createMemory(e) {
@@ -319,6 +313,7 @@ async function createMemory(e) {
 }
 
 async function openMemoryDetails(memory) {
+    closeSidebar(); // Close the sidebar when a memory is selected
     currentMemoryId = memory.memory_id;
     const memoryDetails = document.getElementById('memoryDetails');
     const memoryDetailTitle = document.getElementById('memoryDetailTitle');
@@ -503,8 +498,29 @@ function openImageViewer(index) {
 
     if (imageViewerModal && modalImg && captionText) {
         imageViewerModal.style.display = 'flex';
-        modalImg.src = currentAlbumContent[index].file_path;
-        captionText.innerHTML = `Image ${index + 1} of ${currentAlbumContent.length}`;
+        updateImageViewer();
+        
+        // Add touch swipe functionality for mobile
+        let touchStartX = 0;
+        let touchEndX = 0;
+        
+        imageViewerModal.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, false);
+        
+        imageViewerModal.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        }, false);
+        
+        function handleSwipe() {
+            if (touchEndX < touchStartX) {
+                showNextImage();
+            }
+            if (touchEndX > touchStartX) {
+                showPreviousImage();
+            }
+        }
     }
 }
 
@@ -531,16 +547,57 @@ function updateImageViewer() {
 
     if (modalImg && captionText) {
         modalImg.src = currentAlbumContent[currentImageIndex].file_path;
-        captionText.innerHTML = `Image ${currentImageIndex + 1} of ${currentAlbumContent.length}`;
+        captionText.innerHTML = `${currentImageIndex + 1} / ${currentAlbumContent.length}`;
     }
 }
 
-function toggleMobileMenu() {
-    const mobileMenu = document.getElementById('mobileMenu');
-    const overlay = document.getElementById('mobileMenuOverlay');
-    const body = document.body;
+function setupMobileMenu() {
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const memoriesSidebar = document.getElementById('memoriesSidebar');
+    const mobileCreateMemoryBtn = document.getElementById('mobileCreateMemoryBtn');
 
-    mobileMenu.classList.toggle('open');
-    overlay.classList.toggle('active');
-    body.classList.toggle('menu-open');
+    if (mobileMenuBtn && memoriesSidebar) {
+        mobileMenuBtn.addEventListener('click', (event) => {
+            event.stopPropagation(); // Prevent the click from immediately closing the sidebar
+            memoriesSidebar.classList.toggle('show');
+        });
+    }
+
+    if (mobileCreateMemoryBtn) {
+        mobileCreateMemoryBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            console.log('Mobile create memory button clicked');
+            if (!currentFamilyId) {
+                alert('Please select a family first');
+                memoriesSidebar.classList.add('show');
+            } else {
+                openMemoryModal();
+            }
+        });
+    }
+
+    // Close sidebar when clicking outside of it
+    document.addEventListener('click', (event) => {
+        if (memoriesSidebar && memoriesSidebar.classList.contains('show')) {
+            if (!memoriesSidebar.contains(event.target) && event.target !== mobileMenuBtn) {
+                closeSidebar();
+            }
+        }
+    });
 }
+
+function closeSidebar() {
+    const memoriesSidebar = document.getElementById('memoriesSidebar');
+    if (memoriesSidebar) {
+        memoriesSidebar.classList.remove('show');
+    }
+}
+
+function openMemoryModal() {
+    const memoryModal = document.getElementById('memoryModal');
+    if (memoryModal) {
+        memoryModal.style.display = 'block';
+    }
+}
+
