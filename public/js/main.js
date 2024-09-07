@@ -79,7 +79,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (data.user.family_id) {
           localStorage.setItem("familyId", data.user.family_id);
         }
-        window.location.href = "dashboard.html";
+        if (data.isNewUser) {
+          window.location.href = "onboarding.html";
+        } else {
+          window.location.href = "dashboard.html";
+        }
       } else {
         alert(data.error);
       }
@@ -139,32 +143,40 @@ document.addEventListener("DOMContentLoaded", () => {
     const name = document.getElementById("signup-name").value;
     const email = document.getElementById("signup-email").value;
     const password = document.getElementById("signup-password").value;
+    const passkey = document.getElementById("signup-passkey").value;
     const invitationToken = localStorage.getItem("invitationToken");
 
     try {
+      console.log("Attempting signup...");
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, invitationToken }),
+        body: JSON.stringify({ name, email, password, passkey, invitationToken }),
       });
       const data = await response.json();
+      console.log("Signup response:", data);
 
       if (response.ok) {
+        console.log("Signup successful. Storing data...");
         localStorage.setItem("token", data.token);
         localStorage.setItem("userId", data.user.id);
-        if (data.user.family_id) {
-          localStorage.setItem("familyId", data.user.family_id);
-        }
         localStorage.removeItem("invitationToken");
 
-        setTimeout(() => {
-          window.location.href = "dashboard.html";
-        }, 3000);
+        if (data.user.family_id) {
+          localStorage.setItem("familyId", data.user.family_id);
+          console.log("Family ID stored:", data.user.family_id);
+        }
+
+        console.log("Redirecting...");
+        // Always redirect to dashboard.html after successful signup
+        window.location.href = "dashboard.html";
       } else {
+        console.error("Signup failed:", data.error);
         alert(data.error);
       }
     } catch (error) {
       console.error("Signup error:", error);
+      alert("An error occurred during signup. Please try again.");
     }
   }
 

@@ -39,7 +39,7 @@ function registerPushSubscription() {
 }
 async function sendSubscriptionToServer(subscription) {
   try {
-    const response = await fetch("/api/push/subscribe", {
+    const response = await fetch("/api/notifications/push/subscribe", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -56,6 +56,7 @@ async function sendSubscriptionToServer(subscription) {
     }
 
     const data = await response.json();
+    console.log('Push subscription sent to server successfully');
   } catch (err) {
     console.error("Failed to send subscription to server:", err);
   }

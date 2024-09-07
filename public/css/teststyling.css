@@ -799,6 +799,93 @@ textarea:focus {
   border-top: 1px solid var(--border-color);
 }
 
+/* Add these styles to your existing CSS file */
+
+.invite-modal {
+  max-width: 400px;
+}
+
+.invite-options {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.invite-option-btn {
+  flex: 1;
+  padding: 10px;
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.invite-option-btn:first-child {
+  border-radius: 5px 0 0 5px;
+}
+
+.invite-option-btn:last-child {
+  border-radius: 0 5px 5px 0;
+}
+
+.invite-option-btn.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+#emailInviteForm {
+  display: flex;
+  flex-direction: column;
+}
+
+#inviteEmail {
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+}
+
+#passkeyResult {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+}
+
+#generatedPasskey {
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+.btn-primary, .btn-secondary {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: var(--secondary-color);
+}
+
+.btn-secondary {
+  background-color: var(--background-color);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background-color: var(--border-color);
+}
+
 /* Modal Background and Positioning */
 .modal {
   display: none;

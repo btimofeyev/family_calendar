@@ -30,6 +30,8 @@ router.get('/families/:familyId', familyController.getFamilyDetails);
 router.get('/users/:userId', userController.getUserProfile);
 router.get('/users/:userId/family/:familyId', userController.getUserProfileInFamily);
 
-
+// Add these new routes for passkey functionality
+router.post('/families/:familyId/passkey', familyController.generateFamilyPasskey);
+router.post('/families/validate-passkey', familyController.validatePasskey);
 
 module.exports = router;

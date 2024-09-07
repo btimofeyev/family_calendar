@@ -10,7 +10,6 @@ const dashboardRoutes = require('./src/routes/dashboardRoutes');
 const socialFeedRoutes = require('./src/routes/socialFeedRoutes');
 const invitationRoutes = require('./src/routes/invitationRoutes');
 const notificationRoutes = require('./src/routes/notificationRoutes');
-const pushRoutes = require('./src/routes/pushRoutes');
 const memoriesRoutes = require('./src/routes/memoriesRoutes');
 
 dotenv.config();
@@ -38,8 +37,13 @@ app.use('/api/invitations', invitationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api', socialFeedRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/push', pushRoutes);
 app.use('/api/memories', memoriesRoutes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send('Something broke!');
+});
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

@@ -1,4 +1,16 @@
 const pool = require("../config/db");
+const { uploadToS3 } = require("../middleware/imageUpload");
+const invitationService = require('../middleware/invite');
+
+function generatePasskey() {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const length = Math.floor(Math.random() * (12 - 8 + 1)) + 8;
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return result;
+}
 
 exports.createFamily = async (req, res) => {
   const { familyName } = req.body;
@@ -166,6 +178,140 @@ exports.getFamilyDetails = async (req, res) => {
     res.status(200).json(familyResult.rows[0]);
   } catch (error) {
     console.error("Error in getFamilyDetails:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.uploadFamilyPhoto = async (req, res) => {
+  const { familyId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // Check if the user is a member of the family
+    const checkMembershipQuery = {
+      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
+      values: [userId, familyId],
+    };
+    const membershipResult = await pool.query(checkMembershipQuery);
+
+    if (membershipResult.rows.length === 0) {
+      return res.status(403).json({ error: "You are not a member of this family" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const photoUrl = await uploadToS3(req.file);
+
+    const updatePhotoQuery = {
+      text: "UPDATE families SET photo_url = $1 WHERE family_id = $2",
+      values: [photoUrl, familyId],
+    };
+    await pool.query(updatePhotoQuery);
+
+    res.status(200).json({ message: "Family photo uploaded successfully", photoUrl });
+  } catch (error) {
+    console.error("Error uploading family photo:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.inviteMembers = async (req, res) => {
+  const { familyId } = req.params;
+  const { emails } = req.body;
+  const inviterId = req.user.id;
+
+  try {
+    // Check if the inviter is a member of the family
+    const checkMembershipQuery = {
+      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
+      values: [inviterId, familyId],
+    };
+    const membershipResult = await pool.query(checkMembershipQuery);
+
+    if (membershipResult.rows.length === 0) {
+      return res.status(403).json({ error: "You are not a member of this family" });
+    }
+
+    const invitationResults = await Promise.all(
+      emails.map(async (email) => {
+        try {
+          await invitationService.createInvitation(email, familyId, inviterId);
+          return { email, status: 'success' };
+        } catch (error) {
+          console.error(`Error inviting ${email}:`, error);
+          return { email, status: 'failed', error: error.message };
+        }
+      })
+    );
+
+    res.status(200).json({ message: "Invitations sent", results: invitationResults });
+  } catch (error) {
+    console.error("Error inviting members:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Add this new function to generate a passkey for a family
+exports.generateFamilyPasskey = async (req, res) => {
+  const { familyId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    console.log(`Generating passkey for family ${familyId} by user ${userId}`);
+    // Check if the user is a member of the family
+    const checkMembershipQuery = {
+      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
+      values: [userId, familyId],
+    };
+    const membershipResult = await pool.query(checkMembershipQuery);
+
+    if (membershipResult.rows.length === 0) {
+      return res.status(403).json({ error: "You are not a member of this family" });
+    }
+
+    const passkey = generatePasskey();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+
+    const insertPasskeyQuery = {
+      text: "INSERT INTO family_passkeys (family_id, passkey, expires_at) VALUES ($1, $2, $3) RETURNING passkey",
+      values: [familyId, passkey, expiresAt],
+    };
+    const result = await pool.query(insertPasskeyQuery);
+
+    res.status(200).json({ passkey: result.rows[0].passkey, expiresAt });
+  } catch (error) {
+    console.error("Error generating family passkey:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Add this new function to validate a passkey
+exports.validatePasskey = async (req, res) => {
+  const { passkey } = req.body;
+
+  try {
+    const validatePasskeyQuery = {
+      text: `SELECT fp.family_id, f.family_name 
+             FROM family_passkeys fp
+             JOIN families f ON fp.family_id = f.family_id
+             WHERE fp.passkey = $1 AND fp.expires_at > NOW() AND fp.revoked = FALSE`,
+      values: [passkey],
+    };
+    const result = await pool.query(validatePasskeyQuery);
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: "Invalid or expired passkey" });
+    }
+
+    res.status(200).json({ 
+      valid: true, 
+      familyId: result.rows[0].family_id,
+      familyName: result.rows[0].family_name
+    });
+  } catch (error) {
+    console.error("Error validating passkey:", error);
     res.status(500).json({ error: error.message });
   }
 };

@@ -10,16 +10,25 @@ if ("serviceWorker" in navigator) {
 let loggedInUserId;
 async function fetchUserProfile() {
   try {
+    console.log("Fetching user profile...");
     const response = await makeAuthenticatedRequest("/api/dashboard/profile");
     if (!response.ok) {
       const errorBody = await response.text();
       console.error("Response status:", response.status);
       console.error("Response body:", errorBody);
+      if (response.status === 404) {
+        console.log("User not found. Redirecting to login...");
+        localStorage.removeItem("token");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("familyId");
+        window.location.href = "index.html";
+        return null;
+      }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const user = await response.json();
-    loggedInUserId = user.id;
+    console.log("User profile fetched:", user);
     return user;
   } catch (error) {
     console.error("Error fetching user profile:", error);
@@ -108,9 +117,7 @@ async function viewFamily(familyId) {
 
     // Fetch and update calendar events
     const events = await fetchCalendarEvents(familyId);
-    console.log("Events before handling recurring:", events); // Add this line
     currentEvents = handleRecurringEvents(events);
-    console.log("Events after handling recurring:", currentEvents); // Add this line
     updateCalendar(currentEvents);
 
     // Update social feed
@@ -205,13 +212,24 @@ function showInviteMemberModal() {
   const modal = document.createElement('div');
   modal.className = 'modal';
   modal.innerHTML = `
-    <div class="modal-content">
+    <div class="modal-content invite-modal">
       <h2>Invite Family Member</h2>
-      <form id="inviteMemberForm">
+      <div class="invite-options">
+        <button id="emailInviteBtn" class="invite-option-btn active">Email Invitation</button>
+        <button id="passkeyInviteBtn" class="invite-option-btn">Generate Passkey</button>
+      </div>
+      <form id="emailInviteForm">
         <input type="email" id="inviteEmail" placeholder="Enter email address" required>
-        <button type="submit">Send Invitation</button>
+        <button type="submit" class="btn-primary">Send Invitation</button>
       </form>
-      <button id="closeModal">Cancel</button>
+      <div id="passkeySection" style="display: none;">
+        <button id="generatePasskeyBtn" class="btn-primary">Generate Passkey</button>
+        <div id="passkeyResult" style="display: none;">
+          <p>Passkey: <span id="generatedPasskey"></span></p>
+          <p>Expires: <span id="passkeyExpiry"></span></p>
+        </div>
+      </div>
+      <button id="closeModal" class="btn-secondary">Cancel</button>
     </div>
   `;
 
@@ -222,11 +240,63 @@ function showInviteMemberModal() {
   };
 
   document.getElementById('closeModal').addEventListener('click', closeModal);
-  document.getElementById('inviteMemberForm').addEventListener('submit', async (e) => {
+  
+  const emailInviteBtn = document.getElementById('emailInviteBtn');
+  const passkeyInviteBtn = document.getElementById('passkeyInviteBtn');
+  const emailInviteForm = document.getElementById('emailInviteForm');
+  const passkeySection = document.getElementById('passkeySection');
+
+  emailInviteBtn.addEventListener('click', () => {
+    emailInviteBtn.classList.add('active');
+    passkeyInviteBtn.classList.remove('active');
+    emailInviteForm.style.display = 'block';
+    passkeySection.style.display = 'none';
+  });
+
+  passkeyInviteBtn.addEventListener('click', () => {
+    passkeyInviteBtn.classList.add('active');
+    emailInviteBtn.classList.remove('active');
+    emailInviteForm.style.display = 'none';
+    passkeySection.style.display = 'block';
+  });
+
+  emailInviteForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('inviteEmail').value;
     await inviteFamilyMember(email);
     closeModal();
+  });
+
+  document.getElementById('generatePasskeyBtn').addEventListener('click', async () => {
+    try {
+      const selectedFamilyButton = document.querySelector('.family-button.selected');
+      if (!selectedFamilyButton) {
+        throw new Error("No family selected");
+      }
+      const selectedFamilyId = selectedFamilyButton.dataset.familyId;
+
+      console.log(`Attempting to generate passkey for family ${selectedFamilyId}`);
+
+      const response = await makeAuthenticatedRequest(`/api/dashboard/families/${selectedFamilyId}/passkey`, {
+        method: 'POST',
+      });
+
+      console.log('Response status:', response.status);
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = JSON.parse(responseText);
+      document.getElementById('generatedPasskey').textContent = result.passkey;
+      document.getElementById('passkeyExpiry').textContent = new Date(result.expiresAt).toLocaleString();
+      document.getElementById('passkeyResult').style.display = 'block';
+    } catch (error) {
+      console.error('Error generating passkey:', error);
+      alert('Failed to generate passkey. Please try again.');
+    }
   });
 }
 
@@ -362,7 +432,6 @@ function updateCalendar(events) {
       );
     });
     
-    console.log(`Events for ${eventDate.toDateString()}:`, dayEvents);
 
     if (dayEvents.length > 0) {
       day.classList.add("has-event");
@@ -610,22 +679,40 @@ async function fetchCalendarEvents(familyId) {
 
 async function initDashboard() {
   try {
+    console.log("Initializing dashboard...");
     const user = await fetchUserProfile();
+    if (!user) {
+      console.log("No user found. Redirecting to login...");
+      window.location.href = "index.html";
+      return;
+    }
+    console.log("Fetched user profile:", user);
     updateUserProfile(user);
     
     const families = await fetchUserFamilies();
+    console.log("Fetched user families:", families);
     updateFamilySelector(families);
 
     if (families.length > 0) {
-      await viewFamily(families[0].family_id);
+      let familyToView = families[0].family_id;
+      
+      const storedFamilyId = localStorage.getItem("familyId");
+      if (storedFamilyId) {
+        console.log("Using stored family ID:", storedFamilyId);
+        familyToView = storedFamilyId;
+      }
+
+      console.log("Viewing family:", familyToView);
+      await viewFamily(familyToView);
     } else {
-      updateFamilyView(null, []);
-      updateCalendar([]);
+      console.log("No families found. Redirecting to onboarding...");
+      window.location.href = "onboarding.html";
     }
 
     setupEventListeners();
   } catch (error) {
     console.error("Error initializing dashboard:", error);
+    alert("An error occurred while loading the dashboard. Please try refreshing the page.");
   }
 }
 
@@ -675,11 +762,9 @@ function showCreateFamilyModal() {
   modal.innerHTML = `
     <div class="modal-content">
       <h2>Create New Family</h2>
-      <form id="createFamilyForm">
-        <input type="text" id="familyName" placeholder="Enter family name" required>
-        <button type="submit">Create Family</button>
-      </form>
-      <button id="closeModal">Cancel</button>
+      <p>Would you like to create a new family?</p>
+      <button id="confirmCreateFamily" class="cta-button">Yes, Create New Family</button>
+      <button id="closeModal" class="secondary-button">Cancel</button>
     </div>
   `;
 
@@ -690,11 +775,9 @@ function showCreateFamilyModal() {
   };
 
   document.getElementById('closeModal').addEventListener('click', closeModal);
-  document.getElementById('createFamilyForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const familyName = document.getElementById('familyName').value;
-    await createFamily(familyName);
-    closeModal();
+  document.getElementById('confirmCreateFamily').addEventListener('click', () => {
+    // Redirect to the onboarding page
+    window.location.href = '/onboarding.html?createFamily=true';
   });
 }
 
@@ -713,16 +796,136 @@ async function createFamily(familyName) {
     }
 
     const result = await response.json();
-    alert(`Family "${familyName}" created successfully!`);
-
-    // Refresh the family list and view the new family
-    const families = await fetchUserFamilies();
-    updateFamilySelector(families);
-    await viewFamily(result.familyId);
-
+    return result.familyId;
   } catch (error) {
     console.error('Error creating family:', error);
     alert('Failed to create family. Please try again.');
+    return null;
+  }
+}
+
+function showInviteMembersModal(familyId, familyName) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <h2>Invite Members to ${familyName}</h2>
+      <form id="inviteMembersForm">
+        <div class="input-container">
+          <input type="email" id="memberEmail" placeholder="Enter email address">
+          <i class="fas fa-envelope input-icon"></i>
+        </div>
+        <button type="button" id="addMemberBtn" class="secondary-button">Add</button>
+        <ul id="invitedMembersList"></ul>
+        <div class="progress-indicator">
+          <span id="membersCount">0</span> family members invited
+        </div>
+        <button type="submit" class="cta-button">Send Invitations</button>
+      </form>
+      <button id="closeModal" class="secondary-button">Cancel</button>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const invitedMembers = [];
+
+  const closeModal = () => {
+    document.body.removeChild(modal);
+  };
+
+  const updateInvitedMembersList = () => {
+    const list = document.getElementById('invitedMembersList');
+    list.innerHTML = invitedMembers.map(email => `
+      <li>${email} <button type="button" class="removeMember" data-email="${email}">Remove</button></li>
+    `).join('');
+
+    document.querySelectorAll('.removeMember').forEach(button => {
+      button.addEventListener('click', (e) => {
+        const emailToRemove = e.target.getAttribute('data-email');
+        const index = invitedMembers.indexOf(emailToRemove);
+        if (index > -1) {
+          invitedMembers.splice(index, 1);
+          updateInvitedMembersList();
+          updateMembersCount();
+        }
+      });
+    });
+  };
+
+  const updateMembersCount = () => {
+    document.getElementById('membersCount').textContent = invitedMembers.length;
+  };
+
+  document.getElementById('closeModal').addEventListener('click', closeModal);
+  document.getElementById('addMemberBtn').addEventListener('click', () => {
+    const email = document.getElementById('memberEmail').value.trim();
+    if (email && !invitedMembers.includes(email)) {
+      invitedMembers.push(email);
+      updateInvitedMembersList();
+      document.getElementById('memberEmail').value = '';
+      updateMembersCount();
+    }
+  });
+
+  document.getElementById('inviteMembersForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (invitedMembers.length > 0) {
+      await inviteMembers(familyId, invitedMembers);
+      closeModal();
+      // Refresh the family list and view the new family
+      const families = await fetchUserFamilies();
+      updateFamilySelector(families);
+      await viewFamily(familyId);
+    } else {
+      alert('Please invite at least one family member before finishing.');
+    }
+  });
+}
+
+async function inviteMembers(familyId, emails) {
+  try {
+    for (const email of emails) {
+      const response = await makeAuthenticatedRequest(`/api/invitations/invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, familyId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to invite family member');
+      }
+    }
+    alert('Invitations sent successfully!');
+  } catch (error) {
+    console.error('Error inviting family members:', error);
+    alert(`Failed to invite family members: ${error.message}`);
+  }
+}
+
+async function inviteMembers(familyId, emails) {
+  try {
+    for (const email of emails) {
+      const response = await makeAuthenticatedRequest(`/api/invitations/invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, familyId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to invite family member');
+      }
+    }
+    alert('Invitations sent successfully!');
+  } catch (error) {
+    console.error('Error inviting family members:', error);
+    alert(`Failed to invite family members: ${error.message}`);
   }
 }
 
@@ -733,12 +936,10 @@ async function updateSocialFeed(familyId) {
     socialFeedContent.innerHTML = "";
   }
 
-  // Update currentFamilyId in socialFeed.js
   if (typeof updateCurrentFamilyId === "function") {
     updateCurrentFamilyId(familyId);
   }
 
-  // Fetch and display new posts
   if (typeof initializeSocialFeed === "function") {
     await initializeSocialFeed(familyId);
   }
@@ -758,7 +959,7 @@ function setupEventListeners() {
 document.addEventListener("DOMContentLoaded", function() {
   initDashboard();
 
-  // Add event listeners for the floating icons
+
   document.getElementById("toggleLeftColumn").addEventListener("click", function() {
       toggleElementVisibility("leftColumn");
   });
@@ -771,7 +972,6 @@ document.addEventListener("DOMContentLoaded", function() {
       toggleElementVisibility("rightColumn");
   });
 
-  // Add event listener for closing when clicking outside (on overlay)
   document.getElementById("overlay").addEventListener("click", function() {
       closeAllElements();
   });
@@ -786,7 +986,7 @@ function toggleElementVisibility(elementId) {
           element.classList.remove("open");
           overlay.classList.remove("active");
       } else {
-          closeAllElements(); // Close any other open elements first
+          closeAllElements(); 
           element.classList.add("open");
           overlay.classList.add("active");
       }

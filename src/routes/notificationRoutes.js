@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const { getNotifications, markAllAsRead, markAsRead } = require('../controllers/notificationController');
+const notificationController = require('../controllers/notificationController');
 
 router.use(authMiddleware);
 
-router.get('/', getNotifications);
-router.post('/read-all', markAllAsRead);
-router.post('/:id/read', markAsRead);
-
+router.get('/', notificationController.getNotifications);
+router.post('/read-all', notificationController.markAllAsRead);
+router.post('/:id/read', notificationController.markAsRead);
+// Add this new route
+router.post('/push/subscribe', notificationController.subscribePush);
 
 module.exports = router;

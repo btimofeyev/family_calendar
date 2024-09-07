@@ -135,3 +135,63 @@ exports.getNotifications = async (req, res) => {
       res.status(500).json({ error: 'Internal server error' });
     }
   };
+
+async function saveSubscription(userId, subscription) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Check if the endpoint already exists
+    const checkQuery = 'SELECT user_id FROM push_subscriptions WHERE endpoint = $1';
+    const checkResult = await client.query(checkQuery, [subscription.endpoint]);
+
+    if (checkResult.rows.length > 0 && checkResult.rows[0].user_id !== userId) {
+      // Endpoint exists for a different user, delete the old subscription
+      const deleteQuery = 'DELETE FROM push_subscriptions WHERE endpoint = $1';
+      await client.query(deleteQuery, [subscription.endpoint]);
+    }
+
+    // Insert or update the subscription
+    const upsertQuery = `
+      INSERT INTO push_subscriptions (user_id, endpoint, keys)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, endpoint) DO UPDATE
+      SET keys = $3, updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `;
+    const values = [
+      userId,
+      subscription.endpoint,
+      JSON.stringify({
+        auth: subscription.keys.auth,
+        p256dh: subscription.keys.p256dh
+      })
+    ];
+
+    const result = await client.query(upsertQuery, values);
+    await client.query('COMMIT');
+    console.log('Push subscription saved successfully');
+    return result.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error saving push subscription:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+exports.subscribePush = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const subscription = req.body;
+
+    // Save the subscription to the database
+    const savedSubscription = await saveSubscription(userId, subscription);
+
+    res.status(201).json({ message: 'Subscription added successfully', subscription: savedSubscription });
+  } catch (error) {
+    console.error('Error in subscribePush:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+};
