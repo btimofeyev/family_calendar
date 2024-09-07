@@ -19,7 +19,7 @@ const urlsToCache = [
   "/js/socialfeed.js",
   "/js/pushNotifications.js",
   "/js/profile.js",
-  "/icons/512x512.png",
+  "/icons/logo.png",
   "/icons/512x512.png",
 ];
 

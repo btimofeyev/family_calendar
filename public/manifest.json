@@ -3,7 +3,7 @@
   "short_name": "FamlyNook",
   "icons": [
     {
-      "src": "/icons/512x512.png",
+      "src": "/icons/logo.png",
       "sizes": "192x192",
       "type": "image/png"
     },

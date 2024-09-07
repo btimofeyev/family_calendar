@@ -209,6 +209,11 @@ function updateFamilyView(familyDetails, familyMembers) {
 }
 
 function showInviteMemberModal() {
+  // Close the left column on mobile devices
+  if (window.innerWidth <= 768) {
+    closeAllElements();
+  }
+
   const modal = document.createElement('div');
   modal.className = 'modal';
   modal.innerHTML = `
