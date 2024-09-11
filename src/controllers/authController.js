@@ -1,4 +1,4 @@
-const { createUser, findUserByEmail, validPassword } = require('../models/user');
+const { createUser, findUserByEmail, validPassword, findUserById } = require('../models/user');
 const pool = require('../config/db');
 const jwt = require('jsonwebtoken');
 const invitationService = require('../middleware/invite');
@@ -193,22 +193,35 @@ exports.checkInvitation = async (req, res) => {
   }
 };
 
-exports.refreshToken = (req, res) => {
+exports.refreshToken = async (req, res) => {
   const { refreshToken } = req.cookies;
   if (!refreshToken) {
     return res.status(401).json({ error: 'No refresh token provided' });
   }
 
-  jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid refresh token' });
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    const user = await findUserById(decoded.userId);
+
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
     }
 
-    const user = { id: decoded.userId, family_id: decoded.familyId };
     const accessToken = createAccessToken(user);
+    const newRefreshToken = createRefreshToken(user);
+
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/api/auth/refresh-token',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
 
     res.json({ token: accessToken });
-  });
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    res.status(403).json({ error: 'Invalid refresh token' });
+  }
 };
 
 exports.logout = (req, res) => {

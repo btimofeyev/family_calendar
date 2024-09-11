@@ -10,7 +10,6 @@ async function refreshAccessToken() {
     }
 
     const data = await response.json();
-    localStorage.setItem('token', data.token);
     return data.token;
   } catch (error) {
     console.error('Error refreshing access token:', error);
@@ -40,8 +39,8 @@ async function makeAuthenticatedRequest(url, options = {}) {
       localStorage.setItem("token", token);
       response = await makeRequest(token);
     } else {
-      // Only show the logout modal if token refresh fails
-      showLogoutModal();
+      // If token refresh fails, redirect to login page
+      window.location.href = "index.html";
       return null;
     }
   }
@@ -65,21 +64,6 @@ function logout() {
       }
     })
     .catch((error) => console.error("Error during logout:", error));
-}
-
-function showLogoutModal() {
-  const logoutModal = document.getElementById("logoutModal");
-  if (logoutModal) {
-    logoutModal.style.display = "flex"; // Show the modal
-    const loginRedirectButton = document.getElementById("loginRedirect");
-    loginRedirectButton.addEventListener("click", () => {
-      // Clear local storage before redirecting
-      localStorage.removeItem("token");
-      localStorage.removeItem("userId");
-      localStorage.removeItem("familyId");
-      window.location.href = "index.html"; // Redirect to the login page
-    });
-  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {

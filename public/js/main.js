@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeBtn = document.querySelector(".close");
   let deferredPrompt;
 
-  // If a token exists in localStorage, assume the user is logged in and redirect
+
   if (localStorage.getItem("token") && !window.location.href.includes("dashboard.html")) {
     window.location.href = "dashboard.html";
     return;
@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Modal functionality
+
   function showModal() {
     authModal.classList.remove("hidden");
   }

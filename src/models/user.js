@@ -40,8 +40,18 @@ const validPassword = async (inputPassword, storedPassword) => {
   }
 };
 
+const findUserById = async (userId) => {
+  const query = {
+    text: 'SELECT * FROM users WHERE id = $1',
+    values: [userId],
+  };
+  const result = await pool.query(query);
+  return result.rows[0] || null;
+};
+
 module.exports = {
   createUser,
   findUserByEmail,
   validPassword,
+  findUserById,
 };
