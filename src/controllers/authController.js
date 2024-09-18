@@ -43,7 +43,7 @@ exports.register = async (req, res) => {
       }
 
       familyId = passkeyResult.rows[0].family_id;
-      isNewUser = false;  // User joining with passkey is not considered a new user
+      isNewUser = false;  
     }
 
     // Create user

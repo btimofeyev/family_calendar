@@ -33,70 +33,71 @@ async function getTwitterEmbedHtml(tweetUrl) {
 
 exports.getPosts = async (req, res) => {
   try {
-      const userId = req.user.id;
-      const { familyId } = req.params;
-      const page = parseInt(req.query.page) || 1;
-      const limit = 10; // Number of posts per page
-      const offset = (page - 1) * limit;
+    const userId = req.user.id;
+    const { familyId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = 10; // Number of posts per page
+    const offset = (page - 1) * limit;
 
-      // Check if the user is a member of the family
-      const checkMembershipQuery = {
-          text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
-          values: [userId, familyId],
-      };
-      const membershipResult = await pool.query(checkMembershipQuery);
+    // Check if the user is a member of the family
+    const checkMembershipQuery = {
+      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
+      values: [userId, familyId],
+    };
+    const membershipResult = await pool.query(checkMembershipQuery);
 
-      if (membershipResult.rows.length === 0) {
-          return res.status(403).json({ error: "You are not a member of this family" });
-      }
+    if (membershipResult.rows.length === 0) {
+      return res.status(403).json({ error: "You are not a member of this family" });
+    }
 
-      // Get total count of posts
-      const countQuery = "SELECT COUNT(*) FROM posts WHERE family_id = $1";
-      const { rows: countRows } = await pool.query(countQuery, [familyId]);
-      const totalPosts = parseInt(countRows[0].count);
+    // Get total count of posts
+    const countQuery = "SELECT COUNT(*) FROM posts WHERE family_id = $1";
+    const { rows: countRows } = await pool.query(countQuery, [familyId]);
+    const totalPosts = parseInt(countRows[0].count);
 
-      const query = `
-          SELECT p.*, u.name as author_name,
-              (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) as likes_count,
-              (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id) as comments_count,
-              CASE WHEN p.author_id = $2 THEN true ELSE false END as is_owner
-          FROM posts p
-          JOIN users u ON p.author_id = u.id
-          WHERE p.family_id = $1
-          ORDER BY p.created_at DESC
-          LIMIT $2 OFFSET $3
-      `;
-      const { rows } = await pool.query(query, [familyId, limit, offset]);
+    const query = `
+      SELECT p.*, u.name as author_name,
+        (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) as likes_count,
+        (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id) as comments_count,
+        CASE WHEN p.author_id = $2 THEN true ELSE false END as is_owner
+      FROM posts p
+      JOIN users u ON p.author_id = u.id
+      WHERE p.family_id = $1
+      ORDER BY p.created_at DESC
+      LIMIT $3 OFFSET $4
+    `;
+    const { rows } = await pool.query(query, [familyId, userId, limit, offset]);
 
-      const postsWithSignedUrls = await Promise.all(
-          rows.map(async (post) => {
-              if (post.image_url) {
-                  const key = post.image_url.split("/").pop();
-                  post.signed_image_url = await getSignedImageUrl(key);
-              }
-              if (typeof post.link_preview === 'string') {
-                  try {
-                      post.link_preview = JSON.parse(post.link_preview);
-                  } catch (error) {
-                      console.error('Error parsing link preview JSON:', error);
-                      post.link_preview = null;
-                  }
-              }
-              return post;
-          })
-      );
+    const postsWithSignedUrls = await Promise.all(
+      rows.map(async (post) => {
+        if (post.image_url) {
+          const key = post.image_url.split("/").pop();
+          post.signed_image_url = await getSignedImageUrl(key);
+        }
+        if (typeof post.link_preview === 'string') {
+          try {
+            post.link_preview = JSON.parse(post.link_preview);
+          } catch (error) {
+            console.error('Error parsing link preview JSON:', error);
+            post.link_preview = null;
+          }
+        }
+        return post;
+      })
+    );
 
-      res.json({
-          posts: postsWithSignedUrls,
-          currentPage: page,
-          totalPages: Math.ceil(totalPosts / limit),
-          totalPosts: totalPosts
-      });
+    res.json({
+      posts: postsWithSignedUrls,
+      currentPage: page,
+      totalPages: Math.ceil(totalPosts / limit),
+      totalPosts: totalPosts
+    });
   } catch (error) {
-      console.error("Error fetching posts:", error);
-      res.status(500).json({ error: "Internal server error" });
+    console.error("Error fetching posts:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
+
 
 // Create a new post
 exports.createPost = async (req, res) => {
@@ -360,7 +361,7 @@ exports.getLinkPreview = async (req, res) => {
     res.json({
         title: preview.title,
         description: preview.description,
-        image: preview.images[0] || '',  // Get the first image if available
+        image: preview.images[0] || '',  
         url: preview.url
     });
   } catch (error) {

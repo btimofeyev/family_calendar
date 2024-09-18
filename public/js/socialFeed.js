@@ -20,6 +20,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 let currentFamilyId = null;
 let currentPage = 1;
 let totalPages = 1;
+let isLoadingMore = false;
 
 async function setDefaultFamily() {
   try {
@@ -526,9 +527,7 @@ function updateLoadMoreButton() {
     loadMoreButton = document.createElement("button");
     loadMoreButton.id = "loadMoreButton";
     loadMoreButton.textContent = "Load More";
-    loadMoreButton.addEventListener("click", () => {
-      loadMorePosts();
-    });
+    loadMoreButton.addEventListener("click", loadMorePosts);
     const socialFeed = document.querySelector(".social-feed");
     if (socialFeed) {
       socialFeed.appendChild(loadMoreButton);
@@ -539,16 +538,21 @@ function updateLoadMoreButton() {
 }
 
 async function loadMorePosts() {
-  if (currentPage < totalPages) {
-    const loadMoreButton = document.getElementById("loadMoreButton");
-    loadMoreButton.textContent = "Loading...";
-    loadMoreButton.disabled = true;
+  if (isLoadingMore || currentPage >= totalPages) return;
 
+  isLoadingMore = true;
+  const loadMoreButton = document.getElementById("loadMoreButton");
+  loadMoreButton.textContent = "Loading...";
+  loadMoreButton.disabled = true;
+
+  try {
     await fetchAndDisplayPosts(currentPage + 1, true);
-
+  } catch (error) {
+    console.error("Error loading more posts:", error);
+  } finally {
     loadMoreButton.textContent = "Load More";
     loadMoreButton.disabled = false;
-  } else {
+    isLoadingMore = false;
   }
 }
 
