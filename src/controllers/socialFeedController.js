@@ -2,6 +2,7 @@ const pool = require("../config/db");
 const {
   deleteMediaFromS3,
   getSignedImageUrl,
+  uploadToS3, // Add this import
 } = require("../middleware/imageUpload");
 const { getLinkPreview } = require('link-preview-js');
 const { createNotification } = require('./notificationController');
@@ -102,8 +103,11 @@ exports.getPosts = async (req, res) => {
 // Create a new post
 exports.createPost = async (req, res) => {
   const { caption, familyId } = req.body;
-  const mediaUrl = req.file ? req.file.location : null;
+  const file = req.file;
   const authorId = req.user.id;
+
+  let mediaUrl = null; // Define mediaUrl here
+  let mediaType = null;
 
   try {
     // Check if the user is a member of the family
@@ -115,6 +119,11 @@ exports.createPost = async (req, res) => {
 
     if (membershipResult.rows.length === 0) {
       return res.status(403).json({ error: "You are not a member of this family" });
+    }
+
+    if (file) {
+      mediaUrl = await uploadToS3(file);
+      mediaType = file.mimetype.startsWith('image/') ? 'image' : 'video';
     }
 
     let linkPreview = null;
@@ -175,7 +184,6 @@ exports.createPost = async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, NOW())
       RETURNING *
     `;
-    const mediaType = req.file ? (req.file.mimetype.startsWith('image/') ? 'image' : 'video') : null;
     const values = [authorId, familyId, mediaUrl, mediaType, caption, linkPreview];
     const { rows } = await pool.query(query, values);
 

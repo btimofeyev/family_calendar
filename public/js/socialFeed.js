@@ -87,7 +87,7 @@ function handleFileSelection(file) {
       if (previewElement.tagName === "VIDEO") {
         previewElement.setAttribute("controls", "");
       }
-      mediaPreview.innerHTML = ''; // Clear existing content
+      mediaPreview.innerHTML = ''; 
       mediaPreview.appendChild(previewElement);
     };
     reader.readAsDataURL(file);
@@ -99,7 +99,6 @@ function handleCaptionInput(event) {
   const mediaPreview = document.getElementById("mediaPreview");
   const urls = extractUrls(captionInput.value);
 
-  // Check if there's already a media preview (image or video)
   const existingMediaPreview = mediaPreview.querySelector('.media-preview-item');
   
   if (urls.length > 0 && !existingMediaPreview) {
@@ -107,7 +106,6 @@ function handleCaptionInput(event) {
   } else if (urls.length === 0 && !existingMediaPreview) {
     mediaPreview.innerHTML = "";
   }
-  // If there's an existing media preview, we don't change it
 }
 
 async function fetchLinkPreview(url) {

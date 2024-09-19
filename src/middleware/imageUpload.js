@@ -5,6 +5,13 @@ const multer = require("multer");
 const multerS3 = require("multer-s3");
 const path = require("path");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+const fs = require('fs');
+const os = require('os');
+const sharp = require('sharp');
+
+ffmpeg.setFfmpegPath(ffmpegPath);
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
@@ -14,16 +21,46 @@ const s3Client = new S3Client({
   },
 });
 
+async function compressVideo(file) {
+  const tempInputPath = path.join(os.tmpdir(), file.originalname);
+  const tempOutputPath = path.join(os.tmpdir(), `compressed-${file.originalname}`);
+
+  await fs.promises.writeFile(tempInputPath, file.buffer);
+
+  return new Promise((resolve, reject) => {
+    ffmpeg(tempInputPath)
+      .outputOptions([
+        '-c:v libx264',
+        '-crf 28',
+        '-preset faster',
+        '-c:a aac',
+        '-b:a 128k'
+      ])
+      .output(tempOutputPath)
+      .on('end', async () => {
+        const compressedBuffer = await fs.promises.readFile(tempOutputPath);
+        await fs.promises.unlink(tempInputPath);
+        await fs.promises.unlink(tempOutputPath);
+        resolve(compressedBuffer);
+      })
+      .on('error', (err) => {
+        reject(err);
+      })
+      .run();
+  });
+}
+
+async function compressImage(file) {
+  const buffer = await sharp(file.buffer)
+    .resize({ width: 1920, height: 1080, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 80 })
+    .toBuffer();
+
+  return buffer;
+}
+
 const upload = multer({
-  storage: multerS3({
-    s3: s3Client,
-    bucket: process.env.AWS_BUCKET_NAME,
-    key: function (req, file, cb) {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      const filename = file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname);
-      cb(null, filename);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, 
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
@@ -33,6 +70,37 @@ const upload = multer({
     }
   }
 });
+
+async function uploadToS3(file) {
+  let buffer = file.buffer;
+  let contentType = file.mimetype;
+
+  if (file.mimetype.startsWith('video/')) {
+    buffer = await compressVideo(file);
+  } else if (file.mimetype.startsWith('image/')) {
+    buffer = await compressImage(file);
+    contentType = 'image/jpeg'; // We're converting all images to JPEG
+  }
+
+  const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+  const filename = file.fieldname + "-" + uniqueSuffix + (file.mimetype.startsWith('image/') ? '.jpg' : path.extname(file.originalname));
+
+  const uploadParams = {
+    Bucket: process.env.AWS_BUCKET_NAME,
+    Key: filename,
+    Body: buffer,
+    ContentType: contentType
+  };
+
+  const upload = new Upload({
+    client: s3Client,
+    params: uploadParams
+  });
+
+  await upload.done();
+
+  return `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${filename}`;
+}
 
 async function deleteMediaFromS3(mediaUrl) {
   const filename = mediaUrl.split("/").pop();
@@ -64,6 +132,7 @@ async function getSignedImageUrl(key) {
 
 module.exports = {
   upload,
+  uploadToS3,
   deleteMediaFromS3,
   getSignedImageUrl,
 };
