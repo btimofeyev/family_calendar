@@ -2,7 +2,7 @@ const pool = require("../config/db");
 const {
   deleteMediaFromS3,
   getSignedImageUrl,
-  uploadToS3, // Add this import
+  uploadToS3,
 } = require("../middleware/imageUpload");
 const { getLinkPreview } = require('link-preview-js');
 const { createNotification } = require('./notificationController');
@@ -106,7 +106,7 @@ exports.createPost = async (req, res) => {
   const file = req.file;
   const authorId = req.user.id;
 
-  let mediaUrl = null; // Define mediaUrl here
+  let mediaUrl = null;
   let mediaType = null;
 
   try {
