@@ -71,65 +71,15 @@ const upload = multer({
   }
 });
 
-async function uploadOriginalToS3(file) {
-  const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-  const filename = file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname);
-
-  const uploadParams = {
-    Bucket: process.env.AWS_BUCKET_NAME,
-    Key: filename,
-    Body: file.buffer,
-    ContentType: file.mimetype
-  };
-
-  const upload = new Upload({
-    client: s3Client,
-    params: uploadParams
-  });
-
-  await upload.done();
-
-  return `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${filename}`;
-}
-
 async function uploadToS3(file) {
   let buffer = file.buffer;
   let contentType = file.mimetype;
 
   if (file.mimetype.startsWith('video/')) {
-    // Upload original file first
-    const originalUrl = await uploadOriginalToS3(file);
-    
-    // Compress video in the background
-    compressVideo(file).then(async (compressedBuffer) => {
-      buffer = compressedBuffer;
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      const filename = file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname);
-
-      const uploadParams = {
-        Bucket: process.env.AWS_BUCKET_NAME,
-        Key: filename,
-        Body: buffer,
-        ContentType: contentType
-      };
-
-      const upload = new Upload({
-        client: s3Client,
-        params: uploadParams
-      });
-
-      await upload.done();
-
-      // Delete the original file
-      await deleteMediaFromS3(originalUrl);
-    }).catch(error => {
-      console.error("Error compressing video:", error);
-    });
-
-    return originalUrl;
+    buffer = await compressVideo(file);
   } else if (file.mimetype.startsWith('image/')) {
     buffer = await compressImage(file);
-    contentType = 'image/jpeg';
+    contentType = 'image/jpeg'; // We're converting all images to JPEG
   }
 
   const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
