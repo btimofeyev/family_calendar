@@ -247,8 +247,6 @@ exports.deletePost = async (req, res) => {
 
     // If the post has media, delete it from R2
     if (post.media_url) {
-      // Replace delete logic for R2 if needed, currently commented out
-      // await deleteMediaFromR2(post.media_url);
       await deleteMediaFromR2(post.media_url);
     }
 
