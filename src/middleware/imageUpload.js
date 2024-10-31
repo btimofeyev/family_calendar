@@ -5,22 +5,20 @@ const multer = require("multer");
 const path = require("path");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const sharp = require('sharp');
-const Queue = require('bull');
+const fs = require('fs');
+const os = require('os');
 
-// Cloudflare R2 Client
+// AWS S3 or Cloudflare R2 Client
 const s3Client = new S3Client({
   endpoint: process.env.R2_BUCKET_URL,
-  region: "auto",
+  region: "auto", // Use 'auto' as the region for R2
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY_ID,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
   },
 });
 
-// Initialize Bull Queue with Redis Cloud
-const videoQueue = new Queue('video-compression', process.env.REDIS_CLOUD_URL);
-
-// Image compression function
+// Compress Image Function
 async function compressImage(file) {
   const buffer = await sharp(file.buffer)
     .resize({ width: 1920, height: 1080, fit: 'inside', withoutEnlargement: true })
@@ -30,124 +28,69 @@ async function compressImage(file) {
   return buffer;
 }
 
-// Multer configuration for handling file uploads
+// Multer Setup for Memory Storage
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB limit
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB file size limit
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
       cb(null, true);
     } else {
       cb(new Error('Only image and video files are allowed!'), false);
     }
-  },
+  }
 });
 
-// Main upload function
+// Cloudflare R2 Upload
 async function uploadToR2(file) {
-  const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-  const baseUrl = process.env.R2_CUSTOM_DOMAIN || process.env.R2_BUCKET_URL;
+  let buffer = file.buffer;
+  let contentType = file.mimetype;
 
-  if (file.mimetype.startsWith('video/')) {
-    const filename = `video-${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`;
-
-    // Upload original video to R2
-    const uploadParams = {
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: filename,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-      Metadata: {
-        originalName: file.originalname,
-        optimized: 'false',
-        uploadTimestamp: Date.now().toString(),
-      },
-    };
-
-    const upload = new Upload({
-      client: s3Client,
-      params: uploadParams,
-    });
-
-    await upload.done();
-
-    // Add video to the processing queue
-    await videoQueue.add(
-      {
-        key: filename,
-      },
-      {
-        priority: 1,
-        attempts: 3,
-      }
-    );
-
-    return `${baseUrl}/${filename}`;
-  } else if (file.mimetype.startsWith('image/')) {
-    const filename = `image-${file.fieldname}-${uniqueSuffix}.jpg`;
-    const buffer = await compressImage(file);
-
-    // Upload compressed image to R2
-    const uploadParams = {
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: filename,
-      Body: buffer,
-      ContentType: 'image/jpeg',
-      Metadata: {
-        originalName: file.originalname,
-        compressed: 'true',
-      },
-    };
-
-    const upload = new Upload({
-      client: s3Client,
-      params: uploadParams,
-    });
-
-    await upload.done();
-
-    return `${baseUrl}/${filename}`;
+  // Only compress images
+  if (file.mimetype.startsWith('image/')) {
+    buffer = await compressImage(file);
+    contentType = 'image/jpeg'; // Convert images to JPEG format
   }
 
-  throw new Error('Unsupported file type');
-}
+  const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+  const filename = `${file.fieldname}-${uniqueSuffix}.${file.mimetype.startsWith('image/') ? 'jpg' : path.extname(file.originalname)}`;
 
-// Function to get the status of the video queue
-async function getQueueStatus() {
-  const [waiting, active, completed, failed] = await Promise.all([
-    videoQueue.getWaitingCount(),
-    videoQueue.getActiveCount(),
-    videoQueue.getCompletedCount(),
-    videoQueue.getFailedCount(),
-  ]);
-
-  return {
-    waiting,
-    active,
-    completed,
-    failed,
-    timestamp: new Date().toISOString(),
+  const uploadParams = {
+    Bucket: process.env.R2_BUCKET_NAME,
+    Key: filename,
+    Body: buffer,
+    ContentType: contentType,
   };
+
+  const upload = new Upload({
+    client: s3Client,
+    params: uploadParams,
+  });
+
+  await upload.done();
+
+  // Use custom domain for production
+  const baseUrl = process.env.R2_CUSTOM_DOMAIN;
+  return `${baseUrl}/${filename}`;
 }
 
-// Function to delete media from R2
+// Delete Media from R2
 async function deleteMediaFromR2(mediaUrl) {
-  const filename = mediaUrl.split('/').pop();
+  const filename = mediaUrl.split("/").pop(); 
   const params = {
     Bucket: process.env.R2_BUCKET_NAME,
     Key: filename,
   };
-
   try {
     await s3Client.send(new DeleteObjectCommand(params));
     console.log(`Successfully deleted ${filename} from R2 bucket`);
   } catch (err) {
-    console.error('Error deleting media from R2:', err);
+    console.error("Error deleting media from R2:", err);
     throw err;
   }
 }
 
-// Function to get a signed URL for an image
+// Cloudflare R2 Signed URL Generation
 async function getSignedImageUrl(key) {
   const command = new GetObjectCommand({
     Bucket: process.env.R2_BUCKET_NAME,
@@ -155,19 +98,17 @@ async function getSignedImageUrl(key) {
   });
 
   try {
-    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 }); // URL expires in 1 hour
     return signedUrl;
   } catch (err) {
-    console.error('Error generating signed URL:', err);
+    console.error("Error generating signed URL:", err);
     throw err;
   }
 }
 
-// Export the necessary functions
 module.exports = {
   upload,
   uploadToR2,
   getSignedImageUrl,
   deleteMediaFromR2,
-  getQueueStatus,
 };
