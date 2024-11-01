@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const { deleteMediaFromS3 } = require('../middleware/imageUpload');
+const { uploadToR2, deleteMediaFromR2 } = require('../middleware/imageUpload');
 const { createNotification } = require('./notificationController');
 
 exports.createMemory = async (req, res) => {
@@ -11,20 +11,18 @@ exports.createMemory = async (req, res) => {
       'INSERT INTO memories (title, description, family_id, created_by) VALUES ($1, $2, $3, $4) RETURNING memory_id',
       [title, description, familyId, userId]
     );
-    
+
     const memoryId = result.rows[0].memory_id;
 
-    // Fetch family members to notify
+    // Notify family members
     const familyMembersResult = await pool.query(
       'SELECT user_id FROM user_families WHERE family_id = $1 AND user_id != $2',
       [familyId, userId]
     );
 
-    // Get the user's name
     const userResult = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
     const userName = userResult.rows[0].name;
 
-    // Create notifications for family members
     for (const member of familyMembersResult.rows) {
       await createNotification(
         member.user_id,
@@ -78,8 +76,7 @@ exports.addContentToMemory = async (req, res) => {
 
   try {
     const file = req.file;
-    // The file is already uploaded to S3 by multer-s3, so we can use the file.location
-    const fileUrl = file.location;
+    const fileUrl = await uploadToR2(file);
 
     await pool.query(
       'INSERT INTO memory_content (memory_id, user_id, file_path, content_type) VALUES ($1, $2, $3, $4)',
@@ -109,7 +106,6 @@ exports.addCommentToMemory = async (req, res) => {
   }
 };
 
-// Add this new function to get memory content with a limit
 exports.getMemoryContent = async (req, res) => {
   const { memoryId } = req.params;
   const limit = req.query.limit ? parseInt(req.query.limit) : null;
@@ -151,7 +147,6 @@ exports.deleteMemory = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    // First, check if the user is the owner of the memory
     const checkOwnerQuery = 'SELECT * FROM memories WHERE memory_id = $1 AND created_by = $2';
     const checkResult = await pool.query(checkOwnerQuery, [memoryId, userId]);
 
@@ -159,13 +154,12 @@ exports.deleteMemory = async (req, res) => {
       return res.status(403).json({ error: 'You do not have permission to delete this memory' });
     }
 
-    // Fetch all content associated with this memory
     const contentQuery = 'SELECT file_path FROM memory_content WHERE memory_id = $1';
     const contentResult = await pool.query(contentQuery, [memoryId]);
 
-    // Delete all content from S3
+    // Delete all content from R2
     for (const content of contentResult.rows) {
-      await deleteMediaFromS3(content.file_path);
+      await deleteMediaFromR2(content.file_path);
     }
 
     // Delete associated content and comments from the database
