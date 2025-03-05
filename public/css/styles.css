@@ -399,3 +399,88 @@
       display: none;
     }
   }
+
+  /* Privacy Page Styles */
+  #privacy-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  #privacy-content {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+  }
+
+  #privacy-content h1 {
+    font-size: 2.5em;
+    color: #333;
+    margin-bottom: 10px;
+  }
+
+  .last-updated {
+    color: #666;
+    font-style: italic;
+    margin-bottom: 40px;
+  }
+
+  .privacy-section {
+    margin-bottom: 40px;
+  }
+
+  .privacy-section h2 {
+    color: #2c3e50;
+    font-size: 1.8em;
+    margin-bottom: 20px;
+  }
+
+  .privacy-section h3 {
+    color: #34495e;
+    font-size: 1.4em;
+    margin: 20px 0 15px;
+  }
+
+  .privacy-section p {
+    line-height: 1.6;
+    color: #444;
+    margin-bottom: 15px;
+  }
+
+  .privacy-section ul {
+    list-style-type: disc;
+    margin-left: 20px;
+    margin-bottom: 20px;
+  }
+
+  .privacy-section li {
+    margin-bottom: 10px;
+    line-height: 1.5;
+    color: #555;
+  }
+
+  .contact-info {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 15px;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    #privacy-content {
+      padding: 15px;
+    }
+
+    #privacy-content h1 {
+      font-size: 2em;
+    }
+
+    .privacy-section h2 {
+      font-size: 1.5em;
+    }
+
+    .privacy-section h3 {
+      font-size: 1.2em;
+    }
+  }
