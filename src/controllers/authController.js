@@ -123,19 +123,34 @@ exports.registerInvited = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
+  console.log('🔒 Login attempt received:', { email: req.body.email });
+  console.log('📡 Request IP:', req.ip || 'unknown');
+  console.log('📱 User-Agent:', req.headers['user-agent']);
+  
   try {
     const { email, password } = req.body;
+    console.log('👤 Looking up user by email...');
+    
     const user = await findUserByEmail(email);
     if (!user) {
+      console.log('❌ User not found for email:', email);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
+    
+    console.log('✅ User found:', { id: user.id, name: user.name });
+    console.log('🔑 Validating password...');
+    
     const isValidPassword = await validPassword(password, user.password);
     if (!isValidPassword) {
+      console.log('❌ Invalid password for user:', user.id);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
-
+    
+    console.log('✅ Password valid, generating tokens...');
+    
     const accessToken = createAccessToken(user);
     const refreshToken = createRefreshToken(user);
+    console.log('🎟️ Tokens generated successfully');
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
@@ -143,12 +158,15 @@ exports.login = async (req, res) => {
       path: '/api/auth/refresh-token',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
+    console.log('🍪 Refresh token cookie set');
 
     // Check if the user has any families
+    console.log('👪 Checking user families...');
     const userFamilies = await getUserFamilies(user.id);
+    console.log('👪 User families:', userFamilies);
     const isNewUser = userFamilies.length === 0;
 
-    res.json({ 
+    const responseData = { 
       user: { 
         id: user.id, 
         email: user.email, 
@@ -157,8 +175,18 @@ exports.login = async (req, res) => {
       }, 
       token: accessToken,
       isNewUser: isNewUser
+    };
+    
+    console.log('📤 Sending login response:', {
+      userId: user.id,
+      hasToken: !!accessToken,
+      isNewUser
     });
+    
+    res.json(responseData);
   } catch (error) {
+    console.error('💥 Login error:', error);
+    console.error('Stack trace:', error.stack);
     res.status(500).json({ error: error.message });
   }
 };
