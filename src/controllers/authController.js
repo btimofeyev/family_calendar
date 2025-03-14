@@ -398,7 +398,8 @@ exports.checkInvitation = async (req, res) => {
 };
 
 exports.refreshToken = async (req, res) => {
-  const { refreshToken } = req.cookies;
+  // Accept token from body instead of cookie
+  const { refreshToken } = req.body;
   if (!refreshToken) {
     return res.status(401).json({ error: 'No refresh token provided' });
   }
@@ -414,14 +415,11 @@ exports.refreshToken = async (req, res) => {
     const accessToken = createAccessToken(user);
     const newRefreshToken = createRefreshToken(user);
 
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      path: '/api/auth/refresh-token',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    // Return both tokens in the response body
+    res.json({ 
+      token: accessToken,
+      refreshToken: newRefreshToken 
     });
-
-    res.json({ token: accessToken });
   } catch (error) {
     console.error('Error refreshing token:', error);
     res.status(403).json({ error: 'Invalid refresh token' });
