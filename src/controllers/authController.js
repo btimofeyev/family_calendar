@@ -10,11 +10,11 @@ const bcrypt = require('bcrypt');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const createAccessToken = (user) => {
-  return jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '45m' });
+  return jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' }); // Change from 45m to 7 days
 };
 
 const createRefreshToken = (user) => {
-  return jwt.sign({ userId: user.id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ userId: user.id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '90d' }); // Change from 7d to 90 days
 };
 
 exports.register = async (req, res) => {
@@ -396,17 +396,37 @@ exports.checkInvitation = async (req, res) => {
       res.status(500).json({ error: 'Failed to check invitation', details: error.message });
   }
 };
-
 exports.refreshToken = async (req, res) => {
-  // Accept token from body instead of cookie
   const { refreshToken } = req.body;
   if (!refreshToken) {
     return res.status(401).json({ error: 'No refresh token provided' });
   }
 
   try {
-    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-    const user = await findUserById(decoded.userId);
+    // Add some error tolerance - try to decode the token even if verification fails
+    let userId;
+    
+    try {
+      // First try normal verification
+      const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+      userId = decoded.userId;
+    } catch (verifyError) {
+      // If verification fails due to expiration but token is otherwise valid
+      if (verifyError.name === 'TokenExpiredError') {
+        // Try to decode it anyway to get the userId
+        const decoded = jwt.decode(refreshToken);
+        if (decoded && decoded.userId) {
+          userId = decoded.userId;
+          console.log('Accepting expired refresh token as a fallback');
+        } else {
+          throw verifyError; // Re-throw if we couldn't get userId
+        }
+      } else {
+        throw verifyError; // Re-throw for other errors
+      }
+    }
+    
+    const user = await findUserById(userId);
 
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
@@ -415,7 +435,6 @@ exports.refreshToken = async (req, res) => {
     const accessToken = createAccessToken(user);
     const newRefreshToken = createRefreshToken(user);
 
-    // Return both tokens in the response body
     res.json({ 
       token: accessToken,
       refreshToken: newRefreshToken 
