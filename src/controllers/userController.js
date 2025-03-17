@@ -1,5 +1,5 @@
 const pool = require('../config/db');
-const { getSignedImageUrl } = require('../middleware/imageUpload');
+const { getSignedImageUrl, uploadToR2 } = require('../middleware/imageUpload');
 
 
 exports.getUserProfile = async (req, res) => {
@@ -106,3 +106,37 @@ exports.getUserProfileInFamily = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+exports.uploadProfilePhoto = async (req, res) => {
+    const userId = req.user.id;
+    const file = req.file;
+  
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+  
+    try {
+      // Upload file to storage (R2)
+      const fileUrl = await uploadToR2(file);
+  
+      // Update user record with new profile image URL
+      const updateQuery = {
+        text: "UPDATE users SET profile_image = $1 WHERE id = $2 RETURNING id, name, email, profile_image",
+        values: [fileUrl, userId],
+      };
+      
+      const { rows } = await pool.query(updateQuery);
+      
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+  
+      res.json({ 
+        message: 'Profile photo updated successfully',
+        profileImageUrl: fileUrl,
+        user: rows[0]
+      });
+    } catch (error) {
+      console.error('Error uploading profile photo:', error);
+      res.status(500).json({ error: 'Failed to upload profile photo' });
+    }
+  };

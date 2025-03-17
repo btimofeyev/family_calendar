@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const { upload } = require('../middleware/imageUpload');
+
 const dashboardController = require('../controllers/dashboardController');
 const calendarController = require('../controllers/calendarController');
 const familyController = require('../controllers/familyController');
@@ -33,5 +35,9 @@ router.get('/users/:userId/family/:familyId', userController.getUserProfileInFam
 // Add these new routes for passkey functionality
 router.post('/families/:familyId/passkey', familyController.generateFamilyPasskey);
 router.post('/families/validate-passkey', familyController.validatePasskey);
+
+//profile
+router.post('/profile/photo', upload.single('profilePhoto'), userController.uploadProfilePhoto);
+
 
 module.exports = router;
