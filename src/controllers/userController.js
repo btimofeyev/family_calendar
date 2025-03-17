@@ -3,52 +3,39 @@ const { getSignedImageUrl } = require('../middleware/imageUpload');
 
 
 exports.getUserProfile = async (req, res) => {
-    const userId = req.params.userId;
-    const currentUserId = req.user.id;
+    const userId = req.user.id;
 
     try {
-        // Get user details
+        // Get basic user details
         const userQuery = `
-            SELECT id, name, email, family_id
+            SELECT id, name, email
             FROM users
-            WHERE id = $1 AND family_id = (SELECT family_id FROM users WHERE id = $2)
+            WHERE id = $1
         `;
-        const { rows: [user] } = await pool.query(userQuery, [userId, currentUserId]);
+        const { rows: [user] } = await pool.query(userQuery, [userId]);
 
         if (!user) {
-            return res.status(404).json({ error: 'User not found or not in your family' });
+            return res.status(404).json({ error: 'User not found' });
         }
 
-        const postsQuery = `
-            SELECT 
-                p.*,
-                u.name as author_name,
-                (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) as likes_count,
-                (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id) as comments_count,
-                CASE WHEN EXISTS (SELECT 1 FROM likes WHERE post_id = p.post_id AND user_id = $2) THEN true ELSE false END as is_liked,
-                (
-                    SELECT json_agg(json_build_object('id', c.comment_id, 'text', c.text, 'author_name', cu.name, 'created_at', c.created_at))
-                    FROM comments c
-                    JOIN users cu ON c.author_id = cu.id
-                    WHERE c.post_id = p.post_id
-                ) as comments
-            FROM posts p
-            JOIN users u ON p.author_id = u.id
-            WHERE p.author_id = $1
-            ORDER BY p.created_at DESC
+        // Get user's families
+        const familiesQuery = `
+            SELECT f.family_id, f.family_name
+            FROM families f
+            JOIN user_families uf ON f.family_id = uf.family_id
+            WHERE uf.user_id = $1
         `;
-        const { rows: posts } = await pool.query(postsQuery, [userId, currentUserId]);
+        const { rows: families } = await pool.query(familiesQuery, [userId]);
 
-        // Generate signed URLs for each image
-        const postsWithSignedUrls = await Promise.all(posts.map(async (post) => {
-            if (post.image_url) {
-                const key = post.image_url.split('/').pop();
-                post.signed_image_url = await getSignedImageUrl(key);
-            }
-            return post;
-        }));
+        // Add families array to user object
+        user.families = families;
+        
+        // Add primary_family_id if user has at least one family
+        if (families.length > 0) {
+            user.primary_family_id = families[0].family_id;
+        }
 
-        res.json({ user, posts: postsWithSignedUrls });
+        res.json(user);
     } catch (error) {
         console.error('Error fetching user profile:', error);
         res.status(500).json({ error: 'Internal server error' });
