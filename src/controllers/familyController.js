@@ -290,8 +290,11 @@ exports.generateFamilyPasskey = async (req, res) => {
 // Add this new function to validate a passkey
 exports.validatePasskey = async (req, res) => {
   const { passkey } = req.body;
+  const userId = req.user ? req.user.id : null;
 
   try {
+    console.log('Validating passkey:', passkey, 'for user:', userId);
+    
     const validatePasskeyQuery = {
       text: `SELECT fp.family_id, f.family_name 
              FROM family_passkeys fp
@@ -302,13 +305,53 @@ exports.validatePasskey = async (req, res) => {
     const result = await pool.query(validatePasskeyQuery);
 
     if (result.rows.length === 0) {
+      console.log('Invalid or expired passkey:', passkey);
       return res.status(400).json({ error: "Invalid or expired passkey" });
+    }
+    
+    const familyId = result.rows[0].family_id;
+    const familyName = result.rows[0].family_name;
+    console.log('Passkey is valid for family:', familyName, '(ID:', familyId, ')');
+    
+    // If user is authenticated, automatically add them to the family
+    if (userId) {
+      console.log('Authenticated user found, adding to family:', userId, '->', familyId);
+      
+      // Check if user is already a member of this family
+      const checkMembershipQuery = {
+        text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
+        values: [userId, familyId],
+      };
+      const membershipResult = await pool.query(checkMembershipQuery);
+      
+      // Only add if not already a member
+      if (membershipResult.rows.length === 0) {
+        console.log('User is not yet a member of this family, adding now');
+        const addMemberQuery = {
+          text: "INSERT INTO user_families (user_id, family_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+          values: [userId, familyId],
+        };
+        await pool.query(addMemberQuery);
+        console.log('User successfully added to family_id:', familyId);
+        
+        // Also update the user's primary family_id if they don't have one set
+        const updateUserQuery = {
+          text: "UPDATE users SET family_id = $1 WHERE id = $2 AND (family_id IS NULL OR family_id = 0)",
+          values: [familyId, userId],
+        };
+        await pool.query(updateUserQuery);
+        console.log('User\'s primary family_id updated to:', familyId);
+      } else {
+        console.log('User is already a member of this family');
+      }
+    } else {
+      console.log('No authenticated user, skipping family membership update');
     }
 
     res.status(200).json({ 
       valid: true, 
-      familyId: result.rows[0].family_id,
-      familyName: result.rows[0].family_name
+      familyId: familyId,
+      familyName: familyName
     });
   } catch (error) {
     console.error("Error validating passkey:", error);
