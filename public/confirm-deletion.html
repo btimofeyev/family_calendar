@@ -105,11 +105,20 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        .debug-info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            font-family: monospace;
+            text-align: left;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <img src="/logo.png" alt="FamlyNook Logo" class="logo">
+        <img src="/logo.png" alt="FamlyNook Logo" class="logo" onerror="this.style.display='none'">
         <h1>Confirm Account Deletion</h1>
         <p>You're about to permanently delete your FamlyNook account and all associated data. This action cannot be undone.</p>
         <p class="warning">All your profile information, posts, photos, comments, and family connections will be permanently removed.</p>
@@ -124,12 +133,40 @@
         <div id="errorMessage" class="error-message">
             There was an error processing your request. Please try again or contact support.
         </div>
+        
+        <div id="debugInfo" class="debug-info"></div>
     </div>
 
     <script>
+        // Helper function to log to both console and debug div
+        function debugLog(message, data) {
+            const now = new Date().toISOString();
+            const logMessage = `${now}: ${message}`;
+            console.log(logMessage, data);
+            
+            const debugDiv = document.getElementById('debugInfo');
+            const logEntry = document.createElement('div');
+            logEntry.textContent = logMessage + (data ? ': ' + JSON.stringify(data) : '');
+            debugDiv.appendChild(logEntry);
+        }
+        
+        // Show debug info when shift key is pressed 5 times
+        let shiftPressCount = 0;
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Shift') {
+                shiftPressCount++;
+                if (shiftPressCount >= 5) {
+                    document.getElementById('debugInfo').style.display = 'block';
+                    shiftPressCount = 0;
+                }
+            }
+        });
+        
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
+            debugLog('Token from URL', token);
+            
             const confirmButton = document.getElementById('confirmButton');
             const spinner = document.getElementById('spinner');
             const successMessage = document.getElementById('successMessage');
@@ -137,8 +174,9 @@
             
             if (!token) {
                 errorMessage.style.display = 'block';
-                errorMessage.textContent = 'Invalid deletion link. Please request a new deletion link.';
+                errorMessage.textContent = 'Invalid deletion link. No token provided. Please request a new deletion link.';
                 confirmButton.style.display = 'none';
+                debugLog('No token found in URL');
                 return;
             }
             
@@ -146,17 +184,35 @@
                 // Show spinner, hide button
                 spinner.style.display = 'block';
                 confirmButton.style.display = 'none';
+                errorMessage.style.display = 'none'; // Hide any previous errors
+                
+                debugLog('Deletion confirmation clicked. Sending request with token', token);
                 
                 try {
+                    // Make the request
+                    const payload = JSON.stringify({ token: token });
+                    debugLog('Request payload', payload);
+                    
                     const response = await fetch('/api/account/confirm-deletion', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
                         },
-                        body: JSON.stringify({ token })
+                        body: payload
                     });
                     
-                    const data = await response.json();
+                    debugLog('Response status', response.status);
+                    
+                    let data;
+                    try {
+                        const text = await response.text();
+                        debugLog('Raw response text', text);
+                        data = text ? JSON.parse(text) : {};
+                    } catch (parseError) {
+                        debugLog('Error parsing response', parseError.message);
+                        data = { error: 'Invalid server response format' };
+                    }
                     
                     // Hide spinner
                     spinner.style.display = 'none';
@@ -164,17 +220,21 @@
                     if (response.ok) {
                         // Show success message
                         successMessage.style.display = 'block';
+                        debugLog('Deletion successful', data);
                     } else {
                         // Show error message
                         errorMessage.style.display = 'block';
                         errorMessage.textContent = data.error || 'Failed to delete account. Please try again.';
                         confirmButton.style.display = 'block';
+                        debugLog('Deletion failed', data);
                     }
                 } catch (error) {
+                    debugLog('Request error', error.message);
+                    
                     // Hide spinner, show error and button
                     spinner.style.display = 'none';
                     errorMessage.style.display = 'block';
-                    errorMessage.textContent = 'Connection error. Please try again.';
+                    errorMessage.textContent = 'Connection error. Please try again or check your network connection.';
                     confirmButton.style.display = 'block';
                 }
             });

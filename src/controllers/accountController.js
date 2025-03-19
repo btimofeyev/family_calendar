@@ -66,87 +66,119 @@ exports.requestAccountDeletion = async (req, res) => {
     res.status(500).json({ error: 'Failed to process your account deletion request' });
   }
 };
-
 exports.confirmAccountDeletion = async (req, res) => {
-  const { token } = req.body;
-  
-  if (!token) {
-    return res.status(400).json({ error: 'Token is required' });
-  }
-  
-  try {
-    // Verify the token is valid and not expired
-    const query = {
-      text: `SELECT * FROM deletion_requests 
-             WHERE token = $1 AND status = 'pending' AND expires_at > NOW()`,
-      values: [token]
-    };
+    console.log('Received deletion confirmation request:', req.body);
     
-    const result = await pool.query(query);
+    const { token } = req.body;
     
-    if (result.rows.length === 0) {
-      return res.status(400).json({ error: 'Invalid or expired token' });
+    if (!token) {
+      console.error('No token provided in request body');
+      return res.status(400).json({ error: 'Token is required' });
     }
-    
-    const userId = result.rows[0].user_id;
-    
-    // Begin transaction to delete user data
-    const client = await pool.connect();
     
     try {
-      await client.query('BEGIN');
+      console.log('Verifying token:', token);
       
-      // Update deletion request status
-      await client.query(
-        'UPDATE deletion_requests SET status = $1, deleted_at = NOW() WHERE token = $2',
-        ['completed', token]
-      );
+      // Verify the token is valid and not expired
+      const query = {
+        text: `SELECT * FROM deletion_requests 
+               WHERE token = $1 AND status = 'pending' AND expires_at > NOW()`,
+        values: [token]
+      };
       
-      await client.query('DELETE FROM user_families WHERE user_id = $1', [userId]);
-
-      const userPosts = await client.query('SELECT post_id FROM posts WHERE author_id = $1', [userId]);
-      for (const post of userPosts.rows) {
-        await client.query('DELETE FROM likes WHERE post_id = $1', [post.post_id]);
-        await client.query('DELETE FROM comments WHERE post_id = $1', [post.post_id]);
+      const result = await pool.query(query);
+      console.log('Token verification result rows:', result.rows.length);
+      
+      if (result.rows.length === 0) {
+        return res.status(400).json({ error: 'Invalid or expired token' });
       }
-      await client.query('DELETE FROM posts WHERE author_id = $1', [userId]);
-
-      await client.query('DELETE FROM comments WHERE author_id = $1', [userId]);
-
-      await client.query('DELETE FROM likes WHERE user_id = $1', [userId]);
-
-      await client.query('DELETE FROM notifications WHERE user_id = $1', [userId]);
-
-      await client.query('DELETE FROM push_subscriptions WHERE user_id = $1', [userId]);
       
-      // Get user email for audit log
-      const userQuery = await client.query('SELECT email FROM users WHERE id = $1', [userId]);
-      const userEmail = userQuery.rows[0].email;
+      const userId = result.rows[0].user_id;
+      console.log('Deleting account for user ID:', userId);
       
-      await client.query(
-        'INSERT INTO deletion_audit_log (user_id, email, deleted_at) VALUES ($1, $2, NOW())',
-        [userId, userEmail]
-      );
+      // Begin transaction to delete user data
+      const client = await pool.connect();
       
-
-      await client.query('DELETE FROM users WHERE id = $1', [userId]);
-      
-      
-      await client.query('COMMIT');
-      
-      res.status(200).json({ message: 'Your account has been deleted successfully' });
+      try {
+        await client.query('BEGIN');
+        
+        // Update deletion request status
+        await client.query(
+          'UPDATE deletion_requests SET status = $1, deleted_at = NOW() WHERE token = $2',
+          ['completed', token]
+        );
+        
+        // Delete or anonymize user data
+        // Here you should delete all user's personal data from various tables
+        // For example:
+        
+        // 1. Remove user from families
+        await client.query('DELETE FROM user_families WHERE user_id = $1', [userId]);
+        
+        // 2. Delete user's posts, comments, and likes
+        const userPosts = await client.query('SELECT post_id FROM posts WHERE author_id = $1', [userId]);
+        for (const post of userPosts.rows) {
+          await client.query('DELETE FROM likes WHERE post_id = $1', [post.post_id]);
+          await client.query('DELETE FROM comments WHERE post_id = $1', [post.post_id]);
+        }
+        await client.query('DELETE FROM posts WHERE author_id = $1', [userId]);
+        
+        // 3. Delete user's comments on other posts
+        await client.query('DELETE FROM comments WHERE author_id = $1', [userId]);
+        
+        // 4. Delete user's likes
+        await client.query('DELETE FROM likes WHERE user_id = $1', [userId]);
+        
+        // 5. Delete user's notifications
+        await client.query('DELETE FROM notifications WHERE user_id = $1', [userId]);
+        
+        // 6. Delete push subscriptions
+        await client.query('DELETE FROM push_subscriptions WHERE user_id = $1', [userId]);
+        
+        // Get user email for audit log
+        const userQuery = await client.query('SELECT email FROM users WHERE id = $1', [userId]);
+        const userEmail = userQuery.rows.length > 0 ? userQuery.rows[0].email : 'unknown@email.com';
+        
+        // 7. Create an audit log entry
+        await client.query(
+          'INSERT INTO deletion_audit_log (user_id, email, deleted_at) VALUES ($1, $2, NOW())',
+          [userId, userEmail]
+        );
+        
+        // 8. Finally, delete or anonymize the user
+        // Option 1: Complete deletion
+        await client.query('DELETE FROM users WHERE id = $1', [userId]);
+        
+        // Option 2: Anonymization (alternative approach)
+        // const anonymizedEmail = `deleted_${userId}@anonymized.com`;
+        // await client.query(
+        //   `UPDATE users 
+        //    SET name = 'Deleted User', 
+        //        email = $1, 
+        //        password = NULL, 
+        //        reset_token = NULL, 
+        //        reset_token_expires = NULL,
+        //        is_deleted = TRUE
+        //    WHERE id = $2`,
+        //   [anonymizedEmail, userId]
+        // );
+        
+        await client.query('COMMIT');
+        console.log('Account deletion completed successfully for user ID:', userId);
+        
+        res.status(200).json({ message: 'Your account has been deleted successfully' });
+      } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error confirming account deletion:', error);
+        res.status(500).json({ error: 'Failed to delete your account: ' + error.message });
+      } finally {
+        client.release();
+      }
     } catch (error) {
-      await client.query('ROLLBACK');
       console.error('Error confirming account deletion:', error);
-      res.status(500).json({ error: 'Failed to delete your account' });
-    } finally {
-      client.release();
+      res.status(500).json({ error: 'Failed to delete your account: ' + error.message });
     }
-  } catch (error) {
-    console.error('Error confirming account deletion:', error);
-    res.status(500).json({ error: 'Failed to delete your account' });
-  }
-};
+  };
 
 exports.cancelAccountDeletion = async (req, res) => {
   try {
