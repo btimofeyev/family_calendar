@@ -7,6 +7,7 @@ const PUBLIC_PATHS = [
   '/api/invitations/check/',
   '/api/auth/refresh-token',
   '/api/account/confirm-deletion',
+  '/account/confirm-deletion', // Add this path as well
   '/api/health'
 ];
 
