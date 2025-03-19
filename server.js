@@ -11,6 +11,7 @@ const socialFeedRoutes = require('./src/routes/socialFeedRoutes');
 const invitationRoutes = require('./src/routes/invitationRoutes');
 const notificationRoutes = require('./src/routes/notificationRoutes');
 const memoriesRoutes = require('./src/routes/memoriesRoutes');
+const accountRoutes = require('./src/routes/accountRoutes');
 
 dotenv.config();
 
@@ -38,6 +39,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api', socialFeedRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/memories', memoriesRoutes);
+app.use('/api/account', accountRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
