@@ -4,7 +4,9 @@ const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 
 const authMiddleware = async (req, res, next) => {
-  if (req.path.startsWith('/api/invitations/check/') || req.path === '/api/auth/refresh-token') {
+  if (req.path.startsWith('/api/invitations/check/') || 
+      req.path === '/api/auth/refresh-token' ||
+      req.path === '/api/account/confirm-deletion') {
     return next();
   }
 

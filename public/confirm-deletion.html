@@ -113,6 +113,8 @@
             font-family: monospace;
             text-align: left;
             display: none;
+            max-height: 200px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -221,6 +223,9 @@
                         // Show success message
                         successMessage.style.display = 'block';
                         debugLog('Deletion successful', data);
+                        
+                        // Hide the confirmation button and cancel link completely
+                        document.querySelector('.cancel-button').style.display = 'none';
                     } else {
                         // Show error message
                         errorMessage.style.display = 'block';
