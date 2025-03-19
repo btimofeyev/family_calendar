@@ -1,17 +1,31 @@
-// Update in src/middleware/authMiddleware.js
-
+// src/middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 
+// Define public paths that should bypass authentication
+const PUBLIC_PATHS = [
+  '/api/invitations/check/',
+  '/api/auth/refresh-token',
+  '/api/account/confirm-deletion',
+  '/api/health'
+];
+
 const authMiddleware = async (req, res, next) => {
-  if (req.path.startsWith('/api/invitations/check/') || 
-      req.path === '/api/auth/refresh-token' ||
-      req.path === '/api/account/confirm-deletion') {
-    return next();
+  // Debug information - log the path being accessed
+  console.log(`[Auth Middleware] Processing request for path: ${req.path}`);
+  
+  // Check if the path should bypass authentication
+  for (const publicPath of PUBLIC_PATHS) {
+    if (req.path === publicPath || (publicPath.endsWith('/') && req.path.startsWith(publicPath))) {
+      console.log(`[Auth Middleware] Bypassing authentication for public path: ${req.path}`);
+      return next();
+    }
   }
 
+  // For all other paths, require authentication
   const authHeader = req.headers.authorization;
   if (!authHeader) {
+    console.log(`[Auth Middleware] No auth header provided for path: ${req.path}`);
     return res.status(401).json({ error: "No token provided" });
   }
 
@@ -36,7 +50,6 @@ const authMiddleware = async (req, res, next) => {
     const userId = parseInt(decoded.userId, 10) || null;
     
     // Get the family parameter from the request URL if it exists
-    // This helps with routes like /api/family/:familyId/posts
     const familyIdFromUrl = req.params.familyId || null;
     
     // Check if the user exists and if they're a member of the specified family

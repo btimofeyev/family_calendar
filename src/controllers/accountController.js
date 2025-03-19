@@ -67,8 +67,10 @@ exports.requestAccountDeletion = async (req, res) => {
   }
 };
 exports.confirmAccountDeletion = async (req, res) => {
-    console.log('Received deletion confirmation request:', req.body);
-    
+    console.log('Received deletion confirmation request with path:', req.path);
+    console.log('Request method:', req.method);
+    console.log('Request body:', req.body);
+    console.log('Request headers:', req.headers);
     const { token } = req.body;
     
     if (!token) {
