@@ -1,5 +1,5 @@
 const pool = require('../config/db');
-const { getSignedImageUrl, uploadToR2 } = require('../middleware/imageUpload');
+const { getSignedImageUrl, uploadToR2, deleteMediaFromR2 } = require('../middleware/imageUpload');
 
 
 exports.getUserProfile = async (req, res) => {
