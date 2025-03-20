@@ -358,3 +358,73 @@ exports.validatePasskey = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.leaveFamilyGroup = async (req, res) => {
+  const { familyId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    console.log(`User ${userId} attempting to leave family ${familyId}`);
+    
+    // Check if the user is a member of this family
+    const checkMembershipQuery = {
+      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
+      values: [userId, familyId],
+    };
+    const membershipResult = await pool.query(checkMembershipQuery);
+
+    if (membershipResult.rows.length === 0) {
+      return res.status(403).json({ error: "You are not a member of this family" });
+    }
+
+    // Count the number of members in the family
+    const countMembersQuery = {
+      text: "SELECT COUNT(*) FROM user_families WHERE family_id = $1",
+      values: [familyId],
+    };
+    const countResult = await pool.query(countMembersQuery);
+    const memberCount = parseInt(countResult.rows[0].count);
+
+    // Begin transaction
+    await pool.query('BEGIN');
+
+    // Remove user from family
+    const removeUserQuery = {
+      text: "DELETE FROM user_families WHERE user_id = $1 AND family_id = $2 RETURNING *",
+      values: [userId, familyId],
+    };
+    await pool.query(removeUserQuery);
+
+    // If user's primary family_id matches this family, update it to NULL or another family
+    const updateUserQuery = {
+      text: "UPDATE users SET family_id = NULL WHERE id = $1 AND family_id = $2",
+      values: [userId, familyId],
+    };
+    await pool.query(updateUserQuery);
+
+    // If this was the last member, consider deleting the family entirely
+    if (memberCount <= 1) {
+      console.log(`Last member leaving family ${familyId}, cleaning up family data`);
+      
+      // Optional: Delete family data like posts, events, etc.
+      // For example:
+      await pool.query("DELETE FROM posts WHERE family_id = $1", [familyId]);
+      await pool.query("DELETE FROM calendar_events WHERE family_id = $1", [familyId]);
+      await pool.query("DELETE FROM memories WHERE family_id = $1", [familyId]);
+      await pool.query("DELETE FROM invitations WHERE family_id = $1", [familyId]);
+      
+      // Finally delete the family itself
+      await pool.query("DELETE FROM families WHERE family_id = $1", [familyId]);
+    }
+
+    // Commit transaction
+    await pool.query('COMMIT');
+
+    res.status(200).json({ message: "Successfully left family group" });
+  } catch (error) {
+    // Rollback in case of error
+    await pool.query('ROLLBACK');
+    console.error("Error in leaveFamilyGroup:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
