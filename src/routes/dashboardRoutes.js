@@ -28,6 +28,10 @@ router.post('/families/:familyId/members', familyController.addFamilyMember);
 router.get('/families/:familyId/members', familyController.getFamilyMembers);
 router.get('/user/families', familyController.getUserFamilies);
 router.get('/families/:familyId', familyController.getFamilyDetails); 
+router.delete('/families/:familyId/leave', familyController.leaveFamilyGroup);
+
+
+
 
 router.get('/users/:userId', userController.getUserProfile);
 router.get('/users/:userId/family/:familyId', userController.getUserProfileInFamily);

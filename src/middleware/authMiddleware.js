@@ -13,8 +13,13 @@ const PUBLIC_PATHS = [
 
 const authMiddleware = async (req, res, next) => {
   // Debug information - log the path being accessed
-  console.log(`[Auth Middleware] Processing request for path: ${req.path}`);
-  
+  console.log(`[Auth Middleware] Processing request:`, {
+    originalUrl: req.originalUrl,
+    path: req.path,
+    baseUrl: req.baseUrl,
+    fullPath: `${req.baseUrl}${req.path}`,
+    method: req.method
+  });
   // Check if the path should bypass authentication
   for (const publicPath of PUBLIC_PATHS) {
     if (req.path === publicPath || (publicPath.endsWith('/') && req.path.startsWith(publicPath))) {
