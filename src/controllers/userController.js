@@ -109,17 +109,24 @@ exports.getUserProfileInFamily = async (req, res) => {
 exports.uploadProfilePhoto = async (req, res) => {
     const userId = req.user.id;
     
-    console.log('Upload photo request received for user:', userId);
-    console.log('Request file:', req.file);
-    console.log('Request body:', req.body);
+    console.log('Profile photo upload request received:');
+    console.log('- User ID:', userId);
+    console.log('- Content-Type:', req.headers['content-type']);
     
     if (!req.file) {
-      console.error('No file found in request');
-      return res.status(400).json({ error: 'No file uploaded' });
+      console.error('Error: No file found in request');
+      console.log('Request files property:', req.files);
+      console.log('Request body:', req.body);
+      return res.status(400).json({ error: 'No file uploaded. Please ensure the file is sent with field name "profilePhoto".' });
     }
+    
+    console.log('File received:');
+    console.log('- Original name:', req.file.originalname);
+    console.log('- MIME type:', req.file.mimetype);
+    console.log('- Size:', req.file.size, 'bytes');
   
     try {
-      // Upload file to storage (R2)
+      // Upload file to R2
       console.log('Uploading file to R2...');
       const fileUrl = await uploadToR2(req.file);
       console.log('File uploaded successfully to:', fileUrl);
@@ -138,14 +145,17 @@ exports.uploadProfilePhoto = async (req, res) => {
         return res.status(404).json({ error: 'User not found' });
       }
   
-      console.log('User profile updated successfully:', rows[0].id);
+      console.log('User profile updated successfully for user ID:', rows[0].id);
       res.json({ 
         message: 'Profile photo updated successfully',
         profileImageUrl: fileUrl,
         user: rows[0]
       });
     } catch (error) {
-      console.error('Error uploading profile photo:', error);
-      res.status(500).json({ error: 'Failed to upload profile photo', details: error.message });
+      console.error('Error in uploadProfilePhoto:', error);
+      res.status(500).json({ 
+        error: 'Failed to upload profile photo', 
+        details: error.message 
+      });
     }
   };
