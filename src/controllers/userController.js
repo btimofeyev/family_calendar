@@ -108,15 +108,21 @@ exports.getUserProfileInFamily = async (req, res) => {
 };
 exports.uploadProfilePhoto = async (req, res) => {
     const userId = req.user.id;
-    const file = req.file;
-  
-    if (!file) {
+    
+    console.log('Upload photo request received for user:', userId);
+    console.log('Request file:', req.file);
+    console.log('Request body:', req.body);
+    
+    if (!req.file) {
+      console.error('No file found in request');
       return res.status(400).json({ error: 'No file uploaded' });
     }
   
     try {
       // Upload file to storage (R2)
-      const fileUrl = await uploadToR2(file);
+      console.log('Uploading file to R2...');
+      const fileUrl = await uploadToR2(req.file);
+      console.log('File uploaded successfully to:', fileUrl);
   
       // Update user record with new profile image URL
       const updateQuery = {
@@ -124,12 +130,15 @@ exports.uploadProfilePhoto = async (req, res) => {
         values: [fileUrl, userId],
       };
       
+      console.log('Updating user record in database...');
       const { rows } = await pool.query(updateQuery);
       
       if (rows.length === 0) {
+        console.error('User not found in database:', userId);
         return res.status(404).json({ error: 'User not found' });
       }
   
+      console.log('User profile updated successfully:', rows[0].id);
       res.json({ 
         message: 'Profile photo updated successfully',
         profileImageUrl: fileUrl,
@@ -137,6 +146,6 @@ exports.uploadProfilePhoto = async (req, res) => {
       });
     } catch (error) {
       console.error('Error uploading profile photo:', error);
-      res.status(500).json({ error: 'Failed to upload profile photo' });
+      res.status(500).json({ error: 'Failed to upload profile photo', details: error.message });
     }
   };
