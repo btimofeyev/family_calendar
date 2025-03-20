@@ -109,28 +109,32 @@ exports.getUserProfileInFamily = async (req, res) => {
 exports.uploadProfilePhoto = async (req, res) => {
     const userId = req.user.id;
     
-    console.log('Profile photo upload request received:');
-    console.log('- User ID:', userId);
-    console.log('- Content-Type:', req.headers['content-type']);
+    console.log('Profile photo upload request received for user:', userId);
     
     if (!req.file) {
       console.error('Error: No file found in request');
-      console.log('Request files property:', req.files);
-      console.log('Request body:', req.body);
       return res.status(400).json({ error: 'No file uploaded. Please ensure the file is sent with field name "profilePhoto".' });
     }
     
-    console.log('File received:');
-    console.log('- Original name:', req.file.originalname);
-    console.log('- MIME type:', req.file.mimetype);
-    console.log('- Size:', req.file.size, 'bytes');
-  
     try {
-      // Upload file to R2
+      // First, get the user's current profile image URL
+      const userQuery = {
+        text: "SELECT profile_image FROM users WHERE id = $1",
+        values: [userId],
+      };
+      
+      const userResult = await pool.query(userQuery);
+      const oldProfileImageUrl = userResult.rows[0]?.profile_image;
+      const oldImageKey = getFileKeyFromUrl(oldProfileImageUrl);
+      
+      console.log('Current profile image:', oldProfileImageUrl);
+      console.log('File key to delete:', oldImageKey);
+      
+      // Upload the new file to R2
       console.log('Uploading file to R2...');
       const fileUrl = await uploadToR2(req.file);
       console.log('File uploaded successfully to:', fileUrl);
-  
+      
       // Update user record with new profile image URL
       const updateQuery = {
         text: "UPDATE users SET profile_image = $1 WHERE id = $2 RETURNING id, name, email, profile_image",
@@ -144,7 +148,20 @@ exports.uploadProfilePhoto = async (req, res) => {
         console.error('User not found in database:', userId);
         return res.status(404).json({ error: 'User not found' });
       }
-  
+      
+      // If the update was successful and there was an old image, delete it
+      if (oldImageKey && oldImageKey !== getFileKeyFromUrl(fileUrl)) {
+        try {
+          console.log('Attempting to delete old profile image:', oldImageKey);
+          await deleteMediaFromR2(oldProfileImageUrl);
+          console.log('Old profile image deleted successfully');
+        } catch (deleteError) {
+          // Don't fail the whole request if deletion fails
+          console.error('Error deleting old profile image:', deleteError);
+          console.log('Continuing despite deletion error');
+        }
+      }
+      
       console.log('User profile updated successfully for user ID:', rows[0].id);
       res.json({ 
         message: 'Profile photo updated successfully',
@@ -159,8 +176,14 @@ exports.uploadProfilePhoto = async (req, res) => {
       });
     }
   };
-  // Handle Base64 encoded image uploads
-exports.uploadBase64ProfilePhoto = async (req, res) => {
+
+  const getFileKeyFromUrl = (url) => {
+    if (!url) return null;
+    // Extract the filename from the URL
+    return url.split('/').pop();
+  };
+  
+  exports.uploadBase64ProfilePhoto = async (req, res) => {
     const userId = req.user.id;
     
     console.log('Base64 profile photo upload request received for user:', userId);
@@ -171,6 +194,19 @@ exports.uploadBase64ProfilePhoto = async (req, res) => {
     }
   
     try {
+      // First, get the user's current profile image URL
+      const userQuery = {
+        text: "SELECT profile_image FROM users WHERE id = $1",
+        values: [userId],
+      };
+      
+      const userResult = await pool.query(userQuery);
+      const oldProfileImageUrl = userResult.rows[0]?.profile_image;
+      const oldImageKey = getFileKeyFromUrl(oldProfileImageUrl);
+      
+      console.log('Current profile image:', oldProfileImageUrl);
+      console.log('File key to delete:', oldImageKey);
+  
       // Parse the base64 data
       const base64Data = req.body.image;
       const contentType = req.body.contentType;
@@ -192,7 +228,7 @@ exports.uploadBase64ProfilePhoto = async (req, res) => {
         size: buffer.length
       };
       
-      // Use the existing uploadToR2 function from your middleware
+      // Upload the new image to R2
       console.log('Uploading base64 file to R2...');
       const fileUrl = await uploadToR2(file);
       console.log('File uploaded successfully to:', fileUrl);
@@ -209,6 +245,19 @@ exports.uploadBase64ProfilePhoto = async (req, res) => {
       if (rows.length === 0) {
         console.error('User not found in database:', userId);
         return res.status(404).json({ error: 'User not found' });
+      }
+      
+      // If the update was successful and there was an old image, delete it
+      if (oldImageKey && oldImageKey !== getFileKeyFromUrl(fileUrl)) {
+        try {
+          console.log('Attempting to delete old profile image:', oldImageKey);
+          await deleteMediaFromR2(oldProfileImageUrl);
+          console.log('Old profile image deleted successfully');
+        } catch (deleteError) {
+          // Don't fail the whole request if deletion fails
+          console.error('Error deleting old profile image:', deleteError);
+          console.log('Continuing despite deletion error');
+        }
       }
       
       console.log('User profile updated successfully for user ID:', rows[0].id);
