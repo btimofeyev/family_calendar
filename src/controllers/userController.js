@@ -159,3 +159,69 @@ exports.uploadProfilePhoto = async (req, res) => {
       });
     }
   };
+  // Handle Base64 encoded image uploads
+exports.uploadBase64ProfilePhoto = async (req, res) => {
+    const userId = req.user.id;
+    
+    console.log('Base64 profile photo upload request received for user:', userId);
+    
+    if (!req.body.image || !req.body.contentType) {
+      console.error('Error: Missing image data or content type');
+      return res.status(400).json({ error: 'Missing required fields: image and contentType' });
+    }
+  
+    try {
+      // Parse the base64 data
+      const base64Data = req.body.image;
+      const contentType = req.body.contentType;
+      const fileName = req.body.fileName || `profile-${Date.now()}.jpg`;
+      
+      console.log('Received base64 image data, length:', base64Data.length);
+      console.log('Content type:', contentType);
+      console.log('File name:', fileName);
+      
+      // Create a buffer from the base64 string
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      // Create a temporary file object similar to what multer would provide
+      const file = {
+        buffer,
+        originalname: fileName,
+        mimetype: contentType,
+        fieldname: 'profilePhoto',
+        size: buffer.length
+      };
+      
+      // Use the existing uploadToR2 function from your middleware
+      console.log('Uploading base64 file to R2...');
+      const fileUrl = await uploadToR2(file);
+      console.log('File uploaded successfully to:', fileUrl);
+      
+      // Update user record with new profile image URL
+      const updateQuery = {
+        text: "UPDATE users SET profile_image = $1 WHERE id = $2 RETURNING id, name, email, profile_image",
+        values: [fileUrl, userId],
+      };
+      
+      console.log('Updating user record in database...');
+      const { rows } = await pool.query(updateQuery);
+      
+      if (rows.length === 0) {
+        console.error('User not found in database:', userId);
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      console.log('User profile updated successfully for user ID:', rows[0].id);
+      res.json({ 
+        message: 'Profile photo updated successfully',
+        profileImageUrl: fileUrl,
+        user: rows[0]
+      });
+    } catch (error) {
+      console.error('Error in base64 profile photo upload:', error);
+      res.status(500).json({ 
+        error: 'Failed to upload profile photo', 
+        details: error.message 
+      });
+    }
+  };

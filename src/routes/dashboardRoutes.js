@@ -42,6 +42,7 @@ router.post('/families/validate-passkey', familyController.validatePasskey);
 
 //profile
 router.post('/profile/photo', upload.single('profilePhoto'), userController.uploadProfilePhoto);
+router.post('/profile/photo/base64', userController.uploadBase64ProfilePhoto);
 
 
 module.exports = router;
