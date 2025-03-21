@@ -111,10 +111,8 @@ exports.getFamilyMembers = async (req, res) => {
     if (membershipResult.rows.length === 0) {
       return res.status(403).json({ error: "You are not a member of this family" });
     }
-
-    // Fetch all members of the family
     const getMembersQuery = {
-      text: `SELECT u.id, u.name, u.email 
+      text: `SELECT u.id, u.name, u.email, u.profile_image 
              FROM users u
              JOIN user_families uf ON u.id = uf.user_id
              WHERE uf.family_id = $1`,
