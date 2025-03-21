@@ -356,7 +356,6 @@ exports.validatePasskey = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 exports.leaveFamilyGroup = async (req, res) => {
   const { familyId } = req.params;
   const userId = req.user.id;
@@ -404,12 +403,16 @@ exports.leaveFamilyGroup = async (req, res) => {
     if (memberCount <= 1) {
       console.log(`Last member leaving family ${familyId}, cleaning up family data`);
       
-      // Optional: Delete family data like posts, events, etc.
-      // For example:
+      // First, delete family_passkeys that reference this family
+      await pool.query("DELETE FROM family_passkeys WHERE family_id = $1", [familyId]);
+      
+      // Delete invitations for this family
+      await pool.query("DELETE FROM invitations WHERE family_id = $1", [familyId]);
+      
+      // Delete other related tables
       await pool.query("DELETE FROM posts WHERE family_id = $1", [familyId]);
       await pool.query("DELETE FROM calendar_events WHERE family_id = $1", [familyId]);
       await pool.query("DELETE FROM memories WHERE family_id = $1", [familyId]);
-      await pool.query("DELETE FROM invitations WHERE family_id = $1", [familyId]);
       
       // Finally delete the family itself
       await pool.query("DELETE FROM families WHERE family_id = $1", [familyId]);
