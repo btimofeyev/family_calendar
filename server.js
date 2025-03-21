@@ -12,6 +12,7 @@ const invitationRoutes = require('./src/routes/invitationRoutes');
 const notificationRoutes = require('./src/routes/notificationRoutes');
 const memoriesRoutes = require('./src/routes/memoriesRoutes');
 const accountRoutes = require('./src/routes/accountRoutes');
+const { initializeNotificationCleanup } = require('./src/services/notificationCleanupService');
 
 dotenv.config();
 
@@ -49,4 +50,10 @@ app.use((err, req, res, next) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT} on all interfaces`);
+
+  const cleanupJob = initializeNotificationCleanup({
+    // Customize if needed, or use defaults
+    schedule: '0 0 * * *', // Run at midnight every day 
+    maxAgeDays: 14 // Keep notifications for 14 days
+  });
 });
