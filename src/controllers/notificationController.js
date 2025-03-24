@@ -4,6 +4,15 @@ const webpush = require('web-push');
 const { getUserPushSubscriptions, removeInvalidSubscription } = require('../models/subscriptionModel');
 
 
+const NOTIFICATION_TYPES = {
+  like: 'New Like',
+  comment: 'New Comment',
+  memory: 'Family Memory',
+  event: 'Family Event',
+  post: 'New Post',
+  invitation: 'Family Invitation',
+  mention: 'Mention'
+};
 exports.createNotification = async (userId, type, content, postId = null, commentId = null, familyId = null, memoryId = null) => {
   try {
     // Insert the notification into the database
@@ -23,17 +32,54 @@ exports.createNotification = async (userId, type, content, postId = null, commen
 
     // Send a push notification
     try {
+      // Get user's notification preferences
+      const prefsQuery = `SELECT notification_settings FROM users WHERE id = $1`;
+      const prefsResult = await pool.query(prefsQuery, [userId]);
+      
+      let notificationSettings = {};
+      if (prefsResult.rows.length > 0 && prefsResult.rows[0].notification_settings) {
+        notificationSettings = prefsResult.rows[0].notification_settings;
+      }
+      
+      // Check if user has disabled this notification type
+      if (notificationSettings[type] === false) {
+        console.log(`User ${userId} has disabled notifications for ${type}`);
+        return notification;
+      }
+      
       const subscriptions = await getUserPushSubscriptions(userId);
       if (subscriptions && subscriptions.length > 0) {
+        // Get deep link URL based on notification type
+        let url = '/notifications';
+        
+        if (type === 'like' || type === 'comment' && postId) {
+          url = `/feed?highlightPostId=${postId}`;
+        } else if (type === 'memory' && memoryId) {
+          url = `/memory-detail?memoryId=${memoryId}`;
+        } else if (type === 'event' && familyId) {
+          url = `/family/${familyId}/calendar`;
+        }
+        
+        // Get notification title based on type
+        const title = NOTIFICATION_TYPES[type] || 'New Notification';
+
         const payload = JSON.stringify({
-          title: 'New Memory',
+          title,
           body: content,
-          url: '/memories.html'
+          url,
+          data: {
+            postId,
+            commentId,
+            familyId,
+            memoryId,
+            type
+          }
         });
 
         for (const subscription of subscriptions) {
           try {
             await webpush.sendNotification(subscription, payload);
+            console.log(`Push notification sent to ${userId} for ${type}`);
           } catch (error) {
             console.error('Error sending push notification:', error);
             if (error.statusCode === 410) {
@@ -52,7 +98,6 @@ exports.createNotification = async (userId, type, content, postId = null, commen
     throw error;
   }
 };
-
 exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -83,7 +128,38 @@ exports.getNotifications = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
-
+exports.updateNotificationPreferences = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const preferences = req.body;
+    
+    // Validate preferences object
+    const validTypes = ['like', 'comment', 'memory', 'event', 'post', 'invitation', 'mention'];
+    for (const [key, value] of Object.entries(preferences)) {
+      if (!validTypes.includes(key) || typeof value !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid notification preferences format' });
+      }
+    }
+    
+    // Update preferences in the database
+    const query = `
+      UPDATE users
+      SET notification_settings = $1
+      WHERE id = $2
+      RETURNING id
+    `;
+    
+    await pool.query(query, [preferences, userId]);
+    
+    res.json({ 
+      message: 'Notification preferences updated successfully',
+      preferences
+    });
+  } catch (error) {
+    console.error('Error updating notification preferences:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
 
   exports.markAllAsRead = async (req, res) => {
     try {

@@ -10,5 +10,6 @@ router.post('/read-all', notificationController.markAllAsRead);
 router.post('/:id/read', notificationController.markAsRead);
 // Add this new route
 router.post('/push/subscribe', notificationController.subscribePush);
+router.put('/preferences', notificationController.updateNotificationPreferences);
 
 module.exports = router;
