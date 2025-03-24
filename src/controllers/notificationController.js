@@ -98,6 +98,38 @@ exports.createNotification = async (userId, type, content, postId = null, commen
     throw error;
   }
 };
+exports.getNotificationPreferences = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get user's notification settings from database
+    const query = `SELECT notification_settings FROM users WHERE id = $1`;
+    const { rows } = await pool.query(query, [userId]);
+    
+    // Default preferences in case nothing is stored yet
+    let preferences = {
+      like: true,
+      comment: true,
+      memory: true,
+      event: true,
+      post: true,
+      invitation: true,
+      mention: true
+    };
+    
+    // If user has preferences stored, use those
+    if (rows.length > 0 && rows[0].notification_settings) {
+      preferences = rows[0].notification_settings;
+    }
+    
+    res.json({ 
+      preferences 
+    });
+  } catch (error) {
+    console.error('Error getting notification preferences:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
 exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -160,7 +192,6 @@ exports.updateNotificationPreferences = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
-
   exports.markAllAsRead = async (req, res) => {
     try {
       const userId = req.user.id;
