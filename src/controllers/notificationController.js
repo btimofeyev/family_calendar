@@ -32,6 +32,8 @@ exports.createNotification = async (userId, type, content, postId = null, commen
 
     // Send a push notification
     try {
+      console.log(`Attempting to send push notification to user ${userId} for ${type} notification`);
+      
       // Get user's notification preferences
       const prefsQuery = `SELECT notification_settings FROM users WHERE id = $1`;
       const prefsResult = await pool.query(prefsQuery, [userId]);
@@ -39,6 +41,9 @@ exports.createNotification = async (userId, type, content, postId = null, commen
       let notificationSettings = {};
       if (prefsResult.rows.length > 0 && prefsResult.rows[0].notification_settings) {
         notificationSettings = prefsResult.rows[0].notification_settings;
+        console.log(`User ${userId} notification preferences:`, notificationSettings);
+      } else {
+        console.log(`No notification preferences found for user ${userId}, using defaults`);
       }
       
       // Check if user has disabled this notification type
@@ -48,16 +53,20 @@ exports.createNotification = async (userId, type, content, postId = null, commen
       }
       
       const subscriptions = await getUserPushSubscriptions(userId);
+      console.log(`Found ${subscriptions?.length || 0} push subscriptions for user ${userId}`);
+      
       if (subscriptions && subscriptions.length > 0) {
         // Get deep link URL based on notification type
         let url = '/notifications';
         
-        if (type === 'like' || type === 'comment' && postId) {
+        if ((type === 'like' || type === 'comment') && postId) {
           url = `/feed?highlightPostId=${postId}`;
         } else if (type === 'memory' && memoryId) {
           url = `/memory-detail?memoryId=${memoryId}`;
         } else if (type === 'event' && familyId) {
           url = `/family/${familyId}/calendar`;
+        } else if (type === 'post' && postId) {
+          url = `/feed?highlightPostId=${postId}`;
         }
         
         // Get notification title based on type
@@ -76,17 +85,27 @@ exports.createNotification = async (userId, type, content, postId = null, commen
           }
         });
 
+        console.log(`Sending push notification payload:`, {
+          title, 
+          body: content,
+          url,
+          dataKeys: Object.keys(payload.data || {})
+        });
+
         for (const subscription of subscriptions) {
           try {
             await webpush.sendNotification(subscription, payload);
-            console.log(`Push notification sent to ${userId} for ${type}`);
+            console.log(`Push notification sent successfully to user ${userId} for ${type}`);
           } catch (error) {
             console.error('Error sending push notification:', error);
             if (error.statusCode === 410) {
+              console.log(`Removing invalid subscription for user ${userId}`);
               await removeInvalidSubscription(userId, subscription.endpoint);
             }
           }
         }
+      } else {
+        console.log(`No valid push subscriptions found for user ${userId}`);
       }
     } catch (error) {
       console.error('Error processing push notifications:', error);
