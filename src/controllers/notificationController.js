@@ -328,6 +328,11 @@ exports.markAsRead = async (req, res) => {
 exports.subscribePush = async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log('Push token registration request:', {
+      userId,
+      body: req.body,
+      token: req.body.token || req.body.pushToken || 'not found'
+    });
     const pushToken = req.body.token || req.body.pushToken || req.body.expoPushToken;
 
     if (!pushToken) {
