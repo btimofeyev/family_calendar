@@ -1,9 +1,13 @@
+// src/controllers/notificationController.js
 const pool = require("../config/db");
 const { getIo } = require('../middleware/socket'); 
-const webpush = require('web-push');
-const { getUserPushSubscriptions, removeInvalidSubscription } = require('../models/subscriptionModel');
+// Remove webpush and import Expo SDK instead
+const { Expo } = require('expo-server-sdk');
 
+// Initialize Expo SDK
+const expo = new Expo();
 
+// Keep your notification types
 const NOTIFICATION_TYPES = {
   like: 'New Like',
   comment: 'New Comment',
@@ -13,6 +17,7 @@ const NOTIFICATION_TYPES = {
   invitation: 'Family Invitation',
   mention: 'Mention'
 };
+
 exports.createNotification = async (userId, type, content, postId = null, commentId = null, familyId = null, memoryId = null) => {
   try {
     // Insert the notification into the database
@@ -52,61 +57,112 @@ exports.createNotification = async (userId, type, content, postId = null, commen
         return notification;
       }
       
-      const subscriptions = await getUserPushSubscriptions(userId);
-      console.log(`Found ${subscriptions?.length || 0} push subscriptions for user ${userId}`);
+      // Get deep link URL based on notification type
+      let url = '/notifications';
       
-      if (subscriptions && subscriptions.length > 0) {
-        // Get deep link URL based on notification type
-        let url = '/notifications';
-        
-        if ((type === 'like' || type === 'comment') && postId) {
-          url = `/feed?highlightPostId=${postId}`;
-        } else if (type === 'memory' && memoryId) {
-          url = `/memory-detail?memoryId=${memoryId}`;
-        } else if (type === 'event' && familyId) {
-          url = `/family/${familyId}/calendar`;
-        } else if (type === 'post' && postId) {
-          url = `/feed?highlightPostId=${postId}`;
+      if ((type === 'like' || type === 'comment') && postId) {
+        url = `/feed?highlightPostId=${postId}`;
+      } else if (type === 'memory' && memoryId) {
+        url = `/memory-detail?memoryId=${memoryId}`;
+      } else if (type === 'event' && familyId) {
+        url = `/family/${familyId}/calendar`;
+      } else if (type === 'post' && postId) {
+        url = `/feed?highlightPostId=${postId}`;
+      }
+      
+      // Get push tokens for this user
+      const tokensQuery = `
+        SELECT token FROM push_tokens 
+        WHERE user_id = $1 AND is_valid = true
+      `;
+      const tokensResult = await pool.query(tokensQuery, [userId]);
+      const pushTokens = tokensResult.rows.map(row => row.token);
+      
+      if (pushTokens.length === 0) {
+        console.log(`No push tokens found for user ${userId}`);
+        return notification;
+      }
+      
+      // Get notification title based on type
+      const title = NOTIFICATION_TYPES[type] || 'New Notification';
+
+      // Create the notification payload
+      const messages = [];
+      
+      // Filter for valid Expo push tokens
+      for (let pushToken of pushTokens) {
+        // Check if this is a valid Expo push token
+        if (!Expo.isExpoPushToken(pushToken)) {
+          console.log(`${pushToken} is not a valid Expo push token`);
+          continue;
         }
         
-        // Get notification title based on type
-        const title = NOTIFICATION_TYPES[type] || 'New Notification';
-
-        const payload = JSON.stringify({
-          title,
+        // Create a message
+        messages.push({
+          to: pushToken,
+          sound: 'default',
+          title: title,
           body: content,
-          url,
           data: {
             postId,
             commentId,
             familyId,
             memoryId,
-            type
-          }
+            type,
+            url
+          },
         });
-
-        console.log(`Sending push notification payload:`, {
-          title, 
-          body: content,
-          url,
-          dataKeys: Object.keys(payload.data || {})
-        });
-
-        for (const subscription of subscriptions) {
+      }
+      
+      console.log(`Prepared ${messages.length} push notifications to send`);
+      
+      // Send the notifications with Expo
+      if (messages.length > 0) {
+        let chunks = expo.chunkPushNotifications(messages);
+        let tickets = [];
+        
+        for (let chunk of chunks) {
           try {
-            await webpush.sendNotification(subscription, payload);
-            console.log(`Push notification sent successfully to user ${userId} for ${type}`);
+            let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+            console.log('Push notification ticket chunk:', ticketChunk);
+            tickets.push(...ticketChunk);
           } catch (error) {
-            console.error('Error sending push notification:', error);
-            if (error.statusCode === 410) {
-              console.log(`Removing invalid subscription for user ${userId}`);
-              await removeInvalidSubscription(userId, subscription.endpoint);
+            console.error('Error sending push notification chunk:', error);
+          }
+        }
+        
+        // Handle ticket receipts - in a real app, you'd want to store these and check receipts later
+        console.log('Push notification tickets:', tickets);
+        
+        // Process tickets to handle errors and update token validity
+        for (let i = 0; i < tickets.length; i++) {
+          const ticket = tickets[i];
+          const token = messages[i]?.to;
+          
+          if (ticket.status === 'error') {
+            console.error(`Error sending push notification to ${token}:`, ticket.message);
+            
+            // If the token is invalid or expired, mark it as invalid in database
+            if (
+              ticket.details?.error === 'DeviceNotRegistered' || 
+              ticket.details?.error === 'InvalidCredentials'
+            ) {
+              try {
+                const updateQuery = `
+                  UPDATE push_tokens 
+                  SET is_valid = false, updated_at = NOW() 
+                  WHERE token = $1
+                `;
+                await pool.query(updateQuery, [token]);
+                console.log(`Marked token ${token} as invalid`);
+              } catch (dbError) {
+                console.error('Error updating token validity:', dbError);
+              }
             }
           }
         }
-      } else {
-        console.log(`No valid push subscriptions found for user ${userId}`);
       }
+      
     } catch (error) {
       console.error('Error processing push notifications:', error);
     }
@@ -117,6 +173,8 @@ exports.createNotification = async (userId, type, content, postId = null, commen
     throw error;
   }
 };
+
+// Other controller methods remain the same...
 exports.getNotificationPreferences = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -149,6 +207,7 @@ exports.getNotificationPreferences = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
 exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -179,6 +238,7 @@ exports.getNotifications = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
 exports.updateNotificationPreferences = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -211,111 +271,91 @@ exports.updateNotificationPreferences = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
-  exports.markAllAsRead = async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const query = `
-        UPDATE notifications
-        SET read = true
-        WHERE user_id = $1 AND read = false
-        RETURNING *
-      `;
-      const { rows } = await pool.query(query, [userId]);
-      
-      // Emit an event to update the client
-      const io = getIo();
-      io.to(userId.toString()).emit('notifications_read', rows.map(n => n.id));
-  
-      res.json({ message: 'All notifications marked as read', updatedNotifications: rows });
-    } catch (error) {
-      console.error('Error marking notifications as read:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  };
-  exports.markAsRead = async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const notificationId = req.params.id;
-  
-      const query = `
-        UPDATE notifications
-        SET read = true
-        WHERE id = $1 AND user_id = $2 AND read = false
-        RETURNING *
-      `;
-      const { rows } = await pool.query(query, [notificationId, userId]);
-  
-      if (rows.length === 0) {
-        return res.status(404).json({ error: 'Notification not found or already read' });
-      }
-  
-      const updatedNotification = rows[0];
-  
-      // Emit an event to update the client
-      const io = getIo();
-      io.to(userId.toString()).emit('notification_read', updatedNotification.id);
-  
-      res.json({ message: 'Notification marked as read', updatedNotification });
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  };
 
-async function saveSubscription(userId, subscription) {
-  const client = await pool.connect();
+exports.markAllAsRead = async (req, res) => {
   try {
-    await client.query('BEGIN');
-
-    // Check if the endpoint already exists
-    const checkQuery = 'SELECT user_id FROM push_subscriptions WHERE endpoint = $1';
-    const checkResult = await client.query(checkQuery, [subscription.endpoint]);
-
-    if (checkResult.rows.length > 0 && checkResult.rows[0].user_id !== userId) {
-      // Endpoint exists for a different user, delete the old subscription
-      const deleteQuery = 'DELETE FROM push_subscriptions WHERE endpoint = $1';
-      await client.query(deleteQuery, [subscription.endpoint]);
-    }
-
-    // Insert or update the subscription
-    const upsertQuery = `
-      INSERT INTO push_subscriptions (user_id, endpoint, keys)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (user_id, endpoint) DO UPDATE
-      SET keys = $3, updated_at = CURRENT_TIMESTAMP
+    const userId = req.user.id;
+    const query = `
+      UPDATE notifications
+      SET read = true
+      WHERE user_id = $1 AND read = false
       RETURNING *
     `;
-    const values = [
-      userId,
-      subscription.endpoint,
-      JSON.stringify({
-        auth: subscription.keys.auth,
-        p256dh: subscription.keys.p256dh
-      })
-    ];
+    const { rows } = await pool.query(query, [userId]);
+    
+    // Emit an event to update the client
+    const io = getIo();
+    io.to(userId.toString()).emit('notifications_read', rows.map(n => n.id));
 
-    const result = await client.query(upsertQuery, values);
-    await client.query('COMMIT');
-    console.log('Push subscription saved successfully');
-    return result.rows[0];
+    res.json({ message: 'All notifications marked as read', updatedNotifications: rows });
   } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error saving push subscription:', error);
-    throw error;
-  } finally {
-    client.release();
+    console.error('Error marking notifications as read:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-}
+};
 
+exports.markAsRead = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const notificationId = req.params.id;
+
+    const query = `
+      UPDATE notifications
+      SET read = true
+      WHERE id = $1 AND user_id = $2 AND read = false
+      RETURNING *
+    `;
+    const { rows } = await pool.query(query, [notificationId, userId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Notification not found or already read' });
+    }
+
+    const updatedNotification = rows[0];
+
+    // Emit an event to update the client
+    const io = getIo();
+    io.to(userId.toString()).emit('notification_read', updatedNotification.id);
+
+    res.json({ message: 'Notification marked as read', updatedNotification });
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Update to store Expo push tokens instead of web push subscriptions
 exports.subscribePush = async (req, res) => {
   try {
     const userId = req.user.id;
-    const subscription = req.body;
+    const pushToken = req.body.token || req.body.pushToken || req.body.expoPushToken;
 
-    // Save the subscription to the database
-    const savedSubscription = await saveSubscription(userId, subscription);
+    if (!pushToken) {
+      return res.status(400).json({ error: 'Push token is required' });
+    }
 
-    res.status(201).json({ message: 'Subscription added successfully', subscription: savedSubscription });
+    // Validate that this is a proper Expo push token
+    if (!Expo.isExpoPushToken(pushToken)) {
+      return res.status(400).json({ error: 'Invalid Expo push token format' });
+    }
+
+    // Save the token to the database
+    const query = `
+      INSERT INTO push_tokens (user_id, token, is_valid)
+      VALUES ($1, $2, true)
+      ON CONFLICT (user_id, token) 
+      DO UPDATE SET updated_at = NOW(), is_valid = true
+      RETURNING id
+    `;
+    
+    const result = await pool.query(query, [userId, pushToken]);
+    
+    console.log(`Push token stored for user ${userId}`);
+    
+    res.status(201).json({ 
+      message: 'Push token registered successfully',
+      tokenId: result.rows[0].id
+    });
   } catch (error) {
     console.error('Error in subscribePush:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
