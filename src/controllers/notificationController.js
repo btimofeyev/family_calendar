@@ -1,13 +1,25 @@
 // src/controllers/notificationController.js
 const pool = require("../config/db");
 const { getIo } = require('../middleware/socket'); 
-// Remove webpush and import Expo SDK instead
+const admin = require('../config/firebase/firebase-admin');
 const { Expo } = require('expo-server-sdk');
+
+// Initialize Firebase Admin SDK with your service account credentials
+if (!admin.apps.length) {
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert(require('../config/firebase/firebase-admin'))
+    });
+    console.log('Firebase Admin SDK initialized successfully');
+  } catch (error) {
+    console.error('Firebase initialization error:', error);
+  }
+}
 
 // Initialize Expo SDK
 const expo = new Expo();
 
-// Keep your notification types
+// Notification types
 const NOTIFICATION_TYPES = {
   like: 'New Like',
   comment: 'New Comment',
@@ -18,8 +30,188 @@ const NOTIFICATION_TYPES = {
   mention: 'Mention'
 };
 
+// Helper function to send push notifications
+const sendPushNotification = async (userId, title, body, data) => {
+  try {
+    // Get user's notification preferences
+    const prefsQuery = `SELECT notification_settings FROM users WHERE id = $1`;
+    const prefsResult = await pool.query(prefsQuery, [userId]);
+    
+    let notificationSettings = {};
+    if (prefsResult.rows.length > 0 && prefsResult.rows[0].notification_settings) {
+      notificationSettings = prefsResult.rows[0].notification_settings;
+      console.log(`User ${userId} notification preferences:`, notificationSettings);
+    } else {
+      console.log(`No notification preferences found for user ${userId}, using defaults`);
+    }
+    
+    // Check if user has disabled this notification type
+    if (notificationSettings[data.type] === false) {
+      console.log(`User ${userId} has disabled notifications for ${data.type}`);
+      return;
+    }
+    
+    // Get push tokens for this user
+    const tokensQuery = `
+      SELECT token FROM push_tokens 
+      WHERE user_id = $1 AND is_valid = true
+    `;
+    const tokensResult = await pool.query(tokensQuery, [userId]);
+    const pushTokens = tokensResult.rows.map(row => row.token);
+    
+    console.log(`Found ${pushTokens.length} push tokens for user ${userId}`);
+    
+    if (pushTokens.length === 0) {
+      console.log(`No push tokens found for user ${userId}`);
+      return;
+    }
+    
+    // Separate Expo tokens and FCM tokens
+    const expoTokens = [];
+    const fcmTokens = [];
+    
+    for (const token of pushTokens) {
+      if (Expo.isExpoPushToken(token)) {
+        console.log(`Found Expo token: ${token}`);
+        expoTokens.push(token);
+      } else {
+        console.log(`Found FCM token: ${token}`);
+        fcmTokens.push(token);
+      }
+    }
+    
+    // Create array to track results
+    const results = [];
+    
+    // Send notifications to Expo tokens
+    if (expoTokens.length > 0) {
+      console.log(`Sending to ${expoTokens.length} Expo tokens...`);
+      
+      const messages = expoTokens.map(token => ({
+        to: token,
+        sound: 'default',
+        title: title,
+        body: body,
+        data: data,
+        priority: 'high',
+        channelId: 'default',
+      }));
+      
+      // Split messages into chunks (Expo accepts max 100 at a time)
+      const chunks = expo.chunkPushNotifications(messages);
+      
+      for (const chunk of chunks) {
+        try {
+          const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+          console.log('Expo push ticket response:', ticketChunk);
+          results.push(...ticketChunk);
+          
+          // Process tickets to handle errors
+          for (let i = 0; i < ticketChunk.length; i++) {
+            const ticket = ticketChunk[i];
+            const token = chunk[i]?.to;
+            
+            if (ticket.status === 'error') {
+              console.error(`Error sending to Expo token ${token}:`, ticket.message);
+              
+              // Mark as invalid if device not registered
+              if (ticket.details?.error === 'DeviceNotRegistered') {
+                try {
+                  const updateQuery = `UPDATE push_tokens SET is_valid = false WHERE token = $1`;
+                  await pool.query(updateQuery, [token]);
+                  console.log(`Marked Expo token ${token} as invalid due to DeviceNotRegistered`);
+                } catch (dbError) {
+                  console.error('Error updating token validity:', dbError);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error sending Expo push notifications:', error);
+        }
+      }
+    }
+    
+    // Send notifications to FCM tokens
+    if (fcmTokens.length > 0) {
+      console.log(`Sending to ${fcmTokens.length} FCM tokens...`);
+      
+      // FCM allows max 500 messages in a batch
+      const batchSize = 500;
+      for (let i = 0; i < fcmTokens.length; i += batchSize) {
+        const batch = fcmTokens.slice(i, i + batchSize);
+        
+        try {
+          const messages = batch.map(token => ({
+            token,
+            notification: {
+              title,
+              body
+            },
+            data: JSON.parse(JSON.stringify(data)), // Ensure data is proper JSON
+            android: {
+              priority: 'high',
+              notification: {
+                sound: 'default',
+                channelId: 'default'
+              }
+            },
+            apns: {
+              payload: {
+                aps: {
+                  sound: 'default'
+                }
+              }
+            }
+          }));
+          
+          const response = await admin.messaging().sendAll(messages);
+          console.log('FCM push response:', response);
+          
+          // Handle success/failure counts
+          console.log(`FCM V1 Success: ${response.successCount}/${messages.length}, Failure: ${response.failureCount}/${messages.length}`);
+          
+          // Process failures
+          if (response.failureCount > 0) {
+            response.responses.forEach(async (resp, idx) => {
+              if (!resp.success) {
+                const token = messages[idx].token;
+                console.error(`Error sending to FCM token ${token}:`, resp.error);
+                
+                // Mark token as invalid if it's a registration error
+                if (resp.error.code === 'messaging/registration-token-not-registered' ||
+                    resp.error.code === 'messaging/invalid-registration-token' ||
+                    resp.error.code === 'messaging/invalid-argument') {
+                  try {
+                    const updateQuery = `UPDATE push_tokens SET is_valid = false WHERE token = $1`;
+                    await pool.query(updateQuery, [token]);
+                    console.log(`Marked FCM token ${token} as invalid due to ${resp.error.code}`);
+                  } catch (dbError) {
+                    console.error('Error updating token validity:', dbError);
+                  }
+                }
+              }
+            });
+          }
+          
+          results.push(response);
+        } catch (error) {
+          console.error('Error sending FCM push notifications:', error);
+        }
+      }
+    }
+    
+    return results;
+  } catch (error) {
+    console.error('Error in sendPushNotification:', error);
+    return null;
+  }
+};
+
 exports.createNotification = async (userId, type, content, postId = null, commentId = null, familyId = null, memoryId = null) => {
   try {
+    console.log(`Creating notification for user ${userId}, type: ${type}, content: ${content}`);
+    
     // Insert the notification into the database
     const query = `
       INSERT INTO notifications (user_id, type, content, post_id, comment_id, family_id, memory_id, created_at)
@@ -35,188 +227,41 @@ exports.createNotification = async (userId, type, content, postId = null, commen
     const io = getIo();
     io.to(userId.toString()).emit('new_notification', notification);
 
-    // Send a push notification
-    try {
-      console.log(`Attempting to send push notification to user ${userId} for ${type} notification`);
-      
-      // Get user's notification preferences
-      const prefsQuery = `SELECT notification_settings FROM users WHERE id = $1`;
-      const prefsResult = await pool.query(prefsQuery, [userId]);
-      
-      let notificationSettings = {};
-      if (prefsResult.rows.length > 0 && prefsResult.rows[0].notification_settings) {
-        notificationSettings = prefsResult.rows[0].notification_settings;
-        console.log(`User ${userId} notification preferences:`, notificationSettings);
-      } else {
-        console.log(`No notification preferences found for user ${userId}, using defaults`);
-      }
-      
-      // Check if user has disabled this notification type
-      if (notificationSettings[type] === false) {
-        console.log(`User ${userId} has disabled notifications for ${type}`);
-        return notification;
-      }
-      
-      // Get deep link URL based on notification type
-      let url = '/notifications';
-      
-      if ((type === 'like' || type === 'comment') && postId) {
-        url = `/feed?highlightPostId=${postId}`;
-      } else if (type === 'memory' && memoryId) {
-        url = `/memory-detail?memoryId=${memoryId}`;
-      } else if (type === 'event' && familyId) {
-        url = `/family/${familyId}/calendar`;
-      } else if (type === 'post' && postId) {
-        url = `/feed?highlightPostId=${postId}`;
-      }
-      
-      // Get push tokens for this user - IMPORTANT: This is the fixed part
-      const tokensQuery = `
-        SELECT token FROM push_tokens 
-        WHERE user_id = $1 AND is_valid = true
-      `;
-      const tokensResult = await pool.query(tokensQuery, [userId]);
-      const pushTokens = tokensResult.rows.map(row => row.token);
-      
-      console.log(`Found ${pushTokens.length} push tokens for user ${userId}`);
-      
-      if (pushTokens.length === 0) {
-        console.log(`No push tokens found for user ${userId}`);
-        return notification;
-      }
-      
-      // Get notification title based on type
-      const title = NOTIFICATION_TYPES[type] || 'New Notification';
+    // Get notification title based on type
+    const title = NOTIFICATION_TYPES[type] || 'New Notification';
+
+    // Get deep link URL based on notification type
+    let url = '/notifications';
     
-      // Create the messages array
-      let messages = [];
-      
-      // Filter for valid Expo push tokens
-      for (let pushToken of pushTokens) {
-        // Check if this is a valid Expo push token
-        if (!Expo.isExpoPushToken(pushToken)) {
-          console.log(`${pushToken} is not a valid Expo push token, skipping`);
-          
-          // Mark invalid token in the database
-          try {
-            const updateQuery = `UPDATE push_tokens SET is_valid = false WHERE token = $1`;
-            await pool.query(updateQuery, [pushToken]);
-            console.log(`Marked invalid token ${pushToken} as invalid`);
-          } catch (error) {
-            console.error('Error marking invalid token:', error);
-          }
-          
-          continue;
-        }
-        
-        console.log(`Adding valid token to messages: ${pushToken}`);
-        
-        // Create a message
-        messages.push({
-          to: pushToken,
-          sound: 'default',
-          title: title,
-          body: content,
-          data: {
-            postId,
-            commentId,
-            familyId,
-            memoryId,
-            type,
-            url
-          },
-          priority: 'high', // Add high priority
-          channelId: 'default', // Use default channel for Android
-        });
-      }
-      
-      console.log(`Prepared ${messages.length} push notifications to send`);
-      
-      // Send the notifications with Expo
-      if (messages.length > 0) {
-        try {
-          // Create chunks as per Expo recommendation
-          let chunks = expo.chunkPushNotifications(messages);
-          console.log(`Split messages into ${chunks.length} chunks`);
-          
-          for (let chunk of chunks) {
-            try {
-              console.log(`Sending chunk with ${chunk.length} messages`);
-              let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-              console.log('Push tickets received:', ticketChunk);
-              
-              // Process tickets to handle errors
-              for (let i = 0; i < ticketChunk.length; i++) {
-                const ticket = ticketChunk[i];
-                const token = chunk[i]?.to;
-                
-                if (ticket.status === 'error') {
-                  console.error(`Error sending to ${token}:`, ticket.message);
-                  
-                  // If DeviceNotRegistered, mark token as invalid
-                  if (ticket.details?.error === 'DeviceNotRegistered') {
-                    try {
-                      const updateQuery = `UPDATE push_tokens SET is_valid = false WHERE token = $1`;
-                      await pool.query(updateQuery, [token]);
-                      console.log(`Marked token ${token} as invalid due to DeviceNotRegistered`);
-                    } catch (dbError) {
-                      console.error('Error updating token validity:', dbError);
-                    }
-                  }
-                } else {
-                  console.log(`Successfully sent notification to ${token}`);
-                }
-              }
-            } catch (chunkError) {
-              console.error('Error sending push notification chunk:', chunkError);
-            }
-          }
-        } catch (expoError) {
-          console.error('Error with Expo push service:', expoError);
-        }
-      }
-    } catch (error) {
-      console.error('Error processing push notifications:', error);
+    if ((type === 'like' || type === 'comment') && postId) {
+      url = `/feed?highlightPostId=${postId}`;
+    } else if (type === 'memory' && memoryId) {
+      url = `/memory-detail?memoryId=${memoryId}`;
+    } else if (type === 'event' && familyId) {
+      url = `/family/${familyId}/calendar`;
+    } else if (type === 'post' && postId) {
+      url = `/feed?highlightPostId=${postId}`;
     }
+
+    // Send push notification with the new function
+    await sendPushNotification(
+      userId, 
+      title, 
+      content, 
+      { 
+        postId,
+        commentId,
+        familyId,
+        memoryId,
+        type,
+        url
+      }
+    );
 
     return notification;
   } catch (error) {
     console.error('Error creating notification:', error);
     throw error;
-  }
-};
-
-// Other controller methods remain the same...
-exports.getNotificationPreferences = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    
-    // Get user's notification settings from database
-    const query = `SELECT notification_settings FROM users WHERE id = $1`;
-    const { rows } = await pool.query(query, [userId]);
-    
-    // Default preferences in case nothing is stored yet
-    let preferences = {
-      like: true,
-      comment: true,
-      memory: true,
-      event: true,
-      post: true,
-      invitation: true,
-      mention: true
-    };
-    
-    // If user has preferences stored, use those
-    if (rows.length > 0 && rows[0].notification_settings) {
-      preferences = rows[0].notification_settings;
-    }
-    
-    res.json({ 
-      preferences 
-    });
-  } catch (error) {
-    console.error('Error getting notification preferences:', error);
-    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -247,6 +292,37 @@ exports.getNotifications = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching notifications:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.getNotificationPreferences = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get user's notification settings from database
+    const query = `SELECT notification_settings FROM users WHERE id = $1`;
+    const { rows } = await pool.query(query, [userId]);
+    
+    // Default preferences in case nothing is stored yet
+    let preferences = {
+      like: true,
+      comment: true,
+      memory: true,
+      event: true,
+      post: true,
+      invitation: true,
+      mention: true
+    };
+    
+    // If user has preferences stored, use those
+    if (rows.length > 0 && rows[0].notification_settings) {
+      preferences = rows[0].notification_settings;
+    }
+    
+    res.json({ preferences });
+  } catch (error) {
+    console.error('Error getting notification preferences:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -336,7 +412,39 @@ exports.markAsRead = async (req, res) => {
   }
 };
 
-// Update to store Expo push tokens instead of web push subscriptions
+// New function for testing push notifications
+exports.sendTestPushNotification = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get the notification title and body from the request or use defaults
+    const { title = 'Test Notification', body = 'This is a test notification', data = {} } = req.body;
+    
+    console.log(`Sending test notification to user ${userId}`);
+    
+    // Send the push notification
+    const results = await sendPushNotification(
+      userId,
+      title,
+      body,
+      {
+        type: 'test',
+        url: '/notifications',
+        ...data
+      }
+    );
+    
+    res.json({ 
+      success: true, 
+      message: `Test push notification sent`,
+      results
+    });
+  } catch (error) {
+    console.error('Error sending test push notification:', error);
+    res.status(500).json({ error: 'Failed to send test notification' });
+  }
+};
+
 exports.subscribePush = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -351,27 +459,36 @@ exports.subscribePush = async (req, res) => {
       return res.status(400).json({ error: 'Push token is required' });
     }
 
-    // Validate that this is a proper Expo push token
-    if (!Expo.isExpoPushToken(pushToken)) {
-      return res.status(400).json({ error: 'Invalid Expo push token format' });
+    // Validate token format
+    let isExpoToken = false;
+    try {
+      isExpoToken = Expo.isExpoPushToken(pushToken);
+      console.log(`Token validation: isExpoToken = ${isExpoToken}`);
+    } catch (error) {
+      console.log('Error validating token:', error);
     }
 
     // Save the token to the database
     const query = `
-      INSERT INTO push_tokens (user_id, token, is_valid)
-      VALUES ($1, $2, true)
+      INSERT INTO push_tokens (user_id, token, is_valid, token_type)
+      VALUES ($1, $2, true, $3)
       ON CONFLICT (user_id, token) 
-      DO UPDATE SET updated_at = NOW(), is_valid = true
+      DO UPDATE SET updated_at = NOW(), is_valid = true, token_type = $3
       RETURNING id
     `;
     
-    const result = await pool.query(query, [userId, pushToken]);
+    const result = await pool.query(query, [
+      userId, 
+      pushToken, 
+      isExpoToken ? 'expo' : 'fcm'
+    ]);
     
     console.log(`Push token stored for user ${userId}`);
     
     res.status(201).json({ 
       message: 'Push token registered successfully',
-      tokenId: result.rows[0].id
+      tokenId: result.rows[0].id,
+      tokenType: isExpoToken ? 'expo' : 'fcm'
     });
   } catch (error) {
     console.error('Error in subscribePush:', error);
