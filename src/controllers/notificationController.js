@@ -31,27 +31,10 @@ const NOTIFICATION_TYPES = {
 };
 
 // Helper function to send push notifications
+// Simplified handling to just log a warning for Expo tokens
 const sendPushNotification = async (userId, title, body, data) => {
   try {
-    // Get user's notification preferences
-    const prefsQuery = `SELECT notification_settings FROM users WHERE id = $1`;
-    const prefsResult = await pool.query(prefsQuery, [userId]);
-    
-    let notificationSettings = {};
-    if (prefsResult.rows.length > 0 && prefsResult.rows[0].notification_settings) {
-      notificationSettings = prefsResult.rows[0].notification_settings;
-      console.log(`User ${userId} notification preferences:`, notificationSettings);
-    } else {
-      console.log(`No notification preferences found for user ${userId}, using defaults`);
-    }
-    
-    // Check if user has disabled this notification type
-    if (notificationSettings[data.type] === false) {
-      console.log(`User ${userId} has disabled notifications for ${data.type}`);
-      return;
-    }
-    
-    // Get push tokens for this user
+    // Get user's tokens from database
     const tokensQuery = `
       SELECT token FROM push_tokens 
       WHERE user_id = $1 AND is_valid = true
@@ -59,152 +42,64 @@ const sendPushNotification = async (userId, title, body, data) => {
     const tokensResult = await pool.query(tokensQuery, [userId]);
     const pushTokens = tokensResult.rows.map(row => row.token);
     
-    console.log(`Found ${pushTokens.length} push tokens for user ${userId}`);
-    
     if (pushTokens.length === 0) {
       console.log(`No push tokens found for user ${userId}`);
       return;
     }
     
-    // Separate Expo tokens and FCM tokens
-    const expoTokens = [];
-    const fcmTokens = [];
+    // Flag to track if we found any non-Expo tokens
+    let foundFcmTokens = false;
     
+    // Process each token
     for (const token of pushTokens) {
-      if (Expo.isExpoPushToken(token)) {
-        console.log(`Found Expo token: ${token}`);
-        expoTokens.push(token);
-      } else {
-        console.log(`Found FCM token: ${token}`);
-        fcmTokens.push(token);
+      if (token.startsWith('ExponentPushToken[')) {
+        console.log(`Skipping Expo token ${token} - need production build`);
+        // You could log this or notify the developer that users need a production build
+        continue;
       }
-    }
-    
-    // Create array to track results
-    const results = [];
-    
-    // Send notifications to Expo tokens
-    if (expoTokens.length > 0) {
-      console.log(`Sending to ${expoTokens.length} Expo tokens...`);
       
-      const messages = expoTokens.map(token => ({
-        to: token,
-        sound: 'default',
-        title: title,
-        body: body,
-        data: data,
-        priority: 'high',
-        channelId: 'default',
-      }));
-      
-      // Split messages into chunks (Expo accepts max 100 at a time)
-      const chunks = expo.chunkPushNotifications(messages);
-      
-      for (const chunk of chunks) {
-        try {
-          const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-          console.log('Expo push ticket response:', ticketChunk);
-          results.push(...ticketChunk);
-          
-          // Process tickets to handle errors
-          for (let i = 0; i < ticketChunk.length; i++) {
-            const ticket = ticketChunk[i];
-            const token = chunk[i]?.to;
-            
-            if (ticket.status === 'error') {
-              console.error(`Error sending to Expo token ${token}:`, ticket.message);
-              
-              // Mark as invalid if device not registered
-              if (ticket.details?.error === 'DeviceNotRegistered') {
-                try {
-                  const updateQuery = `UPDATE push_tokens SET is_valid = false WHERE token = $1`;
-                  await pool.query(updateQuery, [token]);
-                  console.log(`Marked Expo token ${token} as invalid due to DeviceNotRegistered`);
-                } catch (dbError) {
-                  console.error('Error updating token validity:', dbError);
-                }
-              }
-            }
+      // Process regular FCM tokens
+      foundFcmTokens = true;
+      try {
+        const message = {
+          token: token,
+          notification: {
+            title: title,
+            body: body
+          },
+          data: data,
+          android: {
+            priority: 'high'
           }
-        } catch (error) {
-          console.error('Error sending Expo push notifications:', error);
-        }
-      }
-    }
-    
-    // Send notifications to FCM tokens
-    if (fcmTokens.length > 0) {
-      console.log(`Sending to ${fcmTokens.length} FCM tokens...`);
-      
-      // FCM allows max 500 messages in a batch
-      const batchSize = 500;
-      for (let i = 0; i < fcmTokens.length; i += batchSize) {
-        const batch = fcmTokens.slice(i, i + batchSize);
+        };
         
-        try {
-          const messages = batch.map(token => ({
-            token,
-            notification: {
-              title,
-              body
-            },
-            data: JSON.parse(JSON.stringify(data)), // Ensure data is proper JSON
-            android: {
-              priority: 'high',
-              notification: {
-                sound: 'default',
-                channelId: 'default'
-              }
-            },
-            apns: {
-              payload: {
-                aps: {
-                  sound: 'default'
-                }
-              }
-            }
-          }));
-          
-          const response = await admin.messaging().sendAll(messages);
-          console.log('FCM push response:', response);
-          
-          // Handle success/failure counts
-          console.log(`FCM V1 Success: ${response.successCount}/${messages.length}, Failure: ${response.failureCount}/${messages.length}`);
-          
-          // Process failures
-          if (response.failureCount > 0) {
-            response.responses.forEach(async (resp, idx) => {
-              if (!resp.success) {
-                const token = messages[idx].token;
-                console.error(`Error sending to FCM token ${token}:`, resp.error);
-                
-                // Mark token as invalid if it's a registration error
-                if (resp.error.code === 'messaging/registration-token-not-registered' ||
-                    resp.error.code === 'messaging/invalid-registration-token' ||
-                    resp.error.code === 'messaging/invalid-argument') {
-                  try {
-                    const updateQuery = `UPDATE push_tokens SET is_valid = false WHERE token = $1`;
-                    await pool.query(updateQuery, [token]);
-                    console.log(`Marked FCM token ${token} as invalid due to ${resp.error.code}`);
-                  } catch (dbError) {
-                    console.error('Error updating token validity:', dbError);
-                  }
-                }
-              }
-            });
+        const response = await admin.messaging().send(message);
+        console.log('FCM push sent successfully:', response);
+      } catch (tokenError) {
+        console.error(`Error sending to token ${token}:`, tokenError);
+        
+        // Handle invalid tokens
+        if (tokenError.code === 'messaging/invalid-argument' || 
+            tokenError.code === 'messaging/registration-token-not-registered') {
+          try {
+            const updateQuery = `UPDATE push_tokens SET is_valid = false WHERE token = $1`;
+            await pool.query(updateQuery, [token]);
+            console.log(`Marked token ${token} as invalid`);
+          } catch (dbError) {
+            console.error('Error updating token validity:', dbError);
           }
-          
-          results.push(response);
-        } catch (error) {
-          console.error('Error sending FCM push notifications:', error);
         }
       }
     }
     
-    return results;
+    if (!foundFcmTokens) {
+      console.log('No valid FCM tokens found for user - all tokens are Expo development tokens');
+    }
+    
+    return { success: true };
   } catch (error) {
     console.error('Error in sendPushNotification:', error);
-    return null;
+    return { success: false, error: error.message };
   }
 };
 
