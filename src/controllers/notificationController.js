@@ -70,13 +70,15 @@ exports.createNotification = async (userId, type, content, postId = null, commen
         url = `/feed?highlightPostId=${postId}`;
       }
       
-      // Get push tokens for this user
+      // Get push tokens for this user - IMPORTANT: This is the fixed part
       const tokensQuery = `
         SELECT token FROM push_tokens 
         WHERE user_id = $1 AND is_valid = true
       `;
       const tokensResult = await pool.query(tokensQuery, [userId]);
       const pushTokens = tokensResult.rows.map(row => row.token);
+      
+      console.log(`Found ${pushTokens.length} push tokens for user ${userId}`);
       
       if (pushTokens.length === 0) {
         console.log(`No push tokens found for user ${userId}`);
@@ -85,17 +87,29 @@ exports.createNotification = async (userId, type, content, postId = null, commen
       
       // Get notification title based on type
       const title = NOTIFICATION_TYPES[type] || 'New Notification';
-
-      // Create the notification payload
-      const messages = [];
+    
+      // Create the messages array
+      let messages = [];
       
       // Filter for valid Expo push tokens
       for (let pushToken of pushTokens) {
         // Check if this is a valid Expo push token
         if (!Expo.isExpoPushToken(pushToken)) {
-          console.log(`${pushToken} is not a valid Expo push token`);
+          console.log(`${pushToken} is not a valid Expo push token, skipping`);
+          
+          // Mark invalid token in the database
+          try {
+            const updateQuery = `UPDATE push_tokens SET is_valid = false WHERE token = $1`;
+            await pool.query(updateQuery, [pushToken]);
+            console.log(`Marked invalid token ${pushToken} as invalid`);
+          } catch (error) {
+            console.error('Error marking invalid token:', error);
+          }
+          
           continue;
         }
+        
+        console.log(`Adding valid token to messages: ${pushToken}`);
         
         // Create a message
         messages.push({
@@ -111,6 +125,8 @@ exports.createNotification = async (userId, type, content, postId = null, commen
             type,
             url
           },
+          priority: 'high', // Add high priority
+          channelId: 'default', // Use default channel for Android
         });
       }
       
@@ -118,51 +134,47 @@ exports.createNotification = async (userId, type, content, postId = null, commen
       
       // Send the notifications with Expo
       if (messages.length > 0) {
-        let chunks = expo.chunkPushNotifications(messages);
-        let tickets = [];
-        
-        for (let chunk of chunks) {
-          try {
-            let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-            console.log('Push notification ticket chunk:', ticketChunk);
-            tickets.push(...ticketChunk);
-          } catch (error) {
-            console.error('Error sending push notification chunk:', error);
-          }
-        }
-        
-        // Handle ticket receipts - in a real app, you'd want to store these and check receipts later
-        console.log('Push notification tickets:', tickets);
-        
-        // Process tickets to handle errors and update token validity
-        for (let i = 0; i < tickets.length; i++) {
-          const ticket = tickets[i];
-          const token = messages[i]?.to;
+        try {
+          // Create chunks as per Expo recommendation
+          let chunks = expo.chunkPushNotifications(messages);
+          console.log(`Split messages into ${chunks.length} chunks`);
           
-          if (ticket.status === 'error') {
-            console.error(`Error sending push notification to ${token}:`, ticket.message);
-            
-            // If the token is invalid or expired, mark it as invalid in database
-            if (
-              ticket.details?.error === 'DeviceNotRegistered' || 
-              ticket.details?.error === 'InvalidCredentials'
-            ) {
-              try {
-                const updateQuery = `
-                  UPDATE push_tokens 
-                  SET is_valid = false, updated_at = NOW() 
-                  WHERE token = $1
-                `;
-                await pool.query(updateQuery, [token]);
-                console.log(`Marked token ${token} as invalid`);
-              } catch (dbError) {
-                console.error('Error updating token validity:', dbError);
+          for (let chunk of chunks) {
+            try {
+              console.log(`Sending chunk with ${chunk.length} messages`);
+              let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+              console.log('Push tickets received:', ticketChunk);
+              
+              // Process tickets to handle errors
+              for (let i = 0; i < ticketChunk.length; i++) {
+                const ticket = ticketChunk[i];
+                const token = chunk[i]?.to;
+                
+                if (ticket.status === 'error') {
+                  console.error(`Error sending to ${token}:`, ticket.message);
+                  
+                  // If DeviceNotRegistered, mark token as invalid
+                  if (ticket.details?.error === 'DeviceNotRegistered') {
+                    try {
+                      const updateQuery = `UPDATE push_tokens SET is_valid = false WHERE token = $1`;
+                      await pool.query(updateQuery, [token]);
+                      console.log(`Marked token ${token} as invalid due to DeviceNotRegistered`);
+                    } catch (dbError) {
+                      console.error('Error updating token validity:', dbError);
+                    }
+                  }
+                } else {
+                  console.log(`Successfully sent notification to ${token}`);
+                }
               }
+            } catch (chunkError) {
+              console.error('Error sending push notification chunk:', chunkError);
             }
           }
+        } catch (expoError) {
+          console.error('Error with Expo push service:', expoError);
         }
       }
-      
     } catch (error) {
       console.error('Error processing push notifications:', error);
     }
