@@ -1,8 +1,7 @@
 const pool = require("../config/db");
 const {
-  // deleteMediaFromS3,  // Commented out S3 logic
   getSignedImageUrl,
-  uploadToR2, // Replaced uploadToS3 with uploadToR2
+  uploadToR2,
   deleteMediaFromR2,
 } = require("../middleware/imageUpload");
 const { getLinkPreview } = require('link-preview-js');
@@ -57,6 +56,7 @@ exports.getPosts = async (req, res) => {
     const { rows: countRows } = await pool.query(countQuery, [familyId]);
     const totalPosts = parseInt(countRows[0].count);
 
+    // Updated query to include media_urls
     const query = `
       SELECT p.*, u.name as author_name,
         (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) as likes_count,
@@ -72,13 +72,36 @@ exports.getPosts = async (req, res) => {
 
     const postsWithSignedUrls = await Promise.all(
       rows.map(async (post) => {
-        if (post.image_url) {
+        // Handle multiple media URLs if available
+        if (post.media_urls && Array.isArray(post.media_urls) && post.media_urls.length > 0) {
+          // Process each media URL to get signed URLs
+          const signedMediaUrls = await Promise.all(
+            post.media_urls.map(async (url) => {
+              if (!url) return null;
+              const key = url.split("/").pop();
+              const signedUrl = await getSignedImageUrl(key);
+              const baseUrl = process.env.NODE_ENV === 'production' ? 
+                process.env.R2_CUSTOM_DOMAIN : process.env.R2_BUCKET_URL;
+              return `${baseUrl}/${key}`;
+            })
+          );
+          
+          post.signed_media_urls = signedMediaUrls.filter(Boolean);
+        } 
+        // For backward compatibility
+        else if (post.image_url) {
           const key = post.image_url.split("/").pop();
-          const signedImageUrl = await getSignedImageUrl(key);
-          // Use custom domain for production, else use the direct R2 bucket URL for development
-          const baseUrl = process.env.NODE_ENV === 'production' ? process.env.R2_CUSTOM_DOMAIN : process.env.R2_BUCKET_URL;
+          const baseUrl = process.env.NODE_ENV === 'production' ? 
+            process.env.R2_CUSTOM_DOMAIN : process.env.R2_BUCKET_URL;
           post.signed_image_url = `${baseUrl}/${key}`;
+          
+          // Add to media_urls array if not already present
+          if (!post.media_urls) {
+            post.media_urls = [post.image_url];
+            post.signed_media_urls = [`${baseUrl}/${key}`];
+          }
         }
+        
         if (typeof post.link_preview === 'string') {
           try {
             post.link_preview = JSON.parse(post.link_preview);
@@ -104,10 +127,10 @@ exports.getPosts = async (req, res) => {
   }
 };
 
-// Create a new post// Modified createPost function in socialFeedController.js
+// Create a new post - Updated for multiple media
 exports.createPost = async (req, res) => {
   const { caption, familyId } = req.body;
-  const files = req.files; // Changed from req.file to req.files
+  const files = req.files; // Now handling an array of files
   const authorId = req.user.id;
 
   let mediaUrls = []; // Array to store multiple media URLs
@@ -125,26 +148,85 @@ exports.createPost = async (req, res) => {
       return res.status(403).json({ error: "You are not a member of this family" });
     }
 
-    // Handle multiple files
+    // Process multiple files if any
     if (files && files.length > 0) {
       // Limit to 4 files maximum
       const filesToProcess = files.slice(0, 4);
       
+      console.log(`Processing ${filesToProcess.length} media files`);
+      
       // Upload each file and collect URLs
       for (const file of filesToProcess) {
-        const fileUrl = await uploadToR2(file);
-        mediaUrls.push(fileUrl);
+        try {
+          const mediaUrl = await uploadToR2(file);
+          mediaUrls.push(mediaUrl);
+        } catch (uploadError) {
+          console.error(`Error uploading file:`, uploadError);
+          // Continue with other files even if one fails
+        }
       }
       
-      // Set mediaType based on the first file (assuming all files are of the same type)
-      mediaType = files[0].mimetype.startsWith('image/') ? 'image' : 'video';
+      // If at least one file was uploaded successfully
+      if (mediaUrls.length > 0) {
+        // Set media type based on the first file
+        mediaType = files[0].mimetype.startsWith('image/') ? 'image' : 'video';
+      }
     }
 
     let linkPreview = null;
     const urls = extractUrls(caption);
-    // ... rest of the link preview processing remains the same
+    if (urls.length > 0) {
+      const url = urls[0];
+      if (isYouTubeLink(url)) {
+        const videoId = getYouTubeVideoId(url);
+        linkPreview = JSON.stringify({
+          title: "YouTube Video",
+          description: "Click to watch on YouTube",
+          image: `https://img.youtube.com/vi/${videoId}/0.jpg`,
+          url: url
+        });
+      } else if (isTwitterLink(url)) {
+        const twitterEmbedHtml = await getTwitterEmbedHtml(url);
+        if (twitterEmbedHtml) {
+          linkPreview = JSON.stringify({
+            type: 'twitter',
+            html: twitterEmbedHtml,
+            url: url
+          });
+          console.log('Twitter Link Preview:', linkPreview);  
+          linkPreview = JSON.stringify({
+            type: 'link',
+            title: 'Twitter Post',
+            description: 'View this post on Twitter',
+            url: url
+          });
+        }
+      } else {
+        try {
+          const preview = await getLinkPreview(url, {
+            timeout: 3000,
+            followRedirects: 'follow',
+          });
+          linkPreview = JSON.stringify({
+            title: preview.title || '',
+            description: preview.description || '',
+            image: preview.images && preview.images.length > 0 ? preview.images[0] : '',
+            url: preview.url || url
+          });
+        } catch (previewError) {
+          console.error('Error fetching link preview:', previewError);
+          // Fallback to a basic preview if fetching fails
+          linkPreview = JSON.stringify({
+            title: 'Link',
+            description: 'Visit the link for more information',
+            image: '',
+            url: url
+          });
+        }
+      }
+    }
 
-    // Modified query to handle multiple media URLs
+    // Modified query to use media_urls array instead of single media_url
     const query = `
       INSERT INTO posts (author_id, family_id, media_urls, media_type, caption, link_preview, created_at)
       VALUES ($1, $2, $3, $4, $5, $6, NOW())
@@ -166,16 +248,28 @@ exports.createPost = async (req, res) => {
     res.status(201).json(post);
   } catch (error) {
     console.error('Error creating post:', error);
+    
+    // Clean up any uploaded media if the post creation fails
+    if (mediaUrls.length > 0) {
+      for (const url of mediaUrls) {
+        try {
+          await deleteMediaFromR2(url);
+        } catch (deleteError) {
+          console.error(`Error deleting media ${url}:`, deleteError);
+        }
+      }
+    }
+    
     res.status(500).json({ error: 'Internal server error' });
   }
 };
 
 function extractUrls(text) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.match(urlRegex) || [];
+  return text ? (text.match(urlRegex) || []) : [];
 }
 
-// Delete post
+// Delete post - Updated to handle multiple media URLs
 exports.deletePost = async (req, res) => {
   const postId = req.params.postId;
   const userId = req.user.id;
@@ -204,8 +298,16 @@ exports.deletePost = async (req, res) => {
     const deleteQuery = "DELETE FROM posts WHERE post_id = $1";
     await pool.query(deleteQuery, [postId]);
 
-    // If the post has media, delete it from R2
-    if (post.media_url) {
+    // If the post has media, delete all media from R2
+    if (post.media_urls && Array.isArray(post.media_urls) && post.media_urls.length > 0) {
+      for (const mediaUrl of post.media_urls) {
+        if (mediaUrl) {
+          await deleteMediaFromR2(mediaUrl);
+        }
+      }
+    } 
+    // For backward compatibility
+    else if (post.media_url) {
       await deleteMediaFromR2(post.media_url);
     }
 
