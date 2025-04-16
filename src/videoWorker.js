@@ -146,45 +146,27 @@ async function compressVideo(filePath, progressTracker) {
   const tempOutputPath = path.join(os.tmpdir(), `compressed-${path.basename(filePath)}`);
   let lastProgress = 0;
 
-  // Get video dimensions
-  let width = 1920;
-  let height = 1080;
-  
-  try {
-    const videoInfo = await getVideoInfo(filePath);
-    width = videoInfo.width;
-    height = videoInfo.height;
-  } catch (error) {
-    console.warn('Could not get video info, using default dimensions:', error.message);
-  }
-  
-  // Calculate new dimensions (max 720p)
-  let newWidth = width;
-  let newHeight = height;
-  
-  if (width > 1280 || height > 720) {
-    const aspectRatio = width / height;
-    if (width > height) {
-      newWidth = Math.min(1280, width);
-      newHeight = Math.round(newWidth / aspectRatio);
-    } else {
-      newHeight = Math.min(720, height);
-      newWidth = Math.round(newHeight * aspectRatio);
-    }
-  }
-
   return new Promise((resolve, reject) => {
     ffmpeg(filePath)
-      .outputOptions([
-        '-c:v libx264',
-        '-crf 30', // Higher CRF = smaller file (range: 18-51)
-        '-preset faster',
-        `-vf scale=${newWidth}:${newHeight}`, // Scale down resolution
-        '-c:a aac',
-        '-b:a 96k', // Lower audio bitrate
-        '-movflags +faststart',
-        '-max_muxing_queue_size 9999',
-      ])
+    .outputOptions([
+      '-sn',
+      '-dn',
+      '-map_metadata', '-1',
+      '-map 0:v:0',
+      '-map 0:a:0?',
+      '-map -0:2', // EXCLUDE stream 0:2 specifically!
+      '-c:v libx264',
+      '-crf 30',
+      '-preset faster',
+      '-filter:v scale=1280:720:force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1',
+      '-c:a aac',
+      '-b:a 96k',
+      '-movflags +faststart',
+      '-max_muxing_queue_size 9999',
+    ])
+      .on('start', commandLine => {
+        console.log('Spawned ffmpeg with command: ' + commandLine);
+      })
       .output(tempOutputPath)
       .on('progress', (progress) => {
         if (progress.percent && progress.percent - lastProgress >= 5) {
@@ -197,7 +179,6 @@ async function compressVideo(filePath, progressTracker) {
       .run();
   });
 }
-
 async function uploadOptimizedVideoToR2(key, filePath) {
   const fileStream = fs.createReadStream(filePath);
 
