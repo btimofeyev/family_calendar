@@ -13,6 +13,7 @@ const notificationRoutes = require('./src/routes/notificationRoutes');
 const memoriesRoutes = require('./src/routes/memoriesRoutes');
 const accountRoutes = require('./src/routes/accountRoutes');
 const { initializeNotificationCleanup } = require('./src/services/notificationCleanupService');
+require('./src/videoWorker');
 
 dotenv.config();
 

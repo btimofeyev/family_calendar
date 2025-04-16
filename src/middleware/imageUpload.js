@@ -6,8 +6,7 @@ const multer = require("multer");
 const path = require("path");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const sharp = require('sharp');
-const fs = require('fs');
-const os = require('os');
+const videoWorker = require('../videoWorker');
 
 // AWS S3 or Cloudflare R2 Client
 const s3Client = new S3Client({
@@ -99,6 +98,13 @@ async function uploadToR2(file, attempts = 3) {
       });
 
       await upload.done();
+
+      // Check if this is a video file and queue it for compression
+      if (file.mimetype.startsWith('video/')) {
+        // Add to video compression queue
+        console.log(`Queueing video for compression: ${filename}`);
+        videoWorker.handleNewVideoUpload(filename);
+      }
 
       // Use custom domain for production
       const baseUrl = process.env.R2_CUSTOM_DOMAIN;
