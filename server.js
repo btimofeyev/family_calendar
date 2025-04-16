@@ -24,7 +24,7 @@ const io = initializeSocket(server);
 const PORT = process.env.PORT || 3001;
 
 // Increase payload size limit (adjust the limit as needed)
-app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.json({ limit: '150mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // Add cookie parser middleware
