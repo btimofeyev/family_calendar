@@ -51,7 +51,6 @@ async function compressImage(file, options = {}) {
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { 
-    fileSize: 50 * 1024 * 1024, // 50 MB file size limit
     files: 4 // Maximum of 4 files per upload
   },
   fileFilter: (req, file, cb) => {

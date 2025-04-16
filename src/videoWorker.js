@@ -286,12 +286,12 @@ async function scanForUncompressedVideos() {
         // Check if video is optimized
         const isOptimized = fileMetadata.optimized === 'true';
         
-        // Check if video is large (>5MB) and unoptimized
+        // We now accept videos of any size since we're compressing them effectively
         const sizeInMB = video.Size / (1024 * 1024);
         
         if (isOptimized) {
           console.log(`Skipping optimized video: ${key}`);
-        } else if (sizeInMB > 5) {
+        } else {
           console.log(`Found uncompressed video (${sizeInMB.toFixed(2)}MB): ${key}`);
           needsProcessingCount++;
           
