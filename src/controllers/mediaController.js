@@ -1,4 +1,4 @@
-// src/controllers/mediaController.js
+// src/controllers/mediaController.js (enhanced version)
 const { S3Client, PutObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const crypto = require('crypto');
@@ -30,7 +30,7 @@ exports.getPresignedUploadUrl = async (req, res) => {
     // Validate file size if provided
     if (fileSize) {
       const fileSizeMB = parseInt(fileSize) / (1024 * 1024);
-      // Set a reasonable upper limit (e.g., 500MB)
+      // Set a generous upper limit (e.g., 500MB)
       const maxSizeMB = process.env.MAX_UPLOAD_SIZE_MB || 500;
       
       if (fileSizeMB > maxSizeMB) {
@@ -154,74 +154,6 @@ exports.confirmUpload = async (req, res) => {
 };
 
 /**
- * Add uploaded media to a specific memory
- */
-exports.addMediaToMemory = async (req, res) => {
-  const userId = req.user.id;
-  const { memoryId } = req.params;
-  const { uploadId, key } = req.body;
-  
-  if (!memoryId || !uploadId || !key) {
-    return res.status(400).json({ 
-      error: "Memory ID, upload ID, and file key are required" 
-    });
-  }
-
-  try {
-    // Verify the upload exists and belongs to the user
-    const uploadQuery = {
-      text: `SELECT * FROM media_uploads 
-             WHERE id = $1 AND user_id = $2 AND object_key = $3`,
-      values: [uploadId, userId, key]
-    };
-    
-    const uploadResult = await pool.query(uploadQuery);
-    
-    if (uploadResult.rows.length === 0) {
-      return res.status(404).json({ error: "Upload not found or not authorized" });
-    }
-    
-    const upload = uploadResult.rows[0];
-    
-    // Verify the memory exists and user has access
-    const memoryQuery = {
-      text: `SELECT m.* FROM memories m
-             JOIN user_families uf ON m.family_id = uf.family_id
-             WHERE m.memory_id = $1 AND uf.user_id = $2`,
-      values: [memoryId, userId]
-    };
-    
-    const memoryResult = await pool.query(memoryQuery);
-    
-    if (memoryResult.rows.length === 0) {
-      return res.status(404).json({ 
-        error: "Memory not found or you don't have access to it" 
-      });
-    }
-    
-    // Add media to memory_content
-    const insertQuery = {
-      text: `INSERT INTO memory_content
-             (memory_id, user_id, file_path, content_type)
-             VALUES ($1, $2, $3, $4)
-             RETURNING *`,
-      values: [memoryId, userId, upload.file_url, upload.content_type]
-    };
-    
-    const result = await pool.query(insertQuery);
-    
-    // Return the newly added content
-    res.status(201).json({
-      message: 'Media added to memory successfully',
-      content: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Error adding media to memory:', error);
-    res.status(500).json({ error: 'Failed to add media to memory' });
-  }
-};
-
-/**
  * Cancel an upload and delete the file if it exists
  */
 exports.cancelUpload = async (req, res) => {
@@ -277,4 +209,4 @@ exports.cancelUpload = async (req, res) => {
     console.error('Error cancelling upload:', error);
     res.status(500).json({ error: 'Failed to cancel upload' });
   }
-};
+}

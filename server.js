@@ -1,3 +1,4 @@
+// server.js - Update to include new media routes
 const express = require('express');
 const dotenv = require('dotenv');
 const path = require('path');
@@ -13,7 +14,6 @@ const notificationRoutes = require('./src/routes/notificationRoutes');
 const memoriesRoutes = require('./src/routes/memoriesRoutes');
 const accountRoutes = require('./src/routes/accountRoutes');
 const mediaRoutes = require('./src/routes/mediaRoutes'); // Add new import
-const { initializeNotificationCleanup } = require('./src/services/notificationCleanupService');
 require('./src/videoWorker');
 
 dotenv.config();
@@ -75,13 +75,4 @@ app.use((err, req, res, next) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT} on all interfaces`);
-
-  const cleanupJob = initializeNotificationCleanup({
-    schedule: '0 0 * * *', 
-    maxAgeDays: 14 
-  });
-  
-  // Log startup details
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`R2 Bucket: ${process.env.R2_BUCKET_NAME || 'not configured'}`);
 });

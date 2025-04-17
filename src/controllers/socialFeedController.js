@@ -263,7 +263,66 @@ exports.createPost = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+exports.createPostWithMedia = async (req, res) => {
+  const { caption, familyId, mediaUrls, mediaTypes } = req.body;
+  const authorId = req.user.id;
 
+  try {
+    // Check if the user is a member of the family
+    const checkMembershipQuery = {
+      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
+      values: [authorId, familyId],
+    };
+    const membershipResult = await pool.query(checkMembershipQuery);
+
+    if (membershipResult.rows.length === 0) {
+      return res.status(403).json({ error: "You are not a member of this family" });
+    }
+
+    // Determine media type from the mediaTypes array or default to 'image'
+    let mediaType = null;
+    if (mediaUrls && mediaUrls.length > 0) {
+      if (mediaTypes && mediaTypes.length > 0) {
+        // If at least one video is included, mark the post as having video content
+        mediaType = mediaTypes.includes('video') ? 'video' : 'image';
+      } else {
+        // Default to 'image' if no types provided
+        mediaType = 'image';
+      }
+    }
+
+    let linkPreview = null;
+    const urls = extractUrls(caption);
+    if (urls.length > 0) {
+      // Process link preview as in original function
+      // ...
+    }
+
+    // Insert post with the media URLs provided in the request
+    const query = `
+      INSERT INTO posts (author_id, family_id, media_urls, media_type, caption, link_preview, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      RETURNING *
+    `;
+    const values = [authorId, familyId, mediaUrls, mediaType, caption, linkPreview];
+    const { rows } = await pool.query(query, values);
+
+    // Fetch author name
+    const authorQuery = 'SELECT name FROM users WHERE id = $1';
+    const { rows: authorRows } = await pool.query(authorQuery, [authorId]);
+
+    const post = {
+      ...rows[0],
+      author_name: authorRows[0].name,
+      link_preview: linkPreview ? JSON.parse(linkPreview) : null
+    };
+
+    res.status(201).json(post);
+  } catch (error) {
+    console.error('Error creating post with pre-uploaded media:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
 function extractUrls(text) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   return text ? (text.match(urlRegex) || []) : [];

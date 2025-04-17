@@ -16,7 +16,4 @@ router.post('/confirm-upload', mediaController.confirmUpload);
 // Cancel an upload
 router.post('/cancel-upload', mediaController.cancelUpload);
 
-// Add uploaded media to a memory
-router.post('/memories/:memoryId/media', mediaController.addMediaToMemory);
-
 module.exports = router;
