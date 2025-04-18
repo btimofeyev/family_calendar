@@ -227,31 +227,41 @@ async function scanForUncompressedVideos() {
   console.log('Scanning for uncompressed videos...');
   
   try {
-    // List all objects in the bucket
-    const listCommand = new ListObjectsV2Command({
-      Bucket: process.env.R2_BUCKET_NAME,
-    });
+    // List all objects in the bucket with a prefix filter for common video paths
+    // Add the media/ folder to the prefixes we look for
+    const prefixes = ['media/', 'uploads/'];
+    let allVideoFiles = [];
     
-    const { Contents } = await s3Client.send(listCommand);
-    
-    if (!Contents || Contents.length === 0) {
-      console.log('No files found in bucket');
-      return;
+    for (const prefix of prefixes) {
+      const listCommand = new ListObjectsV2Command({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Prefix: prefix
+      });
+      
+      const { Contents } = await s3Client.send(listCommand);
+      
+      if (!Contents || Contents.length === 0) {
+        console.log(`No files found in bucket with prefix ${prefix}`);
+        continue;
+      }
+      
+      // Filter for video files
+      const videoFiles = Contents.filter(item => {
+        const key = item.Key;
+        return key.match(/\.(mp4|mov|avi|wmv|flv|webm|mkv)$/i);
+      });
+      
+      console.log(`Found ${videoFiles.length} video files with prefix ${prefix}`);
+      allVideoFiles = [...allVideoFiles, ...videoFiles];
     }
     
-    // Filter for video files
-    const videoFiles = Contents.filter(item => {
-      const key = item.Key;
-      return key.match(/\.(mp4|mov|avi|wmv|flv|webm|mkv)$/i);
-    });
-    
-    console.log(`Found ${videoFiles.length} video files`);
+    console.log(`Found ${allVideoFiles.length} total video files`);
     
     // Keep track of which videos need processing
     let needsProcessingCount = 0;
     
     // Check each video file for compression metadata
-    for (const video of videoFiles) {
+    for (const video of allVideoFiles) {
       const key = video.Key;
       
       // Get object metadata
@@ -267,7 +277,6 @@ async function scanForUncompressedVideos() {
         // Check if video is optimized
         const isOptimized = fileMetadata.optimized === 'true';
         
-        // We now accept videos of any size since we're compressing them effectively
         const sizeInMB = video.Size / (1024 * 1024);
         
         if (isOptimized) {

@@ -353,24 +353,62 @@ exports.deletePost = async (req, res) => {
       });
     }
 
-    // Delete the post from the database
-    const deleteQuery = "DELETE FROM posts WHERE post_id = $1";
-    await pool.query(deleteQuery, [postId]);
-
-    // If the post has media, delete all media from R2
-    if (post.media_urls && Array.isArray(post.media_urls) && post.media_urls.length > 0) {
-      for (const mediaUrl of post.media_urls) {
-        if (mediaUrl) {
-          await deleteMediaFromR2(mediaUrl);
+    // Start a transaction
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      // Delete likes and comments first (foreign key constraints)
+      await client.query("DELETE FROM likes WHERE post_id = $1", [postId]);
+      await client.query("DELETE FROM comments WHERE post_id = $1", [postId]);
+      
+      // Delete the post from the database
+      await client.query("DELETE FROM posts WHERE post_id = $1", [postId]);
+      
+      // Also update any pending uploads to canceled
+      await client.query(
+        "UPDATE media_uploads SET status = 'cancelled' WHERE post_id = $1 AND status = 'pending'",
+        [postId]
+      );
+      
+      // Commit transaction
+      await client.query('COMMIT');
+      
+      // If the post has media, delete all media from R2
+      // This happens outside the transaction as S3 operations can't be rolled back
+      if (post.media_urls && Array.isArray(post.media_urls) && post.media_urls.length > 0) {
+        console.log(`Deleting ${post.media_urls.length} media files for post ${postId}`);
+        
+        for (const mediaUrl of post.media_urls) {
+          if (mediaUrl) {
+            try {
+              await deleteMediaFromR2(mediaUrl);
+              console.log(`Successfully deleted media: ${mediaUrl}`);
+            } catch (deleteError) {
+              console.error(`Error deleting media ${mediaUrl}:`, deleteError);
+              // Continue with other media deletions even if one fails
+            }
+          }
+        }
+      } 
+      // For backward compatibility
+      else if (post.media_url) {
+        try {
+          await deleteMediaFromR2(post.media_url);
+          console.log(`Successfully deleted media: ${post.media_url}`);
+        } catch (deleteError) {
+          console.error(`Error deleting media ${post.media_url}:`, deleteError);
         }
       }
-    } 
-    // For backward compatibility
-    else if (post.media_url) {
-      await deleteMediaFromR2(post.media_url);
-    }
 
-    res.json({ message: "Post deleted successfully" });
+      res.json({ message: "Post deleted successfully" });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     console.error("Error deleting post:", error);
     res.status(500).json({ error: "Internal server error" });

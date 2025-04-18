@@ -154,22 +154,48 @@ exports.deleteMemory = async (req, res) => {
       return res.status(403).json({ error: 'You do not have permission to delete this memory' });
     }
 
+    // Get all content for this memory to delete media files
     const contentQuery = 'SELECT file_path FROM memory_content WHERE memory_id = $1';
     const contentResult = await pool.query(contentQuery, [memoryId]);
 
-    // Delete all content from R2
-    for (const content of contentResult.rows) {
-      await deleteMediaFromR2(content.file_path);
+    // Start a transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Delete associated content and comments from the database
+      await client.query('DELETE FROM memory_content WHERE memory_id = $1', [memoryId]);
+      await client.query('DELETE FROM memory_comments WHERE memory_id = $1', [memoryId]);
+      
+      // Update any pending uploads related to this memory
+      await client.query(
+        "UPDATE media_uploads SET status = 'cancelled' WHERE memory_id = $1 AND status = 'pending'", 
+        [memoryId]
+      );
+      
+      // Delete the memory itself
+      await client.query('DELETE FROM memories WHERE memory_id = $1', [memoryId]);
+      
+      await client.query('COMMIT');
+      
+      // Delete all content from R2 (outside transaction)
+      for (const content of contentResult.rows) {
+        try {
+          await deleteMediaFromR2(content.file_path);
+          console.log(`Successfully deleted media: ${content.file_path}`);
+        } catch (deleteError) {
+          console.error(`Error deleting media ${content.file_path}:`, deleteError);
+          // Continue with other media deletions even if one fails
+        }
+      }
+
+      res.json({ message: 'Memory and associated content deleted successfully' });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-
-    // Delete associated content and comments from the database
-    await pool.query('DELETE FROM memory_content WHERE memory_id = $1', [memoryId]);
-    await pool.query('DELETE FROM memory_comments WHERE memory_id = $1', [memoryId]);
-
-    // Delete the memory itself
-    await pool.query('DELETE FROM memories WHERE memory_id = $1', [memoryId]);
-
-    res.json({ message: 'Memory and associated content deleted successfully' });
   } catch (error) {
     console.error('Error deleting memory:', error);
     res.status(500).json({ error: 'Failed to delete memory' });

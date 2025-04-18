@@ -63,7 +63,7 @@ const upload = multer({
 });
 
 // Improved R2 upload function with retry logic
-async function uploadToR2(file, attempts = 3) {
+async function uploadToR2(file, context = null, attempts = 3) {
   let buffer = file.buffer;
   let contentType = file.mimetype;
   let attempt = 0;
@@ -71,7 +71,9 @@ async function uploadToR2(file, attempts = 3) {
   // Generate a unique filename
   const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
   const extension = file.mimetype.startsWith('image/') ? 'jpg' : path.extname(file.originalname || 'file.unknown').split('.').pop();
-  const filename = `${file.fieldname || 'media'}-${uniqueSuffix}.${extension}`;
+  
+  // FIXED: Always use media/ folder to ensure compression works
+  const filename = `media/${file.fieldname || 'upload'}-${uniqueSuffix}.${extension}`;
 
   while (attempt < attempts) {
     try {
@@ -129,7 +131,27 @@ async function deleteMediaFromR2(mediaUrl, attempts = 3) {
     return;
   }
 
-  const filename = mediaUrl.split("/").pop();
+  // Extract the key from the media URL
+  // Handle both full URLs and relative paths
+  let filename;
+  if (mediaUrl.startsWith('http')) {
+    // For full URLs, check if it's a domain URL
+    const customDomain = process.env.R2_CUSTOM_DOMAIN;
+    if (customDomain && mediaUrl.includes(customDomain)) {
+      // Get everything after the domain
+      const urlObj = new URL(mediaUrl);
+      filename = urlObj.pathname.startsWith('/') ? urlObj.pathname.substring(1) : urlObj.pathname;
+    } else {
+      // For other URLs, just get the last part
+      filename = mediaUrl.split("/").pop();
+    }
+  } else {
+    // For relative paths, use the full path
+    filename = mediaUrl;
+  }
+
+  console.log(`Deleting file with key: ${filename}`);
+
   const params = {
     Bucket: process.env.R2_BUCKET_NAME,
     Key: filename,

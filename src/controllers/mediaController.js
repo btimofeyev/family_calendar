@@ -1,8 +1,8 @@
-// src/controllers/mediaController.js (enhanced version)
+//src/controllers/mediaController.js
+const pool = require("../config/db");
 const { S3Client, PutObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const crypto = require('crypto');
-const pool = require("../config/db");
 const videoWorker = require('../videoWorker');
 
 // Create S3 client with R2 configuration
@@ -20,7 +20,7 @@ const s3Client = new S3Client({
  */
 exports.getPresignedUploadUrl = async (req, res) => {
   const userId = req.user.id;
-  const { contentType, filename, fileSize } = req.body;
+  const { contentType, filename, fileSize, memoryId, postId } = req.body;
   
   if (!contentType || !filename) {
     return res.status(400).json({ error: "Content type and filename are required" });
@@ -44,20 +44,27 @@ exports.getPresignedUploadUrl = async (req, res) => {
     // Generate unique key for the file
     const fileExt = filename.split('.').pop().toLowerCase();
     
-    // Include user ID in the path for organization and security
+    // FIXED: Use a consistent folder structure for all uploads
+    // Include context (memory_id or post_id) if available
     const uniqueId = crypto.randomBytes(8).toString('hex');
-    const key = `uploads/${userId}/${Date.now()}-${uniqueId}.${fileExt}`;
+    const context = memoryId ? `memory_${memoryId}` : (postId ? `post_${postId}` : 'general');
+    
+    // IMPORTANT: Use media/ prefix for all uploads to ensure compression works
+    const key = `media/${userId}/${context}/${Date.now()}-${uniqueId}.${fileExt}`;
     
     // Create command for presigned URL
     const command = new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
       Key: key,
       ContentType: contentType,
-      // Add additional metadata
+      // Add additional metadata for tracking
       Metadata: {
         userId: userId.toString(),
         originalFilename: filename,
-        uploadedAt: new Date().toISOString()
+        uploadedAt: new Date().toISOString(),
+        memoryId: memoryId ? memoryId.toString() : '',
+        postId: postId ? postId.toString() : '',
+        context: context
       }
     });
 
@@ -76,10 +83,11 @@ exports.getPresignedUploadUrl = async (req, res) => {
     // Store upload request in database for tracking
     const insertQuery = {
       text: `INSERT INTO media_uploads 
-             (user_id, object_key, content_type, original_filename, file_url, status, created_at)
-             VALUES ($1, $2, $3, $4, $5, 'pending', NOW())
+             (user_id, object_key, content_type, original_filename, file_url, status, 
+              memory_id, post_id, created_at)
+             VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, NOW())
              RETURNING id`,
-      values: [userId, key, contentType, filename, fileUrl]
+      values: [userId, key, contentType, filename, fileUrl, memoryId || null, postId || null]
     };
     
     const dbResult = await pool.query(insertQuery);
@@ -100,10 +108,11 @@ exports.getPresignedUploadUrl = async (req, res) => {
 
 /**
  * Confirm that a file was successfully uploaded via presigned URL
+ * This can now handle memory content creation too
  */
 exports.confirmUpload = async (req, res) => {
   const userId = req.user.id;
-  const { uploadId, key } = req.body;
+  const { uploadId, key, memoryId, postId } = req.body;
   
   if (!uploadId || !key) {
     return res.status(400).json({ error: "Upload ID and key are required" });
@@ -128,13 +137,34 @@ exports.confirmUpload = async (req, res) => {
     // Update the upload status to 'completed'
     const updateQuery = {
       text: `UPDATE media_uploads 
-             SET status = 'completed', updated_at = NOW()
+             SET status = 'completed', updated_at = NOW(),
+             memory_id = COALESCE($3, memory_id),
+             post_id = COALESCE($4, post_id)
              WHERE id = $1
              RETURNING *`,
-      values: [uploadId]
+      values: [uploadId, memoryId || null, postId || null]
     };
     
     const result = await pool.query(updateQuery);
+    
+    // If this is for a memory and memoryId was provided, add to memory_content
+    if (memoryId) {
+      try {
+        const memoryContentQuery = {
+          text: `INSERT INTO memory_content 
+                 (memory_id, user_id, file_path, content_type, created_at)
+                 VALUES ($1, $2, $3, $4, NOW())
+                 RETURNING *`,
+          values: [memoryId, userId, upload.file_url, upload.content_type]
+        };
+        
+        const memoryResult = await pool.query(memoryContentQuery);
+        console.log('Added to memory_content:', memoryResult.rows[0]);
+      } catch (memoryError) {
+        console.error('Error adding to memory_content:', memoryError);
+        // Continue anyway as the file is uploaded successfully
+      }
+    }
     
     // Check if this is a video and needs processing
     if (upload.content_type.startsWith('video/')) {
@@ -196,6 +226,7 @@ exports.cancelUpload = async (req, res) => {
       });
       
       await s3Client.send(deleteCommand);
+      console.log(`Successfully deleted cancelled upload: ${key}`);
     } catch (deleteError) {
       console.error('Error deleting file:', deleteError);
       // Continue even if delete fails
@@ -209,4 +240,54 @@ exports.cancelUpload = async (req, res) => {
     console.error('Error cancelling upload:', error);
     res.status(500).json({ error: 'Failed to cancel upload' });
   }
-}
+};
+
+// New method to handle cleanup of pending uploads
+exports.cleanupPendingUploads = async (req, res) => {
+  try {
+    // Find uploads that have been in 'pending' state for more than 1 hour
+    const findQuery = {
+      text: `SELECT id, object_key FROM media_uploads 
+             WHERE status = 'pending' AND created_at < NOW() - INTERVAL '1 hour'`
+    };
+    
+    const { rows } = await pool.query(findQuery);
+    
+    if (rows.length === 0) {
+      return res.json({ message: 'No stale uploads to clean up' });
+    }
+    
+    console.log(`Found ${rows.length} stale uploads to clean up`);
+    
+    let deletedCount = 0;
+    
+    for (const upload of rows) {
+      try {
+        // Try to delete the file from R2
+        const deleteCommand = new DeleteObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: upload.object_key
+        });
+        
+        await s3Client.send(deleteCommand);
+        
+        // Mark as deleted in database
+        await pool.query(
+          `UPDATE media_uploads SET status = 'deleted', updated_at = NOW() WHERE id = $1`,
+          [upload.id]
+        );
+        
+        deletedCount++;
+      } catch (error) {
+        console.error(`Error cleaning up upload ${upload.id}:`, error);
+      }
+    }
+    
+    res.json({ 
+      message: `Cleaned up ${deletedCount} of ${rows.length} stale uploads`
+    });
+  } catch (error) {
+    console.error('Error in cleanup process:', error);
+    res.status(500).json({ error: 'Failed to run cleanup process' });
+  }
+};

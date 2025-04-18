@@ -13,7 +13,9 @@ const invitationRoutes = require('./src/routes/invitationRoutes');
 const notificationRoutes = require('./src/routes/notificationRoutes');
 const memoriesRoutes = require('./src/routes/memoriesRoutes');
 const accountRoutes = require('./src/routes/accountRoutes');
-const mediaRoutes = require('./src/routes/mediaRoutes'); // Add new import
+const mediaRoutes = require('./src/routes/mediaRoutes'); 
+const cron = require('node-cron');
+
 require('./src/videoWorker');
 
 dotenv.config();
@@ -72,7 +74,21 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Something broke!');
 });
-
+cron.schedule('0 * * * *', async () => {
+  console.log('Running cleanup for stale media uploads...');
+  try {
+    // Create a mock request/response
+    const req = {};
+    const res = {
+      json: (data) => console.log('Cleanup result:', data),
+      status: (code) => ({ json: (data) => console.error(`Cleanup error (${code}):`, data) })
+    };
+    
+    await mediaController.cleanupPendingUploads(req, res);
+  } catch (error) {
+    console.error('Failed to run media cleanup job:', error);
+  }
+});
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT} on all interfaces`);
 });
