@@ -363,14 +363,15 @@ exports.deletePost = async (req, res) => {
       await client.query("DELETE FROM likes WHERE post_id = $1", [postId]);
       await client.query("DELETE FROM comments WHERE post_id = $1", [postId]);
       
-      // Delete the post from the database
-      await client.query("DELETE FROM posts WHERE post_id = $1", [postId]);
-      
-      // Also update any pending uploads to canceled
+      // Delete or update all associated media_uploads records
+      // This is the key change - update ALL media uploads for this post, regardless of status
       await client.query(
-        "UPDATE media_uploads SET status = 'cancelled' WHERE post_id = $1 AND status = 'pending'",
+        "DELETE FROM media_uploads WHERE post_id = $1",
         [postId]
       );
+      
+      // Delete the post from the database
+      await client.query("DELETE FROM posts WHERE post_id = $1", [postId]);
       
       // Commit transaction
       await client.query('COMMIT');
@@ -414,7 +415,6 @@ exports.deletePost = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-
 // Toggle like on a post
 exports.toggleLike = async (req, res) => {
   const postId = req.params.postId;
