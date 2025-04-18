@@ -257,46 +257,61 @@ exports.cancelUpload = async (req, res) => {
 // New method to handle cleanup of pending uploads
 exports.cleanupPendingUploads = async (req, res) => {
   try {
-    // Find uploads that have been in 'pending' state for more than 1 hour
+    // Find uploads that are pending OR cancelled and not associated with posts/memories
     const findQuery = {
-      text: `SELECT id, object_key FROM media_uploads 
-             WHERE status = 'pending' AND created_at < NOW() - INTERVAL '1 hour'`
+      text: `SELECT id, object_key, file_url FROM media_uploads 
+             WHERE (status = 'pending' OR status = 'cancelled') 
+             AND memory_id IS NULL AND post_id IS NULL
+             AND created_at < NOW() - INTERVAL '30 minutes'`
     };
     
     const { rows } = await pool.query(findQuery);
     
     if (rows.length === 0) {
-      return res.json({ message: 'No stale uploads to clean up' });
+      return res.json({ message: 'No unused uploads to clean up' });
     }
     
-    console.log(`Found ${rows.length} stale uploads to clean up`);
+    console.log(`Found ${rows.length} unused uploads to clean up`);
     
     let deletedCount = 0;
+    let failedDeletions = [];
     
     for (const upload of rows) {
       try {
+        console.log(`Attempting to delete file with key: ${upload.object_key}`);
+        console.log(`File URL: ${upload.file_url}`);
+        
         // Try to delete the file from R2
         const deleteCommand = new DeleteObjectCommand({
           Bucket: process.env.R2_BUCKET_NAME,
           Key: upload.object_key
         });
         
-        await s3Client.send(deleteCommand);
+        // Wait for the delete operation to complete and log the result
+        const deleteResult = await s3Client.send(deleteCommand);
+        console.log(`R2 delete result for ${upload.id}:`, deleteResult);
         
-        // Mark as deleted in database
+        // Update the status to 'deleted' in a way that works with check constraints
         await pool.query(
-          `UPDATE media_uploads SET status = 'deleted', updated_at = NOW() WHERE id = $1`,
+          `DELETE FROM media_uploads WHERE id = $1`,
           [upload.id]
         );
         
+        console.log(`Successfully deleted upload ${upload.id} from database`);
         deletedCount++;
       } catch (error) {
         console.error(`Error cleaning up upload ${upload.id}:`, error);
+        failedDeletions.push({
+          id: upload.id,
+          key: upload.object_key,
+          error: error.message
+        });
       }
     }
     
     res.json({ 
-      message: `Cleaned up ${deletedCount} of ${rows.length} stale uploads`
+      message: `Deleted ${deletedCount} of ${rows.length} unused uploads`,
+      failedDeletions: failedDeletions.length > 0 ? failedDeletions : undefined
     });
   } catch (error) {
     console.error('Error in cleanup process:', error);
