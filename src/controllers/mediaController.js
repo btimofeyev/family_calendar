@@ -106,10 +106,6 @@ exports.getPresignedUploadUrl = async (req, res) => {
   }
 };
 
-/**
- * Confirm that a file was successfully uploaded via presigned URL
- * This can now handle memory content creation too
- */
 exports.confirmUpload = async (req, res) => {
   const userId = req.user.id;
   const { uploadId, key, memoryId, postId } = req.body;
@@ -135,6 +131,7 @@ exports.confirmUpload = async (req, res) => {
     const upload = verifyResult.rows[0];
     
     // Update the upload status to 'completed'
+    // FIX: Corrected parameter order in the UPDATE query
     const updateQuery = {
       text: `UPDATE media_uploads 
              SET status = 'completed', updated_at = NOW(),
@@ -145,7 +142,25 @@ exports.confirmUpload = async (req, res) => {
       values: [uploadId, memoryId || null, postId || null]
     };
     
-    const result = await pool.query(updateQuery);
+    // FIX: The error occurs because we have 4 placeholders but only 3 values
+    // Let's correct the values array to match the placeholders:
+    const updateValues = [uploadId];
+    
+    // The issue is that we're trying to use $2 but it's not defined in the values array
+    // Add a placeholder value for the WHERE clause (should be user_id, which isn't in the query)
+    updateValues.push(memoryId || null);
+    updateValues.push(postId || null);
+    
+    // Now execute with the correct values array
+    const result = await pool.query(
+      `UPDATE media_uploads 
+       SET status = 'completed', updated_at = NOW(),
+       memory_id = COALESCE($2, memory_id),
+       post_id = COALESCE($3, post_id)
+       WHERE id = $1
+       RETURNING *`, 
+      updateValues
+    );
     
     // If this is for a memory and memoryId was provided, add to memory_content
     if (memoryId) {
@@ -183,9 +198,6 @@ exports.confirmUpload = async (req, res) => {
   }
 };
 
-/**
- * Cancel an upload and delete the file if it exists
- */
 exports.cancelUpload = async (req, res) => {
   const userId = req.user.id;
   const { uploadId, key } = req.body;
