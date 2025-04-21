@@ -44,13 +44,12 @@ exports.getPresignedUploadUrl = async (req, res) => {
     // Generate unique key for the file
     const fileExt = filename.split('.').pop().toLowerCase();
     
-    // FIXED: Use a consistent folder structure for all uploads
-    // Include context (memory_id or post_id) if available
+
     const uniqueId = crypto.randomBytes(8).toString('hex');
     const context = memoryId ? `memory_${memoryId}` : (postId ? `post_${postId}` : 'general');
     
-    // IMPORTANT: Use media/ prefix for all uploads to ensure compression works
-    const key = `media/${userId}/${context}/${Date.now()}-${uniqueId}.${fileExt}`;
+    const key = `pending/${userId}/${Date.now()}-${uniqueId}.${fileExt}`;
+
     
     // Create command for presigned URL
     const command = new PutObjectCommand({

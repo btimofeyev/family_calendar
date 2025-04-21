@@ -1,6 +1,6 @@
 // src/middleware/imageUpload.js - Updated for multiple media uploads
 require("dotenv").config();
-const { S3Client, DeleteObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
+const { S3Client, DeleteObjectCommand, GetObjectCommand, CopyObjectCommand  } = require("@aws-sdk/client-s3");
 const { Upload } = require("@aws-sdk/lib-storage");
 const multer = require("multer");
 const path = require("path");
@@ -73,7 +73,7 @@ async function uploadToR2(file, context = null, attempts = 3) {
   const extension = file.mimetype.startsWith('image/') ? 'jpg' : path.extname(file.originalname || 'file.unknown').split('.').pop();
   
   // FIXED: Always use media/ folder to ensure compression works
-  const filename = `media/${file.fieldname || 'upload'}-${uniqueSuffix}.${extension}`;
+  const filename = `pending/${Date.now()}-${uniqueSuffix}.${extension}`;
 
   while (attempt < attempts) {
     try {
@@ -238,6 +238,37 @@ async function getSignedImageUrls(keys) {
     .filter(r => r.status === 'fulfilled')
     .map(r => r.value);
 }
+/**
+ * @param {string} pendingUrlOrKey  either the full https:// URL or just the key
+ * @returns {Promise<{key:string,url:string}>}
+ */
+async function promotePendingToComplete(pendingUrlOrKey) {
+  const base = process.env.R2_CUSTOM_DOMAIN; // e.g. https://media.famlynook.com
+  const key = pendingUrlOrKey.startsWith('http')
+      ? pendingUrlOrKey.replace(base + '/', '')
+      : pendingUrlOrKey;
+
+  // already promoted?
+  if (!key.startsWith('pending/')) {
+    return { key, url: `${base}/${key}` };
+  }
+
+  const newKey = key.replace(/^pending\//, 'complete/');
+
+  // COPY → DELETE
+  await s3Client.send(new CopyObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME,
+    CopySource: `${process.env.R2_BUCKET_NAME}/${key}`,
+    Key: newKey,
+    MetadataDirective: 'COPY'
+  }));
+  await s3Client.send(new DeleteObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME,
+    Key: key
+  }));
+
+  return { key: newKey, url: `${base}/${newKey}` };
+}
 
 module.exports = {
   upload,
@@ -246,5 +277,7 @@ module.exports = {
   getSignedImageUrls,
   deleteMediaFromR2,
   batchDeleteFromR2,
-  compressImage
+  compressImage,
+  promotePendingToComplete,
+
 };

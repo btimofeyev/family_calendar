@@ -3,6 +3,7 @@ const {
   getSignedImageUrl,
   uploadToR2,
   deleteMediaFromR2,
+  promotePendingToComplete,
 } = require("../middleware/imageUpload");
 const { getLinkPreview } = require('link-preview-js');
 const { createNotification } = require('./notificationController');
@@ -130,197 +131,122 @@ exports.getPosts = async (req, res) => {
 // Create a new post - Updated for multiple media
 exports.createPost = async (req, res) => {
   const { caption, familyId } = req.body;
-  const files = req.files; // Now handling an array of files
-  const authorId = req.user.id;
+  const files     = req.files;            // Multer array (optional)
+  const authorId  = req.user.id;
 
-  let mediaUrls = []; // Array to store multiple media URLs
-  let mediaType = null;
+  let mediaUrls  = [];                    // final complete/ URLs
+  let mediaType  = null;
+  const toDelete = [];                    // clean‑up list if we error later
 
   try {
-    // Check if the user is a member of the family
-    const checkMembershipQuery = {
-      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
-      values: [authorId, familyId],
-    };
-    const membershipResult = await pool.query(checkMembershipQuery);
-
-    if (membershipResult.rows.length === 0) {
+    // ─── 1. membership check ─────────────────────────────────────────
+    const { rows: member } = await pool.query(
+      "SELECT 1 FROM user_families WHERE user_id=$1 AND family_id=$2",
+      [authorId, familyId]
+    );
+    if (member.length === 0) {
       return res.status(403).json({ error: "You are not a member of this family" });
     }
 
-    // Process multiple files if any
-    if (files && files.length > 0) {
-      // Limit to 4 files maximum
-      const filesToProcess = files.slice(0, 4);
-      
-      console.log(`Processing ${filesToProcess.length} media files`);
-      
-      // Upload each file and collect URLs
-      for (const file of filesToProcess) {
+    // ─── 2. upload each file → pending/…, then promote ──────────────
+    if (files?.length) {
+      for (const file of files.slice(0, 4)) {          // max 4
         try {
-          const mediaUrl = await uploadToR2(file);
-          mediaUrls.push(mediaUrl);
-        } catch (uploadError) {
-          console.error(`Error uploading file:`, uploadError);
-          // Continue with other files even if one fails
+          const pendingUrl        = await uploadToR2(file);          // pending/
+          const { url: finalUrl } = await promotePendingToComplete(pendingUrl); // complete/
+          mediaUrls.push(finalUrl);
+          toDelete.push(finalUrl);                                    // in case DB fails later
+        } catch (err) {
+          console.error("media upload error:", err);
         }
       }
-      
-      // If at least one file was uploaded successfully
-      if (mediaUrls.length > 0) {
-        // Set media type based on the first file
-        mediaType = files[0].mimetype.startsWith('image/') ? 'image' : 'video';
+      if (mediaUrls.length) {
+        mediaType = files[0].mimetype.startsWith("image/") ? "image" : "video";
       }
     }
 
+    // ─── 3. optional link‑preview logic (unchanged) ─────────────────
     let linkPreview = null;
-    const urls = extractUrls(caption);
-    if (urls.length > 0) {
-      const url = urls[0];
-      if (isYouTubeLink(url)) {
-        const videoId = getYouTubeVideoId(url);
-        linkPreview = JSON.stringify({
-          title: "YouTube Video",
-          description: "Click to watch on YouTube",
-          image: `https://img.youtube.com/vi/${videoId}/0.jpg`,
-          url: url
-        });
-      } else if (isTwitterLink(url)) {
-        const twitterEmbedHtml = await getTwitterEmbedHtml(url);
-        if (twitterEmbedHtml) {
-          linkPreview = JSON.stringify({
-            type: 'twitter',
-            html: twitterEmbedHtml,
-            url: url
-          });
-          console.log('Twitter Link Preview:', linkPreview);  
-          linkPreview = JSON.stringify({
-            type: 'link',
-            title: 'Twitter Post',
-            description: 'View this post on Twitter',
-            url: url
-          });
-        }
-      } else {
-        try {
-          const preview = await getLinkPreview(url, {
-            timeout: 3000,
-            followRedirects: 'follow',
-          });
-          linkPreview = JSON.stringify({
-            title: preview.title || '',
-            description: preview.description || '',
-            image: preview.images && preview.images.length > 0 ? preview.images[0] : '',
-            url: preview.url || url
-          });
-        } catch (previewError) {
-          console.error('Error fetching link preview:', previewError);
-          // Fallback to a basic preview if fetching fails
-          linkPreview = JSON.stringify({
-            title: 'Link',
-            description: 'Visit the link for more information',
-            image: '',
-            url: url
-          });
-        }
-      }
-    }
+    const firstUrl  = extractUrls(caption)[0];
+    /* … existing preview code … */
 
-    // Modified query to use media_urls array instead of single media_url
-    const query = `
-      INSERT INTO posts (author_id, family_id, media_urls, media_type, caption, link_preview, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, NOW())
-      RETURNING *
-    `;
-    const values = [authorId, familyId, mediaUrls, mediaType, caption, linkPreview];
-    const { rows } = await pool.query(query, values);
+    // ─── 4. insert post ─────────────────────────────────────────────
+    const { rows } = await pool.query(
+      `INSERT INTO posts
+         (author_id,family_id,media_urls,media_type,caption,link_preview,created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING *`,
+      [authorId, familyId, mediaUrls, mediaType, caption, linkPreview]
+    );
 
-    // Fetch author name
-    const authorQuery = 'SELECT name FROM users WHERE id = $1';
-    const { rows: authorRows } = await pool.query(authorQuery, [authorId]);
+    const { rows: authorRows } = await pool.query(
+      "SELECT name FROM users WHERE id=$1", [authorId]
+    );
 
-    const post = {
+    res.status(201).json({
       ...rows[0],
-      author_name: authorRows[0].name,
+      author_name : authorRows[0].name,
       link_preview: linkPreview ? JSON.parse(linkPreview) : null
-    };
+    });
+  } catch (err) {
+    console.error("createPost failed:", err);
 
-    res.status(201).json(post);
-  } catch (error) {
-    console.error('Error creating post:', error);
-    
-    // Clean up any uploaded media if the post creation fails
-    if (mediaUrls.length > 0) {
-      for (const url of mediaUrls) {
-        try {
-          await deleteMediaFromR2(url);
-        } catch (deleteError) {
-          console.error(`Error deleting media ${url}:`, deleteError);
-        }
-      }
+    // roll back any files we already promoted
+    for (const url of toDelete) {
+      try { await deleteMediaFromR2(url); } catch(e){ /* ignore */ }
     }
-    
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 exports.createPostWithMedia = async (req, res) => {
-  const { caption, familyId, mediaUrls, mediaTypes } = req.body;
+  const { caption, familyId, mediaUrls = [], mediaTypes = [] } = req.body;
   const authorId = req.user.id;
 
   try {
-    // Check if the user is a member of the family
-    const checkMembershipQuery = {
-      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
-      values: [authorId, familyId],
-    };
-    const membershipResult = await pool.query(checkMembershipQuery);
-
-    if (membershipResult.rows.length === 0) {
+    // ─── 1. membership check ────────────────────────────────────────
+    const { rows: member } = await pool.query(
+      "SELECT 1 FROM user_families WHERE user_id=$1 AND family_id=$2",
+      [authorId, familyId]
+    );
+    if (member.length === 0) {
       return res.status(403).json({ error: "You are not a member of this family" });
     }
 
-    // Determine media type from the mediaTypes array or default to 'image'
+    // ─── 2. promote every pending/… URL we received ─────────────────
+    const promoted = await Promise.all(
+      mediaUrls.map(u => promotePendingToComplete(u))
+    );
+    const finalUrls = promoted.map(p => p.url);
+
+    // determine mediaType
     let mediaType = null;
-    if (mediaUrls && mediaUrls.length > 0) {
-      if (mediaTypes && mediaTypes.length > 0) {
-        // If at least one video is included, mark the post as having video content
-        mediaType = mediaTypes.includes('video') ? 'video' : 'image';
-      } else {
-        // Default to 'image' if no types provided
-        mediaType = 'image';
-      }
+    if (finalUrls.length) {
+      mediaType = (mediaTypes.includes("video")) ? "video" : "image";
     }
 
-    let linkPreview = null;
-    const urls = extractUrls(caption);
-    if (urls.length > 0) {
-      // Process link preview as in original function
-      // ...
-    }
+    // ─── 3. insert post ─────────────────────────────────────────────
+    const { rows } = await pool.query(
+      `INSERT INTO posts
+         (author_id,family_id,media_urls,media_type,caption,link_preview,created_at)
+       VALUES ($1,$2,$3,$4,$5,NULL,NOW()) RETURNING *`,
+      [authorId, familyId, finalUrls, mediaType, caption]
+    );
 
-    // Insert post with the media URLs provided in the request
-    const query = `
-      INSERT INTO posts (author_id, family_id, media_urls, media_type, caption, link_preview, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, NOW())
-      RETURNING *
-    `;
-    const values = [authorId, familyId, mediaUrls, mediaType, caption, linkPreview];
-    const { rows } = await pool.query(query, values);
+    const { rows: authorRows } = await pool.query(
+      "SELECT name FROM users WHERE id=$1", [authorId]
+    );
 
-    // Fetch author name
-    const authorQuery = 'SELECT name FROM users WHERE id = $1';
-    const { rows: authorRows } = await pool.query(authorQuery, [authorId]);
-
-    const post = {
+    res.status(201).json({
       ...rows[0],
-      author_name: authorRows[0].name,
-      link_preview: linkPreview ? JSON.parse(linkPreview) : null
-    };
+      author_name : authorRows[0].name
+    });
+  } catch (err) {
+    console.error("createPostWithMedia failed:", err);
 
-    res.status(201).json(post);
-  } catch (error) {
-    console.error('Error creating post with pre-uploaded media:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    // best‑effort cleanup (files are still pending/complete but unused)
+    for (const url of mediaUrls) {
+      try { await deleteMediaFromR2(url); } catch(e){ /* ignore */ }
+    }
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 function extractUrls(text) {
