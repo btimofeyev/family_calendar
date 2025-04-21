@@ -229,80 +229,62 @@ exports.createPost = async (req, res) => {
   }
 };
 exports.createPostWithMedia = async (req, res) => {
-  /*───────────────────────── 0. Input ─────────────────────────*/
-  const familyId        = req.params.familyId || req.body.familyId;
-  const { caption, media = [] } = req.body;           // media[] comes from the app
-  const authorId        = req.user.id;
+  const familyId               = req.params.familyId || req.body.familyId;
+  const { caption, media = [] } = req.body;            // media[] from mobile
+  const authorId               = req.user.id;
 
-  /*───────────────────────── 1. Security ──────────────────────*/
-  const { rowCount } = await pool.query(
-    "SELECT 1 FROM user_families WHERE user_id = $1 AND family_id = $2",
-    [authorId, familyId]
-  );
-  if (!rowCount) {
-    return res.status(403).json({ error: "Not in family" });
-  }
+  try {
+    /* 0 ─ membership */
+    const { rowCount } = await pool.query(
+      "SELECT 1 FROM user_families WHERE user_id=$1 AND family_id=$2",
+      [authorId, familyId]
+    );
+    if (!rowCount) return res.status(403).json({ error: "Not in family" });
 
-  /*───────────────────────── 2. Promote each pending file ─────*/
-  // mobile sends:  [{ uploadId?, url, type }]
-  const finalMedia = [];          // → [{ url, key, uploadId? }]
-  for (const item of media) {
-    const { url, key } = await promotePendingToComplete(item.url);
-    finalMedia.push({ url, key, uploadId: item.uploadId ?? null, type: item.type });
-  }
+    /* 1 ─ promote each pending URL asynchronously */
+    const promoted = media.map(item => ({
+      ...promotePendingToComplete(item.url),  // returns {url,key}
+      uploadId : item.uploadId ?? null,
+      type     : item.type
+    }));
 
-  const mediaUrls = finalMedia.map(m => m.url);
-  const mediaType =
-        finalMedia.some(m => m.type === "video") ? "video"
-      : finalMedia.length                        ? "image"
-      : null;
+    const mediaUrls = promoted.map(m => m.url);
+    const mediaType = promoted.some(m => m.type === "video") ? "video"
+                    : mediaUrls.length                       ? "image"
+                    : null;
 
-  /*───────────────────────── 3. Insert post ───────────────────*/
-  const { rows: [newPost] } = await pool.query(
-    `INSERT INTO posts
-       (author_id, family_id, media_urls, media_type, caption, created_at)
-     VALUES ($1,$2,$3,$4,$5,NOW())
-     RETURNING *`,
-    [authorId, familyId, mediaUrls, mediaType, caption]
-  );
+    /* 2 ─ insert post */
+    const { rows:[post] } = await pool.query(
+      `INSERT INTO posts
+         (author_id,family_id,media_urls,media_type,caption,created_at)
+       VALUES ($1,$2,$3,$4,$5,NOW())
+       RETURNING *`,
+      [authorId, familyId, mediaUrls, mediaType, caption]
+    );
 
-  /*───────────────────────── 4. Attach uploads to the post ────*/
-  for (const m of finalMedia) {
-    if (m.uploadId) {
-      // fastest path when the client sent the primary key
+    /* 3 ─ stitch media_uploads → post */
+    for (const m of promoted) {
+      const criteria = m.uploadId
+                     ? { sql: "id = $1", params:[m.uploadId] }
+                     : { sql: "object_key = $1", params:[m.key] };
+
       await pool.query(
         `UPDATE media_uploads
-            SET post_id = $2,
-                status  = 'attached',
-                updated_at = NOW()
-          WHERE id = $1`,
-        [m.uploadId, newPost.post_id]
-      );
-    } else {
-      // fallback: match by the unique object_key
-      await pool.query(
-        `UPDATE media_uploads
-            SET post_id = $2,
-                status  = 'attached',
-                updated_at = NOW()
-          WHERE object_key = $1`,
-        [m.key, newPost.post_id]
+            SET post_id=$2, status='attached', object_key=$1, updated_at=NOW()
+          WHERE ${criteria.sql}`,
+        [...criteria.params, post.post_id]
       );
     }
+
+    /* 4 ─ respond */
+    const { rows:[u] } = await pool.query("SELECT name FROM users WHERE id=$1",[authorId]);
+    res.status(201).json({ ...post, author_name: u.name });
+  } catch (err) {
+    console.error("createPostWithMedia error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  /*───────────────────────── 5. Return post to client ─────────*/
-  const { rows: [u] } = await pool.query(
-    "SELECT name FROM users WHERE id = $1",
-    [authorId]
-  );
-
-  res.status(201).json({
-    ...newPost,
-    author_name : u.name,
-    link_preview: null          // add link‑preview handling here if/when needed
-  });
 };
+
 function extractUrls(text) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   return text ? (text.match(urlRegex) || []) : [];
