@@ -35,98 +35,89 @@ async function getTwitterEmbedHtml(tweetUrl) {
 
 exports.getPosts = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId   = req.user.id;
     const { familyId } = req.params;
-    const page = parseInt(req.query.page) || 1;
-    const limit = 10; 
+    const page   = parseInt(req.query.page) || 1;
+    const limit  = 10;
     const offset = (page - 1) * limit;
 
-    // Check if the user is a member of the family
-    const checkMembershipQuery = {
-      text: "SELECT * FROM user_families WHERE user_id = $1 AND family_id = $2",
-      values: [userId, familyId],
-    };
-    const membershipResult = await pool.query(checkMembershipQuery);
-
-    if (membershipResult.rows.length === 0) {
+    /* ───────────────────── 1. membership check ───────────────────── */
+    const { rows: member } = await pool.query(
+      "SELECT 1 FROM user_families WHERE user_id=$1 AND family_id=$2",
+      [userId, familyId]
+    );
+    if (!member.length)
       return res.status(403).json({ error: "You are not a member of this family" });
-    }
 
-    // Get total count of posts
-    const countQuery = "SELECT COUNT(*) FROM posts WHERE family_id = $1";
-    const { rows: countRows } = await pool.query(countQuery, [familyId]);
-    const totalPosts = parseInt(countRows[0].count);
+    /* ───────────────────── 2. fetch posts ────────────────────────── */
+    const { rows: countRows } =
+      await pool.query("SELECT COUNT(*) AS c FROM posts WHERE family_id=$1",[familyId]);
+    const totalPosts = parseInt(countRows[0].c, 10);
 
-    // Updated query to include media_urls
-    const query = `
-      SELECT p.*, u.name as author_name,
-        (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) as likes_count,
-        (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id) as comments_count,
-        CASE WHEN p.author_id = $2 THEN true ELSE false END as is_owner
-      FROM posts p
-      JOIN users u ON p.author_id = u.id
-      WHERE p.family_id = $1
-      ORDER BY p.created_at DESC
-      LIMIT $3 OFFSET $4
-    `;
-    const { rows } = await pool.query(query, [familyId, userId, limit, offset]);
+    const { rows } = await pool.query(`
+      SELECT p.*, u.name            AS author_name,
+             (SELECT COUNT(*) FROM likes    WHERE post_id=p.post_id) AS likes_count,
+             (SELECT COUNT(*) FROM comments WHERE post_id=p.post_id) AS comments_count,
+             (p.author_id = $2) AS is_owner
+        FROM posts p
+        JOIN users u ON u.id = p.author_id
+       WHERE p.family_id = $1
+       ORDER BY p.created_at DESC
+       LIMIT $3 OFFSET $4
+    `,[familyId, userId, limit, offset]);
 
-    const postsWithSignedUrls = await Promise.all(
-      rows.map(async (post) => {
-        // Handle multiple media URLs if available
-        if (post.media_urls && Array.isArray(post.media_urls) && post.media_urls.length > 0) {
-          // Process each media URL to get signed URLs
-          const signedMediaUrls = await Promise.all(
-            post.media_urls.map(async (url) => {
-              if (!url) return null;
-              const key = url.split("/").pop();
-              const signedUrl = await getSignedImageUrl(key);
-              const baseUrl = process.env.NODE_ENV === 'production' ? 
-                process.env.R2_CUSTOM_DOMAIN : process.env.R2_BUCKET_URL;
-              return `${baseUrl}/${key}`;
-            })
-          );
-          
-          post.signed_media_urls = signedMediaUrls.filter(Boolean);
-        } 
-        // For backward compatibility
-        else if (post.image_url) {
-          const key = post.image_url.split("/").pop();
-          const baseUrl = process.env.NODE_ENV === 'production' ? 
-            process.env.R2_CUSTOM_DOMAIN : process.env.R2_BUCKET_URL;
-          post.signed_image_url = `${baseUrl}/${key}`;
-          
-          // Add to media_urls array if not already present
-          if (!post.media_urls) {
-            post.media_urls = [post.image_url];
-            post.signed_media_urls = [`${baseUrl}/${key}`];
-          }
+    /* ───────────────────── 3. post‑processing ────────────────────── */
+    const baseUrl = process.env.NODE_ENV === "production"
+                  ? process.env.R2_CUSTOM_DOMAIN
+                  : process.env.R2_BUCKET_URL;
+
+    const finalPosts = await Promise.all(
+      rows.map(async post => {
+        /* 3a.  multiple‑media posts (new uploads) */
+        if (Array.isArray(post.media_urls) && post.media_urls.length) {
+          const urls = await Promise.all(post.media_urls.map(async url => {
+            if (!url) return null;
+
+            /* already a full https URL   -> use as‑is */
+            if (url.startsWith("http")) return url;
+
+            /* stored only as key         -> build public URL */
+            const key = url.replace(/^\/+/, "");            // strip leading slash
+            return `${baseUrl}/${key}`;
+          }));
+          post.signed_media_urls = urls.filter(Boolean);
+
+        /* 3b.  legacy single‑image posts */
+        } else if (post.image_url) {
+          const publicUrl = post.image_url.startsWith("http")
+                          ? post.image_url
+                          : `${baseUrl}/${post.image_url.replace(/^\/+/, "")}`;
+          post.media_urls        = [post.image_url];
+          post.signed_media_urls = [publicUrl];
         }
-        
-        if (typeof post.link_preview === 'string') {
-          try {
-            post.link_preview = JSON.parse(post.link_preview);
-          } catch (error) {
-            console.error('Error parsing link preview JSON:', error);
-            post.link_preview = null;
-          }
+
+        /* 3c.  parse link preview JSON */
+        if (typeof post.link_preview === "string") {
+          try { post.link_preview = JSON.parse(post.link_preview); }
+          catch { post.link_preview = null; }
         }
         return post;
       })
     );
-    
 
+    /* ───────────────────── 4. respond ────────────────────────────── */
     res.json({
-      posts: postsWithSignedUrls,
-      currentPage: page,
-      totalPages: Math.ceil(totalPosts / limit),
-      totalPosts: totalPosts
+      posts       : finalPosts,
+      currentPage : page,
+      totalPages  : Math.ceil(totalPosts / limit),
+      totalPosts
     });
-  } catch (error) {
-    console.error("Error fetching posts:", error);
+  } catch (err) {
+    console.error("Error fetching posts:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
 
 // Create a new post - Updated for multiple media
 exports.createPost = async (req, res) => {
