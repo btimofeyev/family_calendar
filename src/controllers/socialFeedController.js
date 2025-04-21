@@ -121,7 +121,8 @@ exports.getPosts = async (req, res) => {
 
 // Create a new post - Updated for multiple media
 exports.createPost = async (req, res) => {
-  const { caption, familyId } = req.body;
+  const familyId = req.params.familyId || req.body.familyId;
+  const { caption } = req.body;
   const files    = req.files ?? [];
   const authorId = req.user.id;
 
@@ -179,7 +180,8 @@ exports.createPost = async (req, res) => {
   }
 };
 exports.createPostWithMedia = async (req, res) => {
-  const { caption, familyId, media = [] } = req.body;
+  const familyId = req.params.familyId || req.body.familyId;
+  const { caption, media = [] } = req.body;
   const authorId = req.user.id;
 
   try {
