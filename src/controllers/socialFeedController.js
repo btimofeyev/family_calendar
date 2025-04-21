@@ -207,7 +207,7 @@ exports.createPost = async (req, res) => {
     for (const { key } of mediaInfo) {
       await pool.query(
         `UPDATE media_uploads
-            SET post_id=$2, status='attached', updated_at=NOW()
+            SET post_id=$2, status='completed', updated_at=NOW()
           WHERE object_key=$1`,
         [key, newPost.post_id]
       );
@@ -270,7 +270,7 @@ exports.createPostWithMedia = async (req, res) => {
 
       await pool.query(
         `UPDATE media_uploads
-            SET post_id=$2, status='attached', object_key=$1, updated_at=NOW()
+            SET post_id=$2, status='completed', updated_at=NOW()
           WHERE ${criteria.sql}`,
         [...criteria.params, post.post_id]
       );
