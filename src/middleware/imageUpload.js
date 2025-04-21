@@ -238,37 +238,58 @@ async function getSignedImageUrls(keys) {
     .filter(r => r.status === 'fulfilled')
     .map(r => r.value);
 }
+const MAX_PROMOTE_RETRY = 5;
+
 /**
- * @param {string} pendingUrlOrKey  either the full https:// URL or just the key
- * @returns {Promise<{key:string,url:string}>}
+
+ * @param {string} pendingUrlOrKey  
+ * @returns {{key:string,url:string}}
  */
-async function promotePendingToComplete(pendingUrlOrKey) {
-  const base = process.env.R2_CUSTOM_DOMAIN; // e.g. https://media.famlynook.com
-  const key = pendingUrlOrKey.startsWith('http')
-      ? pendingUrlOrKey.replace(base + '/', '')
-      : pendingUrlOrKey;
+function promotePendingToComplete(pendingUrlOrKey) {
+  const base = process.env.R2_CUSTOM_DOMAIN;         // https://media.famlynook.com
+  const key  = pendingUrlOrKey.startsWith("http")
+               ? pendingUrlOrKey.replace(base + "/", "")
+               : pendingUrlOrKey;
 
-  // already promoted?
-  if (!key.startsWith('pending/')) {
+  // already under complete/*
+  if (!key.startsWith("pending/"))
     return { key, url: `${base}/${key}` };
-  }
 
-  const newKey = key.replace(/^pending\//, 'complete/');
+  const newKey = key.replace(/^pending\//, "complete/");
+  const newUrl = `${base}/${newKey}`;
 
-  // COPY → DELETE
-  await s3Client.send(new CopyObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME,
-    CopySource: `${process.env.R2_BUCKET_NAME}/${key}`,
-    Key: newKey,
-    MetadataDirective: 'COPY'
-  }));
-  await s3Client.send(new DeleteObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME,
-    Key: key
-  }));
+  /*───────────────── background COPY ⤏ DELETE with retry ───────────────*/
+  (async () => {
+    for (let attempt = 1; attempt <= MAX_PROMOTE_RETRY; attempt++) {
+      try {
+        await s3Client.send(new CopyObjectCommand({
+          Bucket     : process.env.R2_BUCKET_NAME,
+          CopySource : `${process.env.R2_BUCKET_NAME}/${key}`,
+          Key        : newKey,
+          MetadataDirective: "COPY"
+        }));
+        await s3Client.send(new DeleteObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key   : key
+        }));
+        if (attempt > 1) console.log(`✔ promoted ${key} after ${attempt} tries`);
+        return;
+      } catch (err) {
+        if (err.Code !== "NoSuchKey") {           // fatal → stop retrying
+          console.error(`promote ${key} failed:`, err);
+          return;
+        }
+        const wait = 300 * attempt;               // ms back‑off
+        console.warn(`⏳ pending object not visible yet (${attempt}/${MAX_PROMOTE_RETRY}); retrying in ${wait} ms`);
+        await new Promise(r => setTimeout(r, wait));
+      }
+    }
+    console.error(`❌ giving up promoting ${key} after ${MAX_PROMOTE_RETRY} attempts`);
+  })();
 
-  return { key: newKey, url: `${base}/${newKey}` };
+  return { key: newKey, url: newUrl };
 }
+
 
 module.exports = {
   upload,

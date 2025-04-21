@@ -123,10 +123,10 @@ exports.getPosts = async (req, res) => {
 exports.createPost = async (req, res) => {
   const familyId = req.params.familyId || req.body.familyId;
   const { caption = '' } = req.body;
-  const files     = req.files ?? [];          // from multer()
+  const files     = req.files ?? [];          
   const authorId  = req.user.id;
 
-  const mediaInfo = [];                       // [{url, key}]
+  const mediaInfo = [];                      
   let   mediaType = null;
   let   linkPreview = null;
 
@@ -143,7 +143,7 @@ exports.createPost = async (req, res) => {
     /* 1 ─ Upload each file -> promote -> collect final URLs ----------------- */
     for (const file of files.slice(0, 4)) {            // max 4 files
       const pendingUrl  = await uploadToR2(file);      // pending/…
-      const { url, key } = await promotePendingToComplete(pendingUrl);
+      const { url, key } = promotePendingToComplete(pendingUrl);
       mediaInfo.push({ url, key });
     }
 
