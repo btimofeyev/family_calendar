@@ -229,110 +229,79 @@ exports.createPost = async (req, res) => {
   }
 };
 exports.createPostWithMedia = async (req, res) => {
-  const familyId = req.params.familyId || req.body.familyId;
-  const { caption = '', media = [] } = req.body;   // media[] came from client
-  const authorId = req.user.id;
+  /*───────────────────────── 0. Input ─────────────────────────*/
+  const familyId        = req.params.familyId || req.body.familyId;
+  const { caption, media = [] } = req.body;           // media[] comes from the app
+  const authorId        = req.user.id;
 
-  let linkPreview = null;
-  const finalMedia = [];                           // [{url,key,uploadId}]
-  try {
-    /* 0 ─ Membership check -------------------------------------------------- */
-    const { rowCount } = await pool.query(
-      'SELECT 1 FROM user_families WHERE user_id=$1 AND family_id=$2',
-      [authorId, familyId]
-    );
-    if (!rowCount) {
-      return res.status(403).json({ error: 'You are not a member of this family' });
-    }
+  /*───────────────────────── 1. Security ──────────────────────*/
+  const { rowCount } = await pool.query(
+    "SELECT 1 FROM user_families WHERE user_id = $1 AND family_id = $2",
+    [authorId, familyId]
+  );
+  if (!rowCount) {
+    return res.status(403).json({ error: "Not in family" });
+  }
 
-    /* 1 ─ Promote every pending URL ---------------------------------------- */
-    for (const item of media) {                    // {uploadId,url,type}
-      const { url, key } = await promotePendingToComplete(item.url);
-      finalMedia.push({ url, key, uploadId: item.uploadId, type: item.type });
-    }
+  /*───────────────────────── 2. Promote each pending file ─────*/
+  // mobile sends:  [{ uploadId?, url, type }]
+  const finalMedia = [];          // → [{ url, key, uploadId? }]
+  for (const item of media) {
+    const { url, key } = await promotePendingToComplete(item.url);
+    finalMedia.push({ url, key, uploadId: item.uploadId ?? null, type: item.type });
+  }
 
-    const mediaUrls = finalMedia.map(m => m.url);
-    const mediaType =
-          finalMedia.some(m => m.type === 'video') ? 'video'
-        : mediaUrls.length                         ? 'image'
-        : null;
+  const mediaUrls = finalMedia.map(m => m.url);
+  const mediaType =
+        finalMedia.some(m => m.type === "video") ? "video"
+      : finalMedia.length                        ? "image"
+      : null;
 
-    /* 2 ─ Build link preview (same logic as above) ------------------------- */
-    const urlsInText = extractUrls(caption);
-    if (urlsInText.length) {
-      const url = urlsInText[0];
+  /*───────────────────────── 3. Insert post ───────────────────*/
+  const { rows: [newPost] } = await pool.query(
+    `INSERT INTO posts
+       (author_id, family_id, media_urls, media_type, caption, created_at)
+     VALUES ($1,$2,$3,$4,$5,NOW())
+     RETURNING *`,
+    [authorId, familyId, mediaUrls, mediaType, caption]
+  );
 
-      if (isYouTubeLink(url)) {
-        const vid = getYouTubeVideoId(url);
-        linkPreview = {
-          title: 'YouTube Video',
-          description: 'Click to watch on YouTube',
-          image: `https://img.youtube.com/vi/${vid}/0.jpg`,
-          url
-        };
-
-      } else if (isTwitterLink(url)) {
-        const embed = await getTwitterEmbedHtml(url);
-        linkPreview = embed
-          ? { type: 'twitter', html: embed, url }
-          : { type: 'link', title: 'Twitter Post', description: 'View on Twitter', url };
-
-      } else {
-        try {
-          const prev = await getLinkPreview(url, { timeout: 3000, followRedirects: 'follow' });
-          linkPreview = {
-            title      : prev.title || 'Link',
-            description: prev.description || '',
-            image      : prev.images?.[0] || '',
-            url        : prev.url || url
-          };
-        } catch (_) {
-          linkPreview = { title: 'Link', description: 'Visit for more information', image: '', url };
-        }
-      }
-    }
-
-    /* 3 ─ Insert the post --------------------------------------------------- */
-    const { rows } = await pool.query(`
-        INSERT INTO posts
-          (author_id, family_id, media_urls, media_type, caption, link_preview, created_at)
-        VALUES ($1,$2,$3,$4,$5,$6,NOW())
-        RETURNING *`,
-      [
-        authorId,
-        familyId,
-        mediaUrls,
-        mediaType,
-        caption,
-        linkPreview ? JSON.stringify(linkPreview) : null
-      ]
-    );
-    const newPost = rows[0];
-
-    /* 4 ─ Update media_uploads rows to reference the new post -------------- */
-    for (const m of finalMedia) {
+  /*───────────────────────── 4. Attach uploads to the post ────*/
+  for (const m of finalMedia) {
+    if (m.uploadId) {
+      // fastest path when the client sent the primary key
       await pool.query(
         `UPDATE media_uploads
-            SET post_id=$2, status='attached', updated_at=NOW()
-          WHERE id=$1`,
+            SET post_id = $2,
+                status  = 'attached',
+                updated_at = NOW()
+          WHERE id = $1`,
         [m.uploadId, newPost.post_id]
       );
+    } else {
+      // fallback: match by the unique object_key
+      await pool.query(
+        `UPDATE media_uploads
+            SET post_id = $2,
+                status  = 'attached',
+                updated_at = NOW()
+          WHERE object_key = $1`,
+        [m.key, newPost.post_id]
+      );
     }
-
-    /* 5 ─ Respond ----------------------------------------------------------- */
-    const { rows: userRows } = await pool.query('SELECT name FROM users WHERE id=$1', [authorId]);
-    res.status(201).json({
-      ...newPost,
-      author_name : userRows[0].name,
-      link_preview: linkPreview
-    });
-
-  } catch (err) {
-    console.error('createPostWithMedia error:', err);
-    // rollback – delete any files we just promoted
-    for (const m of finalMedia) await deleteMediaFromR2(m.url).catch(()=>{});
-    res.status(500).json({ error: 'Internal server error' });
   }
+
+  /*───────────────────────── 5. Return post to client ─────────*/
+  const { rows: [u] } = await pool.query(
+    "SELECT name FROM users WHERE id = $1",
+    [authorId]
+  );
+
+  res.status(201).json({
+    ...newPost,
+    author_name : u.name,
+    link_preview: null          // add link‑preview handling here if/when needed
+  });
 };
 function extractUrls(text) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
