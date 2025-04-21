@@ -131,121 +131,111 @@ exports.getPosts = async (req, res) => {
 // Create a new post - Updated for multiple media
 exports.createPost = async (req, res) => {
   const { caption, familyId } = req.body;
-  const files     = req.files;            // Multer array (optional)
-  const authorId  = req.user.id;
+  const files    = req.files ?? [];
+  const authorId = req.user.id;
 
-  let mediaUrls  = [];                    // final complete/ URLs
-  let mediaType  = null;
-  const toDelete = [];                    // clean‑up list if we error later
+  const mediaInfo = [];   // [{url, key}]
+  let   mediaType = null;
 
   try {
-    // ─── 1. membership check ─────────────────────────────────────────
+    // 0) membership check
     const { rows: member } = await pool.query(
       "SELECT 1 FROM user_families WHERE user_id=$1 AND family_id=$2",
       [authorId, familyId]
     );
-    if (member.length === 0) {
-      return res.status(403).json({ error: "You are not a member of this family" });
+    if (!member.length) return res.status(403).json({ error: "Not in family" });
+
+    // 1) upload each file → promote → collect url/key
+    for (const file of files.slice(0, 4)) {
+      const pendingUrl        = await uploadToR2(file);
+      const { url, key }      = await promotePendingToComplete(pendingUrl);
+      mediaInfo.push({ url, key });
+    }
+    if (mediaInfo.length) {
+      mediaType = files[0].mimetype.startsWith("image/") ? "image" : "video";
     }
 
-    // ─── 2. upload each file → pending/…, then promote ──────────────
-    if (files?.length) {
-      for (const file of files.slice(0, 4)) {          // max 4
-        try {
-          const pendingUrl        = await uploadToR2(file);          // pending/
-          const { url: finalUrl } = await promotePendingToComplete(pendingUrl); // complete/
-          mediaUrls.push(finalUrl);
-          toDelete.push(finalUrl);                                    // in case DB fails later
-        } catch (err) {
-          console.error("media upload error:", err);
-        }
-      }
-      if (mediaUrls.length) {
-        mediaType = files[0].mimetype.startsWith("image/") ? "image" : "video";
-      }
-    }
+    // 2) build linkPreview (omitted ‑ unchanged)
 
-    // ─── 3. optional link‑preview logic (unchanged) ─────────────────
-    let linkPreview = null;
-    const firstUrl  = extractUrls(caption)[0];
-    /* … existing preview code … */
-
-    // ─── 4. insert post ─────────────────────────────────────────────
+    // 3) insert post
     const { rows } = await pool.query(
       `INSERT INTO posts
          (author_id,family_id,media_urls,media_type,caption,link_preview,created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING *`,
-      [authorId, familyId, mediaUrls, mediaType, caption, linkPreview]
+       VALUES ($1,$2,$3,$4,$5,$6,NOW())
+       RETURNING post_id,*`,
+      [authorId, familyId, mediaInfo.map(m => m.url), mediaType, caption, linkPreview]
     );
+    const postId = rows[0].post_id;
 
-    const { rows: authorRows } = await pool.query(
-      "SELECT name FROM users WHERE id=$1", [authorId]
-    );
-
-    res.status(201).json({
-      ...rows[0],
-      author_name : authorRows[0].name,
-      link_preview: linkPreview ? JSON.parse(linkPreview) : null
-    });
-  } catch (err) {
-    console.error("createPost failed:", err);
-
-    // roll back any files we already promoted
-    for (const url of toDelete) {
-      try { await deleteMediaFromR2(url); } catch(e){ /* ignore */ }
+    // 4) mark each upload row as attached
+    for (const { key } of mediaInfo) {
+      await pool.query(
+        `UPDATE media_uploads
+            SET post_id=$2, status='attached', updated_at=NOW()
+          WHERE object_key=$1`,
+        [key, postId]
+      );
     }
+
+    // 5) respond
+    const { rows: u } = await pool.query("SELECT name FROM users WHERE id=$1",[authorId]);
+    res.status(201).json({ ...rows[0], author_name: u[0].name,
+                           link_preview: linkPreview ? JSON.parse(linkPreview):null });
+  } catch (err) {
+    console.error("createPost error:", err);
+    for (const { url } of mediaInfo) await deleteMediaFromR2(url).catch(()=>{});
     res.status(500).json({ error: "Internal server error" });
   }
 };
 exports.createPostWithMedia = async (req, res) => {
-  const { caption, familyId, mediaUrls = [], mediaTypes = [] } = req.body;
+  const { caption, familyId, media = [] } = req.body;
   const authorId = req.user.id;
 
   try {
-    // ─── 1. membership check ────────────────────────────────────────
-    const { rows: member } = await pool.query(
+    // 0) membership check
+    const ok = await pool.query(
       "SELECT 1 FROM user_families WHERE user_id=$1 AND family_id=$2",
       [authorId, familyId]
     );
-    if (member.length === 0) {
-      return res.status(403).json({ error: "You are not a member of this family" });
+    if (!ok.rowCount) return res.status(403).json({ error:"Not in family" });
+
+    // 1) promote all pending urls → collect finalUrls
+    const finalMedia = [];
+    for (const item of media) {
+      const { url, key } = await promotePendingToComplete(item.url);
+      finalMedia.push({ url, key, uploadId: item.uploadId });
     }
 
-    // ─── 2. promote every pending/… URL we received ─────────────────
-    const promoted = await Promise.all(
-      mediaUrls.map(u => promotePendingToComplete(u))
-    );
-    const finalUrls = promoted.map(p => p.url);
+    const mediaUrls = finalMedia.map(m => m.url);
+    const mediaType = media.some(m => m.type === "video") ? "video"
+                      : mediaUrls.length ? "image" : null;
 
-    // determine mediaType
-    let mediaType = null;
-    if (finalUrls.length) {
-      mediaType = (mediaTypes.includes("video")) ? "video" : "image";
-    }
-
-    // ─── 3. insert post ─────────────────────────────────────────────
+    // 2) insert post
     const { rows } = await pool.query(
       `INSERT INTO posts
-         (author_id,family_id,media_urls,media_type,caption,link_preview,created_at)
-       VALUES ($1,$2,$3,$4,$5,NULL,NOW()) RETURNING *`,
-      [authorId, familyId, finalUrls, mediaType, caption]
+         (author_id,family_id,media_urls,media_type,caption,created_at)
+       VALUES ($1,$2,$3,$4,$5,NOW())
+       RETURNING post_id,*`,
+      [authorId, familyId, mediaUrls, mediaType, caption]
     );
+    const postId = rows[0].post_id;
 
-    const { rows: authorRows } = await pool.query(
-      "SELECT name FROM users WHERE id=$1", [authorId]
-    );
-
-    res.status(201).json({
-      ...rows[0],
-      author_name : authorRows[0].name
-    });
-  } catch (err) {
-    console.error("createPostWithMedia failed:", err);
-
-    // best‑effort cleanup (files are still pending/complete but unused)
-    for (const url of mediaUrls) {
-      try { await deleteMediaFromR2(url); } catch(e){ /* ignore */ }
+    // 3) update media_uploads rows
+    for (const m of finalMedia) {
+      await pool.query(
+        `UPDATE media_uploads
+            SET post_id=$2, status='attached', updated_at=NOW()
+          WHERE id=$1`,
+        [m.uploadId, postId]
+      );
     }
+
+    // 4) respond
+    const { rows: u } = await pool.query("SELECT name FROM users WHERE id=$1",[authorId]);
+    res.status(201).json({ ...rows[0], author_name: u[0].name });
+  } catch (err) {
+    console.error("createPostWithMedia error:", err);
+    for (const m of media) await deleteMediaFromR2(m.url).catch(()=>{});
     res.status(500).json({ error: "Internal server error" });
   }
 };
