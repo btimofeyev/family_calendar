@@ -1,6 +1,6 @@
-// src/middleware/imageUpload.js - Updated for multiple media uploads
+// src/middleware/imageUpload.js 
 require("dotenv").config();
-const { S3Client, DeleteObjectCommand, GetObjectCommand, CopyObjectCommand  } = require("@aws-sdk/client-s3");
+const { S3Client, DeleteObjectCommand, GetObjectCommand, CopyObjectCommand } = require("@aws-sdk/client-s3");
 const { Upload } = require("@aws-sdk/lib-storage");
 const multer = require("multer");
 const path = require("path");
@@ -8,19 +8,16 @@ const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const sharp = require('sharp');
 const videoWorker = require('../videoWorker');
 
-// AWS S3 or Cloudflare R2 Client
 const s3Client = new S3Client({
   endpoint: process.env.R2_BUCKET_URL,
-  region: "auto", // Use 'auto' as the region for R2
+  region: "auto",
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY_ID,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
   },
 });
 
-// Compress Image Function - Now processes multiple sizes
 async function compressImage(file, options = {}) {
-  // Default options
   const opts = {
     maxWidth: options.maxWidth || 1920,
     maxHeight: options.maxHeight || 1080,
@@ -28,7 +25,6 @@ async function compressImage(file, options = {}) {
     format: options.format || 'jpeg'
   };
 
-  // Process based on mime type
   if (file.mimetype.startsWith('image/')) {
     const buffer = await sharp(file.buffer)
       .resize({
@@ -43,15 +39,13 @@ async function compressImage(file, options = {}) {
     return buffer;
   }
   
-  // Return original buffer for non-image files
   return file.buffer;
 }
 
-// Enhanced Multer configuration for multiple file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { 
-    files: 4 // Maximum of 4 files per upload
+    files: 4
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
@@ -62,28 +56,23 @@ const upload = multer({
   }
 });
 
-// Improved R2 upload function with retry logic
 async function uploadToR2(file, context = null, attempts = 3) {
   let buffer = file.buffer;
   let contentType = file.mimetype;
   let attempt = 0;
 
-  // Generate a unique filename
   const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
   const extension = file.mimetype.startsWith('image/') ? 'jpg' : path.extname(file.originalname || 'file.unknown').split('.').pop();
   
-  // FIXED: Always use media/ folder to ensure compression works
   const filename = `pending/${Date.now()}-${uniqueSuffix}.${extension}`;
 
   while (attempt < attempts) {
     try {
       attempt++;
-      console.log(`Upload attempt ${attempt} for ${filename}`);
 
-      // Compress image if it's an image file
       if (file.mimetype.startsWith('image/')) {
         buffer = await compressImage(file);
-        contentType = 'image/jpeg'; // Convert images to JPEG format
+        contentType = 'image/jpeg';
       }
 
       const uploadParams = {
@@ -100,57 +89,39 @@ async function uploadToR2(file, context = null, attempts = 3) {
 
       await upload.done();
 
-      // Check if this is a video file and queue it for compression
       if (file.mimetype.startsWith('video/')) {
-        // Add to video compression queue
-        console.log(`Queueing video for compression: ${filename}`);
         videoWorker.handleNewVideoUpload(filename);
       }
 
-      // Use custom domain for production
       const baseUrl = process.env.R2_CUSTOM_DOMAIN;
-      console.log(`Upload successful for ${filename}`);
       return `${baseUrl}/${filename}`;
     } catch (err) {
-      console.error(`Upload attempt ${attempt} failed for ${filename}:`, err);
-      
       if (attempt >= attempts) {
         throw new Error(`Failed to upload file after ${attempts} attempts: ${err.message}`);
       }
       
-      // Wait before next attempt (exponential backoff)
       await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
     }
   }
 }
 
-// Delete Media from R2 with retry logic
 async function deleteMediaFromR2(mediaUrl, attempts = 3) {
   if (!mediaUrl) {
-    console.warn("Attempted to delete undefined or null mediaUrl");
     return;
   }
 
-  // Extract the key from the media URL
-  // Handle both full URLs and relative paths
   let filename;
   if (mediaUrl.startsWith('http')) {
-    // For full URLs, check if it's a domain URL
     const customDomain = process.env.R2_CUSTOM_DOMAIN;
     if (customDomain && mediaUrl.includes(customDomain)) {
-      // Get everything after the domain
       const urlObj = new URL(mediaUrl);
       filename = urlObj.pathname.startsWith('/') ? urlObj.pathname.substring(1) : urlObj.pathname;
     } else {
-      // For other URLs, just get the last part
       filename = mediaUrl.split("/").pop();
     }
   } else {
-    // For relative paths, use the full path
     filename = mediaUrl;
   }
-
-  console.log(`Deleting file with key: ${filename}`);
 
   const params = {
     Bucket: process.env.R2_BUCKET_NAME,
@@ -161,50 +132,33 @@ async function deleteMediaFromR2(mediaUrl, attempts = 3) {
   while (attempt < attempts) {
     try {
       attempt++;
-      console.log(`Delete attempt ${attempt} for ${filename}`);
       
       await s3Client.send(new DeleteObjectCommand(params));
-      console.log(`Successfully deleted ${filename} from R2 bucket`);
       return;
     } catch (err) {
-      console.error(`Delete attempt ${attempt} failed for ${filename}:`, err);
-      
       if (attempt >= attempts) {
         throw new Error(`Failed to delete file after ${attempts} attempts: ${err.message}`);
       }
       
-      // Wait before next attempt
       await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
     }
   }
 }
 
-// Batch delete multiple media files from R2
 async function batchDeleteFromR2(mediaUrls) {
   if (!mediaUrls || !Array.isArray(mediaUrls)) {
-    console.warn("Invalid media URLs provided for batch delete");
     return;
   }
 
-  // Filter out any null/undefined URLs
   const validUrls = mediaUrls.filter(url => url);
   
-  // Process deletions in parallel with a limit
   const results = await Promise.allSettled(
     validUrls.map(url => deleteMediaFromR2(url))
   );
   
-  // Log results
-  const succeeded = results.filter(r => r.status === 'fulfilled').length;
-  const failed = results.filter(r => r.status === 'rejected').length;
-  
-  console.log(`Batch delete completed: ${succeeded} succeeded, ${failed} failed`);
-  
-  // Return results for potential retry
   return results;
 }
 
-// Cloudflare R2 Signed URL Generation
 async function getSignedImageUrl(key) {
   const command = new GetObjectCommand({
     Bucket: process.env.R2_BUCKET_NAME,
@@ -212,15 +166,13 @@ async function getSignedImageUrl(key) {
   });
 
   try {
-    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 }); // URL expires in 1 hour
+    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
     return signedUrl;
   } catch (err) {
-    console.error("Error generating signed URL:", err);
     throw err;
   }
 }
 
-// Get multiple signed URLs in batch
 async function getSignedImageUrls(keys) {
   if (!keys || !Array.isArray(keys)) {
     return [];
@@ -228,32 +180,23 @@ async function getSignedImageUrls(keys) {
   
   const validKeys = keys.filter(key => key);
   
-  // Process in parallel with a limit
   const results = await Promise.allSettled(
     validKeys.map(key => getSignedImageUrl(key))
   );
   
-  // Extract the successful results
   return results
     .filter(r => r.status === 'fulfilled')
     .map(r => r.value);
 }
+
 const MAX_PROMOTE_RETRY = 5;
 
-/**
- * Promote a file from `pending/...` to `complete/...`
- * (returns *public* URL + both the old & new keys)
- *
- * @param {string} pendingUrlOrKey   full https URL **or** the raw object key
- * @returns {{oldKey:string,newKey:string,url:string}}
- */
 function promotePendingToComplete(pendingUrlOrKey) {
-  const base   = process.env.R2_CUSTOM_DOMAIN;              // e.g. https://media.famlynook.com
+  const base = process.env.R2_CUSTOM_DOMAIN;
   const oldKey = pendingUrlOrKey.startsWith('http')
                ? pendingUrlOrKey.replace(base + '/', '')
                : pendingUrlOrKey;
 
-  // already under complete/
   if (!oldKey.startsWith('pending/')) {
     return { oldKey, newKey: oldKey, url: `${base}/${oldKey}` };
   }
@@ -261,45 +204,35 @@ function promotePendingToComplete(pendingUrlOrKey) {
   const newKey = oldKey.replace(/^pending\//, 'complete/');
   const newUrl = `${base}/${newKey}`;
 
-  /* ─── run the COPY ➜ DELETE in the background (with retry) ───────────── */
   (async () => {
     for (let attempt = 1; attempt <= MAX_PROMOTE_RETRY; attempt++) {
       try {
         await s3Client.send(new CopyObjectCommand({
-          Bucket     : process.env.R2_BUCKET_NAME,
-          /* --------- FIX: use oldKey here, not the (undefined) "key" ------- */
-          CopySource : `${process.env.R2_BUCKET_NAME}/${oldKey}`,
-          Key        : newKey,
+          Bucket: process.env.R2_BUCKET_NAME,
+          CopySource: `${process.env.R2_BUCKET_NAME}/${oldKey}`,
+          Key: newKey,
           MetadataDirective: 'COPY'
         }));
 
         await s3Client.send(new DeleteObjectCommand({
           Bucket: process.env.R2_BUCKET_NAME,
-          Key   : oldKey
+          Key: oldKey
         }));
 
-        if (attempt > 1) {
-          console.log(`✔ promoted ${oldKey} after ${attempt} retries`);
-        }
-        return;                               // success – stop retrying
+        return;
       } catch (err) {
-        if (err.Code !== 'NoSuchKey') {       // any other error → give up
-          console.error(`promote ${oldKey} failed:`, err);
+        if (err.Code !== 'NoSuchKey') {
           return;
         }
 
-        // object not visible yet – wait & retry (exponential back‑off)
-        const wait = 300 * attempt;           // ms
-        console.warn(`⏳ ${oldKey} not found (${attempt}/${MAX_PROMOTE_RETRY}); retrying in ${wait} ms`);
+        const wait = 300 * attempt;
         await new Promise(r => setTimeout(r, wait));
       }
     }
-    console.error(`❌ giving up promoting ${oldKey} after ${MAX_PROMOTE_RETRY} attempts`);
   })();
 
   return { oldKey, newKey, url: newUrl };
 }
-
 
 module.exports = {
   upload,
@@ -310,5 +243,4 @@ module.exports = {
   batchDeleteFromR2,
   compressImage,
   promotePendingToComplete,
-
 };
