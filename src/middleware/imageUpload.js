@@ -241,53 +241,63 @@ async function getSignedImageUrls(keys) {
 const MAX_PROMOTE_RETRY = 5;
 
 /**
-
- * @param {string} pendingUrlOrKey  
- * @returns {{key:string,url:string}}
+ * Promote a file from `pending/...` to `complete/...`
+ * (returns *public* URL + both the old & new keys)
+ *
+ * @param {string} pendingUrlOrKey   full https URL **or** the raw object key
+ * @returns {{oldKey:string,newKey:string,url:string}}
  */
 function promotePendingToComplete(pendingUrlOrKey) {
-  const base = process.env.R2_CUSTOM_DOMAIN;         // https://media.famlynook.com
-  const key  = pendingUrlOrKey.startsWith("http")
-               ? pendingUrlOrKey.replace(base + "/", "")
+  const base   = process.env.R2_CUSTOM_DOMAIN;              // e.g. https://media.famlynook.com
+  const oldKey = pendingUrlOrKey.startsWith('http')
+               ? pendingUrlOrKey.replace(base + '/', '')
                : pendingUrlOrKey;
 
-  // already under complete/*
-  if (!key.startsWith("pending/"))
-    return { key, url: `${base}/${key}` };
+  // already under complete/
+  if (!oldKey.startsWith('pending/')) {
+    return { oldKey, newKey: oldKey, url: `${base}/${oldKey}` };
+  }
 
-  const newKey = key.replace(/^pending\//, "complete/");
+  const newKey = oldKey.replace(/^pending\//, 'complete/');
   const newUrl = `${base}/${newKey}`;
 
-  /*───────────────── background COPY ⤏ DELETE with retry ───────────────*/
+  /* ─── run the COPY ➜ DELETE in the background (with retry) ───────────── */
   (async () => {
     for (let attempt = 1; attempt <= MAX_PROMOTE_RETRY; attempt++) {
       try {
         await s3Client.send(new CopyObjectCommand({
           Bucket     : process.env.R2_BUCKET_NAME,
-          CopySource : `${process.env.R2_BUCKET_NAME}/${key}`,
+          /* --------- FIX: use oldKey here, not the (undefined) "key" ------- */
+          CopySource : `${process.env.R2_BUCKET_NAME}/${oldKey}`,
           Key        : newKey,
-          MetadataDirective: "COPY"
+          MetadataDirective: 'COPY'
         }));
+
         await s3Client.send(new DeleteObjectCommand({
           Bucket: process.env.R2_BUCKET_NAME,
-          Key   : key
+          Key   : oldKey
         }));
-        if (attempt > 1) console.log(`✔ promoted ${key} after ${attempt} tries`);
-        return;
+
+        if (attempt > 1) {
+          console.log(`✔ promoted ${oldKey} after ${attempt} retries`);
+        }
+        return;                               // success – stop retrying
       } catch (err) {
-        if (err.Code !== "NoSuchKey") {           // fatal → stop retrying
-          console.error(`promote ${key} failed:`, err);
+        if (err.Code !== 'NoSuchKey') {       // any other error → give up
+          console.error(`promote ${oldKey} failed:`, err);
           return;
         }
-        const wait = 300 * attempt;               // ms back‑off
-        console.warn(`⏳ pending object not visible yet (${attempt}/${MAX_PROMOTE_RETRY}); retrying in ${wait} ms`);
+
+        // object not visible yet – wait & retry (exponential back‑off)
+        const wait = 300 * attempt;           // ms
+        console.warn(`⏳ ${oldKey} not found (${attempt}/${MAX_PROMOTE_RETRY}); retrying in ${wait} ms`);
         await new Promise(r => setTimeout(r, wait));
       }
     }
-    console.error(`❌ giving up promoting ${key} after ${MAX_PROMOTE_RETRY} attempts`);
+    console.error(`❌ giving up promoting ${oldKey} after ${MAX_PROMOTE_RETRY} attempts`);
   })();
 
-  return { key: newKey, url: newUrl };
+  return { oldKey, newKey, url: newUrl };
 }
 
 

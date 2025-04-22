@@ -143,8 +143,8 @@ exports.createPost = async (req, res) => {
     /* 1 ─ Upload each file -> promote -> collect final URLs ----------------- */
     for (const file of files.slice(0, 4)) {            // max 4 files
       const pendingUrl  = await uploadToR2(file);      // pending/…
-      const { url, key } = promotePendingToComplete(pendingUrl);
-      mediaInfo.push({ url, key });
+      const { url, oldKey, newKey } = promotePendingToComplete(pendingUrl);
+      mediaInfo.push({ url, oldKey, newKey });
     }
 
     if (mediaInfo.length) {
@@ -204,12 +204,16 @@ exports.createPost = async (req, res) => {
     const newPost = rows[0];
 
     /* 4 ─ Mark each upload row as attached ---------------------------------- */
-    for (const { key } of mediaInfo) {
+    for (const m of mediaInfo) {
       await pool.query(
         `UPDATE media_uploads
-            SET post_id=$2, status='completed', updated_at=NOW()
-          WHERE object_key=$1`,
-        [key, newPost.post_id]
+            SET post_id   = $3,
+                object_key= $2,
+                file_url  = $4,
+                status    = 'completed',
+                updated_at= NOW()
+          WHERE object_key = $1`,
+        [m.oldKey, m.newKey, newPost.post_id, m.url]
       );
     }
 
@@ -264,16 +268,28 @@ exports.createPostWithMedia = async (req, res) => {
 
     /* 3 ─ stitch media_uploads → post */
     for (const m of promoted) {
-      const criteria = m.uploadId
-                     ? { sql: "id = $1", params:[m.uploadId] }
-                     : { sql: "object_key = $1", params:[m.key] };
-
-      await pool.query(
-        `UPDATE media_uploads
-            SET post_id=$2, status='completed', updated_at=NOW()
-          WHERE ${criteria.sql}`,
-        [...criteria.params, post.post_id]
-      );
+      const sql = m.uploadId
+          ? `UPDATE media_uploads
+                SET post_id=$2,
+                    object_key=$3,
+                    file_url=$4,
+                    status='completed',
+                    updated_at=NOW()
+              WHERE id=$1`
+          : `UPDATE media_uploads
+                SET post_id=$3,
+                    object_key=$2,
+                    file_url=$4,
+                    status='completed',
+                    updated_at=NOW()
+              WHERE object_key=$1`;
+    
+      const params = m.uploadId
+          ? [m.uploadId, post.post_id, m.newKey, m.url]
+          : [m.oldKey   , m.newKey   , post.post_id, m.url];
+    
+      await pool.query(sql, params);
+    
     }
 
     /* 4 ─ respond */

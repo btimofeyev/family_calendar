@@ -138,7 +138,9 @@ cron.schedule('0 0 * * *', async () => {
     console.log(`Found ${knownKeys.size} known keys in database`);
     
     // Find orphaned files (in R2 but not in database)
-    const orphanedFiles = Contents.filter(item => !knownKeys.has(item.Key));
+    const orphanedFiles = Contents
+      .filter(obj => obj.Key.startsWith('pending/'))
+      .filter(obj => !knownKeys.has(obj.Key));
     console.log(`Found ${orphanedFiles.length} orphaned files in R2 to clean up`);
     
     // Delete orphaned files

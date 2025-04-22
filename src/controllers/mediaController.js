@@ -258,10 +258,13 @@ exports.cleanupPendingUploads = async (req, res) => {
   try {
     // Find uploads that are pending OR cancelled and not associated with posts/memories
     const findQuery = {
-      text: `SELECT id, object_key, file_url FROM media_uploads 
-             WHERE (status = 'pending' OR status = 'cancelled') 
-             AND memory_id IS NULL AND post_id IS NULL
+      text: `SELECT id, object_key, file_url
+             FROM media_uploads  
+             WHERE object_key LIKE 'pending/%'
+             AND post_id  IS NULL
+             AND memory_id IS NULL
              AND created_at < NOW() - INTERVAL '30 minutes'`
+
     };
     
     const { rows } = await pool.query(findQuery);
