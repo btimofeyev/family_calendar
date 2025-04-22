@@ -32,89 +32,66 @@ async function getTwitterEmbedHtml(tweetUrl) {
     return null;
   }
 }
-
 exports.getPosts = async (req, res) => {
   try {
     const userId   = req.user.id;
-    const { familyId } = req.params;
-    const page   = parseInt(req.query.page) || 1;
-    const limit  = 10;
-    const offset = (page - 1) * limit;
+    const familyId = req.params.familyId;
+    const page     = parseInt(req.query.page ?? '1', 10) || 1;
+    const limit    = 10;
+    const offset   = (page - 1) * limit;
 
-    /* ───────────────────── 1. membership check ───────────────────── */
-    const { rows: member } = await pool.query(
-      "SELECT 1 FROM user_families WHERE user_id=$1 AND family_id=$2",
+    /* 1 ─ membership check */
+    const { rowCount } = await pool.query(
+      'SELECT 1 FROM user_families WHERE user_id=$1 AND family_id=$2',
       [userId, familyId]
     );
-    if (!member.length)
-      return res.status(403).json({ error: "You are not a member of this family" });
+    if (!rowCount) {
+      return res.status(403).json({ error: 'You are not a member of this family' });
+    }
 
-    /* ───────────────────── 2. fetch posts ────────────────────────── */
-    const { rows: countRows } =
-      await pool.query("SELECT COUNT(*) AS c FROM posts WHERE family_id=$1",[familyId]);
-    const totalPosts = parseInt(countRows[0].c, 10);
+    /* 2 ─ total count (for pagination) */
+    const { rows:[{ count: total }] } = await pool.query(
+      'SELECT COUNT(*) FROM posts WHERE family_id=$1',
+      [familyId]
+    );
 
-    const { rows } = await pool.query(`
-      SELECT p.*, u.name            AS author_name,
+    /* 3 ─ fetch the page */
+    const { rows: posts } = await pool.query(`
+      SELECT p.*,
+             u.name                                         AS author_name,
              (SELECT COUNT(*) FROM likes    WHERE post_id=p.post_id) AS likes_count,
              (SELECT COUNT(*) FROM comments WHERE post_id=p.post_id) AS comments_count,
-             (p.author_id = $2) AS is_owner
+             (p.author_id = $2)                             AS is_owner
         FROM posts p
         JOIN users u ON u.id = p.author_id
        WHERE p.family_id = $1
        ORDER BY p.created_at DESC
-       LIMIT $3 OFFSET $4
-    `,[familyId, userId, limit, offset]);
-
-    /* ───────────────────── 3. post‑processing ────────────────────── */
-    const baseUrl = process.env.NODE_ENV === "production"
-                  ? process.env.R2_CUSTOM_DOMAIN
-                  : process.env.R2_BUCKET_URL;
-
-    const finalPosts = await Promise.all(
-      rows.map(async post => {
-        /* 3a.  multiple‑media posts (new uploads) */
-        if (Array.isArray(post.media_urls) && post.media_urls.length) {
-          const urls = await Promise.all(post.media_urls.map(async url => {
-            if (!url) return null;
-
-            /* already a full https URL   -> use as‑is */
-            if (url.startsWith("http")) return url;
-
-            /* stored only as key         -> build public URL */
-            const key = url.replace(/^\/+/, "");            // strip leading slash
-            return `${baseUrl}/${key}`;
-          }));
-          post.signed_media_urls = urls.filter(Boolean);
-
-        /* 3b.  legacy single‑image posts */
-        } else if (post.image_url) {
-          const publicUrl = post.image_url.startsWith("http")
-                          ? post.image_url
-                          : `${baseUrl}/${post.image_url.replace(/^\/+/, "")}`;
-          post.media_urls        = [post.image_url];
-          post.signed_media_urls = [publicUrl];
-        }
-
-        /* 3c.  parse link preview JSON */
-        if (typeof post.link_preview === "string") {
-          try { post.link_preview = JSON.parse(post.link_preview); }
-          catch { post.link_preview = null; }
-        }
-        return post;
-      })
+       LIMIT $3 OFFSET $4`,
+      [familyId, userId, limit, offset]
     );
 
-    /* ───────────────────── 4. respond ────────────────────────────── */
-    res.json({
-      posts       : finalPosts,
-      currentPage : page,
-      totalPages  : Math.ceil(totalPosts / limit),
-      totalPosts
+    /* 4 ─ light post‑processing  (no URL rewriting!) */
+    const parsed = posts.map(p => {
+      // ensure link_preview is an object, not raw JSON
+      if (typeof p.link_preview === 'string') {
+        try   { p.link_preview = JSON.parse(p.link_preview); }
+        catch { p.link_preview = null; }
+      }
+      // keep the exact URLs the DB has – frontend already knows how to render them
+      return p;
     });
+
+    /* 5 ─ reply */
+    res.json({
+      posts      : parsed,
+      currentPage: page,
+      totalPages : Math.ceil(total / limit),
+      totalPosts : parseInt(total, 10)
+    });
+
   } catch (err) {
-    console.error("Error fetching posts:", err);
-    res.status(500).json({ error: "Internal server error" });
+    console.error('getPosts error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
