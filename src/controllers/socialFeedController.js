@@ -278,7 +278,6 @@ exports.updatePost = async (req, res) => {
              SET caption = COALESCE($1, caption),
                  media_urls = $2,
                  media_type = $3,
-                 updated_at = NOW()
              WHERE post_id = $4
              RETURNING *`,
       values: [
