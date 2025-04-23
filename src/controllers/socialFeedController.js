@@ -192,23 +192,45 @@ exports.updatePost = async (req, res) => {
     }
     
     // If there are new media items
-    if (media.length > 0) {
+    if (media && Array.isArray(media) && media.length > 0) {
       // Process any new media items - convert pending URLs to complete URLs
-      const promoted = media.map(item => ({
-        ...promotePendingToComplete(item.url),
-        uploadId: item.uploadId ?? null,
-        type: item.type
-      }));
+      // Filter out items with missing URLs first
+      const validMediaItems = media.filter(item => item && item.url);
+      
+      // Now process only the valid items
+      const promoted = validMediaItems.map(item => {
+        try {
+          const promotedItem = promotePendingToComplete(item.url);
+          return {
+            ...promotedItem,
+            uploadId: item.uploadId ?? null,
+            type: item.type || 'image'
+          };
+        } catch (error) {
+          console.error(`Error promoting URL ${item.url}:`, error);
+          // Return a simple object with the original URL if promotion fails
+          return {
+            url: item.url,
+            oldKey: item.url,
+            newKey: item.url,
+            uploadId: item.uploadId ?? null,
+            type: item.type || 'image'
+          };
+        }
+      });
       
       // Add new media URLs to existing ones
-      const newMediaUrls = promoted.map(m => m.url);
+      const newMediaUrls = promoted.map(m => m.url).filter(url => url);
       mediaUrls = [...mediaUrls, ...newMediaUrls];
       
-      // Make sure we don't have duplicate URLs
-      mediaUrls = [...new Set(mediaUrls)];
+      // Make sure we don't have duplicate URLs and filter out empty URLs
+      mediaUrls = [...new Set(mediaUrls.filter(url => url && url.trim() !== ''))];
       
       // Update media type if needed (if we're adding a video)
-      if (mediaType !== 'video' && promoted.some(m => m.type === 'video')) {
+      if (mediaType !== 'video' && 
+          promoted.some(m => m.type === 'video' || 
+                            (m.url && typeof m.url === 'string' && 
+                             m.url.toLowerCase().match(/\.(mp4|mov|avi)$/)))) {
         mediaType = 'video';
       } else if (!mediaType && mediaUrls.length > 0) {
         mediaType = 'image';
@@ -216,27 +238,37 @@ exports.updatePost = async (req, res) => {
       
       // Update the media_uploads records to link them to this post
       for (const m of promoted) {
-        const sql = m.uploadId
-          ? `UPDATE media_uploads
-                SET post_id=$2,
-                    object_key=$3,
-                    file_url=$4,
-                    status='completed',
-                    updated_at=NOW()
-              WHERE id=$1`
-          : `UPDATE media_uploads
-                SET post_id=$3,
-                    object_key=$2,
-                    file_url=$4,
-                    status='completed',
-                    updated_at=NOW()
-              WHERE object_key=$1`;
-      
-        const params = m.uploadId
-          ? [m.uploadId, postId, m.newKey, m.url]
-          : [m.oldKey, m.newKey, postId, m.url];
-      
-        await pool.query(sql, params);
+        if (!m.uploadId && (!m.oldKey || m.oldKey === m.url)) {
+          // Skip items that don't need database updates
+          continue;
+        }
+        
+        try {
+          const sql = m.uploadId
+            ? `UPDATE media_uploads
+                  SET post_id=$2,
+                      object_key=$3,
+                      file_url=$4,
+                      status='completed',
+                      updated_at=NOW()
+                WHERE id=$1`
+            : `UPDATE media_uploads
+                  SET post_id=$3,
+                      object_key=$2,
+                      file_url=$4,
+                      status='completed',
+                      updated_at=NOW()
+                WHERE object_key=$1`;
+        
+          const params = m.uploadId
+            ? [m.uploadId, postId, m.newKey || m.oldKey, m.url]
+            : [m.oldKey, m.newKey || m.oldKey, postId, m.url];
+        
+          await pool.query(sql, params);
+        } catch (dbError) {
+          console.error('Error updating media_uploads:', dbError);
+          // Continue with other updates even if one fails
+        }
       }
     }
     
