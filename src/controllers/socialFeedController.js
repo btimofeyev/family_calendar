@@ -94,7 +94,65 @@ exports.getPosts = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+exports.getPost = async (req, res) => {
+  const postId = req.params.postId;
+  const userId = req.user.id;
 
+  try {
+    // Fetch the post
+    const fetchQuery = `
+      SELECT 
+        p.*,
+        u.name as author_name,
+        (SELECT COUNT(*) FROM likes WHERE post_id = p.post_id) as likes_count,
+        (SELECT COUNT(*) FROM comments WHERE post_id = p.post_id) as comments_count,
+        CASE WHEN EXISTS (SELECT 1 FROM likes WHERE post_id = p.post_id AND user_id = $2) THEN true ELSE false END as is_liked,
+        (p.author_id = $2) as is_owner
+      FROM posts p
+      JOIN users u ON p.author_id = u.id
+      WHERE p.post_id = $1
+    `;
+    
+    const { rows } = await pool.query(fetchQuery, [postId, userId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        error: "Post not found",
+      });
+    }
+
+    const post = rows[0];
+    
+    // Ensure link_preview is parsed
+    if (typeof post.link_preview === 'string') {
+      try {
+        post.link_preview = JSON.parse(post.link_preview);
+      } catch (e) {
+        post.link_preview = null;
+      }
+    }
+    
+    // Check if user has permission to view this post
+    const familyCheckQuery = {
+      text: `SELECT 1 FROM user_families 
+             WHERE user_id = $1 AND family_id = $2`,
+      values: [userId, post.family_id],
+    };
+    
+    const familyResult = await pool.query(familyCheckQuery);
+    
+    if (familyResult.rows.length === 0) {
+      return res.status(403).json({ 
+        error: "You do not have permission to view this post" 
+      });
+    }
+    
+    res.json(post);
+  } catch (error) {
+    console.error("Error fetching post:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
 exports.updatePost = async (req, res) => {
   const postId = req.params.postId;
   const userId = req.user.id;
