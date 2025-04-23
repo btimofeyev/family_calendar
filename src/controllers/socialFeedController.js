@@ -124,6 +124,15 @@ exports.updatePost = async (req, res) => {
     let mediaUrls = post.media_urls || [];
     let mediaType = post.media_type;
     
+    // Handle the media URLs based on request
+    if (req.body.replaceAllMedia === true) {
+      // Replace all media - discard existing media URLs
+      mediaUrls = [];
+    } else if (req.body.removeMediaUrls && Array.isArray(req.body.removeMediaUrls)) {
+      // Filter out specific media URLs that need to be removed
+      mediaUrls = mediaUrls.filter(url => !req.body.removeMediaUrls.includes(url));
+    }
+    
     // If there are new media items
     if (media.length > 0) {
       // Process any new media items - convert pending URLs to complete URLs
@@ -136,6 +145,9 @@ exports.updatePost = async (req, res) => {
       // Add new media URLs to existing ones
       const newMediaUrls = promoted.map(m => m.url);
       mediaUrls = [...mediaUrls, ...newMediaUrls];
+      
+      // Make sure we don't have duplicate URLs
+      mediaUrls = [...new Set(mediaUrls)];
       
       // Update media type if needed (if we're adding a video)
       if (mediaType !== 'video' && promoted.some(m => m.type === 'video')) {
