@@ -272,12 +272,12 @@ exports.updatePost = async (req, res) => {
       }
     }
     
-    // Update the post in the database
+    // Update the post in the database - FIXED: removed updated_at column
     const updateQuery = {
       text: `UPDATE posts
              SET caption = COALESCE($1, caption),
                  media_urls = $2,
-                 media_type = $3,
+                 media_type = $3
              WHERE post_id = $4
              RETURNING *`,
       values: [
@@ -302,7 +302,7 @@ exports.updatePost = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating post:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error: " + error.message });
   }
 };
 // Create a new post - Updated for multiple media
