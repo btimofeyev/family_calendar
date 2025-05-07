@@ -7,7 +7,7 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
     <title>Family Dashboard</title>
-    <link rel="stylesheet" href="css/teststyling.css" />
+    <link rel="stylesheet" href="css/socialfeed.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
@@ -46,6 +46,7 @@
         <button id="loginRedirect">Go to Login</button>
       </div>
     </div>
+    
     <div class="dashboard">
       <div class="left-column" id="leftColumn">
         <div class="card user-profile">
@@ -90,6 +91,7 @@
           </div>
         </div>
       </div>
+      
       <div class="center-column">
         <div class="card social-feed">
           <h2>Family Social Feed</h2>
@@ -100,18 +102,14 @@
               <label for="mediaInput" class="media-upload-label">
                 <i class="fas fa-image"></i> Add Photo/Video
               </label>
-              <input type="file" id="mediaInput" name="media" accept="image/*,video/*" style="display: none" />
+              <input type="file" id="mediaInput" name="media" accept="image/*,video/*" multiple style="display: none" />
               <button type="submit">Post</button>
             </div>
           </form>
           <div id="socialFeedContent"></div>
-          <div class="load-more-container">
-            <button id="loadMoreButton" class="load-more-button" style="display: none;">
-              <i class="fas fa-chevron-down"></i>
-            </button>
-          </div>
         </div>
       </div>
+      
       <div class="right-column" id="rightColumn">
         <div class="card family-calendar">
           <h2>Family Calendar</h2>
@@ -128,6 +126,37 @@
         </div>
       </div>
     </div>
+    
+    <!-- Media Gallery Modal for multiple images/videos -->
+    <div id="media-gallery-modal" class="modal media-gallery-modal">
+      <div class="modal-content gallery-modal-content">
+        <span class="close">&times;</span>
+        <div class="gallery-container">
+          <div class="gallery-main"></div>
+          <div class="gallery-caption">
+            <div class="gallery-author"></div>
+            <div class="gallery-text"></div>
+          </div>
+          <div class="gallery-thumbnails"></div>
+        </div>
+        <button class="gallery-nav prev"><i class="fas fa-chevron-left"></i></button>
+        <button class="gallery-nav next"><i class="fas fa-chevron-right"></i></button>
+      </div>
+    </div>
+    
+    <!-- YouTube Modal -->
+    <div id="youtube-modal" class="modal youtube-modal">
+      <div class="modal-content youtube-modal-content">
+        <span class="close">&times;</span>
+        <div class="youtube-container">
+          <iframe width="100%" height="100%" frameborder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen></iframe>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Event Modal -->
     <div id="eventModal" class="modal" style="display: none">
       <div class="modal-content">
         <span class="close" id="closeModalButton">&times;</span>
@@ -156,6 +185,7 @@
         <button id="deleteEvent" style="display: none">Delete Event</button>
       </div>
     </div>
+    
     <div class="overlay" id="overlay"></div>
     <div class="floating-icons">
         <div class="icon" id="toggleLeftColumn">
@@ -168,19 +198,61 @@
             <i class="fas fa-calendar-alt"></i>
         </div>
     </div>
-    <div id="postModal" class="post-modal">
-      <div class="post-modal-content">
-        <span class="post-modal-close">&times;</span>
-        <div id="modalPostContent" class="modal-post-content"></div>
-      </div>
-    </div>
+    
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/pushNotifications.js"></script>
-    <script src="js/dashboard.js"></script>
-    <script src="js/socialFeed.js"></script>
     <script src="js/notifications.js"></script>
+    <script src="js/socialFeed.js"></script>
+    <script src="js/dashboard.js"></script>
     <script>
+      // Initialize social feed when the DOM is loaded
+      document.addEventListener("DOMContentLoaded", function() {
+        // This function is defined in enhanced-social-feed.js
+        initializeSocialFeed();
+        
+        // Toggle functionality for mobile
+        document.getElementById("toggleLeftColumn").addEventListener("click", function() {
+          toggleElementVisibility("leftColumn");
+        });
+
+        document.getElementById("togglePostForm").addEventListener("click", function() {
+          toggleElementVisibility("postForm");
+        });
+
+        document.getElementById("toggleRightColumn").addEventListener("click", function() {
+          toggleElementVisibility("rightColumn");
+        });
+
+        document.getElementById("overlay").addEventListener("click", function() {
+          closeAllElements();
+        });
+      });
+      
+      // Function to toggle element visibility on mobile
+      function toggleElementVisibility(elementId) {
+        const element = document.getElementById(elementId);
+        const overlay = document.getElementById("overlay");
+
+        if (element) {
+          if (element.classList.contains("open")) {
+            element.classList.remove("open");
+            overlay.classList.remove("active");
+          } else {
+            closeAllElements(); 
+            element.classList.add("open");
+            overlay.classList.add("active");
+          }
+        }
+      }
+
+      // Function to close all mobile elements
+      function closeAllElements() {
+        document.getElementById("leftColumn")?.classList.remove("open");
+        document.getElementById("rightColumn")?.classList.remove("open");
+        document.getElementById("postForm")?.classList.remove("open");
+        document.getElementById("overlay")?.classList.remove("active");
+      }
     </script>
   </body>
 </html>
