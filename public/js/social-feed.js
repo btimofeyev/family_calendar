@@ -313,157 +313,358 @@ async function loadPosts(familyId, page = 1, filter = 'all') {
 
 // Create post element
 function createPostElement(post) {
-  const postElement = document.createElement('div');
-  postElement.className = 'post-card';
-  postElement.dataset.id = post.post_id;
-  
-  // Format post date
-  const postDate = new Date(post.created_at);
-  const timeAgoStr = timeAgo(post.created_at);
-  
-  // Create post header
-  let postHeader = `
-      <div class="post-card-header">
-          <div class="post-author">
-              <div class="avatar">
-                  <img src="${CONFIG.DEFAULT_IMAGES.AVATAR}" alt="Author">
-              </div>
-              <div class="post-author-info">
-                  <h4>${post.author_name}</h4>
-                  <span class="post-time">${timeAgoStr}</span>
-              </div>
-          </div>
-  `;
-  
-  // Add options menu for post owner
-  if (post.is_owner) {
-      postHeader += `
-          <div class="post-options">
-              <button class="post-options-btn">
-                  <i class="fas fa-ellipsis-h"></i>
-              </button>
-              <div class="post-options-menu">
-                  <button class="edit-post" data-id="${post.post_id}">Edit</button>
-                  <button class="delete-post" data-id="${post.post_id}">Delete</button>
-              </div>
-          </div>
-      `;
+    const postElement = document.createElement('div');
+    postElement.className = 'post-card';
+    postElement.dataset.id = post.post_id;
+    
+    // Format post date
+    const postDate = new Date(post.created_at);
+    const timeAgoStr = timeAgo(post.created_at);
+    
+    // Create post header
+    let postHeader = `
+        <div class="post-card-header">
+            <div class="post-author">
+                <div class="avatar">
+                    <img src="${CONFIG.DEFAULT_IMAGES.AVATAR}" alt="Author" data-name="${post.author_name}">
+                </div>
+                <div class="post-author-info">
+                    <h4>${post.author_name}</h4>
+                    <span class="post-time">${timeAgoStr}</span>
+                </div>
+            </div>
+    `;
+    
+    // Add options menu for post owner
+    if (post.is_owner) {
+        postHeader += `
+            <div class="post-options">
+                <button class="post-options-btn">
+                    <i class="fas fa-ellipsis-h"></i>
+                </button>
+                <div class="post-options-menu">
+                    <button class="edit-post" data-id="${post.post_id}">Edit</button>
+                    <button class="delete-post" data-id="${post.post_id}">Delete</button>
+                </div>
+            </div>
+        `;
+    }
+    
+    postHeader += '</div>';
+    
+    // Create post content
+    let postContent = `<div class="post-content">`;
+    
+    // Add post text if available
+    if (post.caption) {
+        postContent += `<div class="post-text">${post.caption}</div>`;
+    }
+    
+    // Add media content if available
+    if (post.media_urls && post.media_urls.length > 0) {
+        // Check if any URLs actually exist
+        const validMediaUrls = post.media_urls.filter(url => url && url !== "undefined" && url !== "null");
+        
+        if (validMediaUrls.length === 1) {
+            // Single media item
+            const mediaUrl = validMediaUrls[0];
+            
+            // Determine if it's a video based on either media_type or URL extension
+            const isVideo = post.media_type === 'video' || 
+                           (typeof mediaUrl === 'string' && /\.(mp4|mov|avi|wmv|flv|webm|mkv)$/i.test(mediaUrl));
+            
+            if (isVideo) {
+                postContent += `
+                    <div class="video-container">
+                        <video src="${mediaUrl}" preload="metadata" data-initialized="true" controls></video>
+                        <div class="video-play-button">
+                            <i class="fas fa-play"></i>
+                        </div>
+                    </div>
+                `;
+            } else {
+                postContent += `
+                    <div class="post-media">
+                        <img src="${mediaUrl}" alt="Post image">
+                    </div>
+                `;
+            }
+        } else if (validMediaUrls.length > 1) {
+            // Multiple media items in a grid
+            postContent += '<div class="post-media-grid">';
+            
+            validMediaUrls.forEach(mediaUrl => {
+                // Determine if it's a video based on either media_type or URL extension
+                const isVideo = post.media_type === 'video' || 
+                               (typeof mediaUrl === 'string' && /\.(mp4|mov|avi|wmv|flv|webm|mkv)$/i.test(mediaUrl));
+                
+                if (isVideo) {
+                    postContent += `
+                        <div class="media-item video-item">
+                            <video src="${mediaUrl}" preload="metadata" data-initialized="true" controls></video>
+                            <div class="video-play-button">
+                                <i class="fas fa-play"></i>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    postContent += `
+                        <div class="media-item">
+                            <img src="${mediaUrl}" alt="Post image">
+                        </div>
+                    `;
+                }
+            });
+            
+            postContent += '</div>';
+        }
+    }
+    
+    // Add link preview if available
+    if (post.link_preview) {
+        try {
+            const linkPreview = typeof post.link_preview === 'string' 
+                ? JSON.parse(post.link_preview) 
+                : post.link_preview;
+            
+            if (linkPreview && linkPreview.url) {
+                postContent += `
+                    <a href="${linkPreview.url}" target="_blank" rel="noopener noreferrer" class="post-link-preview">
+                        ${linkPreview.image ? `
+                            <div class="post-link-preview-image">
+                                <img src="${linkPreview.image}" alt="Link preview">
+                            </div>
+                        ` : ''}
+                        <div class="post-link-preview-content">
+                            <div class="post-link-preview-title">${linkPreview.title || 'Link'}</div>
+                            ${linkPreview.description ? `
+                                <div class="post-link-preview-description">${linkPreview.description}</div>
+                            ` : ''}
+                            <div class="post-link-preview-url">${linkPreview.url}</div>
+                        </div>
+                    </a>
+                `;
+            }
+        } catch (error) {
+            console.error('Error parsing link preview:', error);
+        }
+    }
+    
+    postContent += '</div>';
+    
+    // Create post stats and actions
+    const likesCount = post.likes_count || 0;
+    const commentsCount = post.comments_count || 0;
+    
+    const postStats = `
+        <div class="post-stats">
+            <div class="likes-count">${likesCount} ${likesCount === 1 ? 'like' : 'likes'}</div>
+            <div class="comments-count">${commentsCount} ${commentsCount === 1 ? 'comment' : 'comments'}</div>
+        </div>
+        <div class="post-actions-row">
+            <button class="post-action-btn like-btn ${post.is_liked ? 'liked' : ''}" data-id="${post.post_id}">
+                <i class="fas ${post.is_liked ? 'fa-heart' : 'fa-heart'}"></i> Like
+            </button>
+            <button class="post-action-btn comment-btn" data-id="${post.post_id}">
+                <i class="fas fa-comment"></i> Comment
+            </button>
+            <button class="post-action-btn view-post-btn" data-id="${post.post_id}">
+                <i class="fas fa-expand"></i> View
+            </button>
+        </div>
+    `;
+    
+    // Combine all parts
+    postElement.innerHTML = postHeader + postContent + postStats;
+    
+    // Add event listeners
+    addPostEventListeners(postElement, post);
+    
+    return postElement;
   }
   
-  postHeader += '</div>';
-  
-  // Create post content
-  let postContent = `<div class="post-content">`;
-  
-  // Add post text if available
-  if (post.caption) {
-      postContent += `<div class="post-text">${post.caption}</div>`;
+  // Also update openPostDetails function to properly handle videos
+  async function openPostDetails(postId) {
+    const postModal = document.getElementById('post-modal');
+    const postModalContent = document.getElementById('post-modal-content');
+    
+    if (!postModal || !postModalContent) return;
+    
+    // Show loading state
+    postModalContent.innerHTML = '<div class="spinner"></div>';
+    postModal.style.display = 'flex';
+    
+    try {
+        // Fetch post details
+        const url = formatApiUrl(CONFIG.ROUTES.FEED.POST_DETAILS, { postId });
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem(CONFIG.TOKEN_KEY)}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch post details');
+        }
+        
+        const post = await response.json();
+        
+        // Create post HTML
+        let postHTML = `
+            <div class="post-card">
+                <div class="post-card-header">
+                    <div class="post-author">
+                        <div class="avatar">
+                            <img src="${CONFIG.DEFAULT_IMAGES.AVATAR}" alt="Author" data-name="${post.author_name}">
+                        </div>
+                        <div class="post-author-info">
+                            <h4>${post.author_name}</h4>
+                            <span class="post-time">${timeAgo(post.created_at)}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="post-content">
+        `;
+        
+        // Add post text if available
+        if (post.caption) {
+            postHTML += `<div class="post-text">${post.caption}</div>`;
+        }
+        
+        // Add media content if available
+        if (post.media_urls && post.media_urls.length > 0) {
+            // Filter out any invalid URLs
+            const validMediaUrls = post.media_urls.filter(url => url && url !== "undefined" && url !== "null");
+            
+            if (validMediaUrls.length === 1) {
+                // Single media item
+                const mediaUrl = validMediaUrls[0];
+                
+                // Determine if it's a video based on either media_type or URL extension
+                const isVideo = post.media_type === 'video' || 
+                               (typeof mediaUrl === 'string' && /\.(mp4|mov|avi|wmv|flv|webm|mkv)$/i.test(mediaUrl));
+                
+                if (isVideo) {
+                    postHTML += `
+                        <div class="video-container">
+                            <video src="${mediaUrl}" preload="metadata" controls autoplay data-initialized="true"></video>
+                        </div>
+                    `;
+                } else {
+                    postHTML += `
+                        <div class="post-media">
+                            <img src="${mediaUrl}" alt="Post image">
+                        </div>
+                    `;
+                }
+            } else if (validMediaUrls.length > 1) {
+                // Multiple media items in a grid
+                postHTML += '<div class="post-media-grid">';
+                
+                validMediaUrls.forEach(mediaUrl => {
+                    // Determine if it's a video based on either media_type or URL extension
+                    const isVideo = post.media_type === 'video' || 
+                                   (typeof mediaUrl === 'string' && /\.(mp4|mov|avi|wmv|flv|webm|mkv)$/i.test(mediaUrl));
+                    
+                    if (isVideo) {
+                        postHTML += `
+                            <div class="media-item video-item">
+                                <video src="${mediaUrl}" preload="metadata" controls data-initialized="true"></video>
+                            </div>
+                        `;
+                    } else {
+                        postHTML += `
+                            <div class="media-item">
+                                <img src="${mediaUrl}" alt="Post image">
+                            </div>
+                        `;
+                    }
+                });
+                
+                postHTML += '</div>';
+            }
+        }
+        
+        // Add link preview if available
+        if (post.link_preview) {
+            try {
+                const linkPreview = typeof post.link_preview === 'string' 
+                    ? JSON.parse(post.link_preview) 
+                    : post.link_preview;
+                
+                if (linkPreview && linkPreview.url) {
+                    postHTML += `
+                        <a href="${linkPreview.url}" target="_blank" rel="noopener noreferrer" class="post-link-preview">
+                            ${linkPreview.image ? `
+                                <div class="post-link-preview-image">
+                                    <img src="${linkPreview.image}" alt="Link preview">
+                                </div>
+                            ` : ''}
+                            <div class="post-link-preview-content">
+                                <div class="post-link-preview-title">${linkPreview.title || 'Link'}</div>
+                                ${linkPreview.description ? `
+                                    <div class="post-link-preview-description">${linkPreview.description}</div>
+                                ` : ''}
+                                <div class="post-link-preview-url">${linkPreview.url}</div>
+                            </div>
+                        </a>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error parsing link preview:', error);
+            }
+        }
+        
+        // Add post stats and actions
+        const likesCount = post.likes_count || 0;
+        const commentsCount = post.comments_count || 0;
+        
+        postHTML += `
+                </div>
+                <div class="post-stats">
+                    <div class="likes-count">${likesCount} ${likesCount === 1 ? 'like' : 'likes'}</div>
+                    <div class="comments-count">${commentsCount} ${commentsCount === 1 ? 'comment' : 'comments'}</div>
+                </div>
+                <div class="post-actions-row">
+                    <button class="post-action-btn like-btn ${post.is_liked ? 'liked' : ''}" data-id="${post.post_id}">
+                        <i class="fas ${post.is_liked ? 'fa-heart' : 'fa-heart'}"></i> Like
+                    </button>
+                    <button class="post-action-btn comment-btn" data-id="${post.post_id}">
+                        <i class="fas fa-comment"></i> Comment
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Set post HTML
+        postModalContent.innerHTML = postHTML;
+        
+        // Re-initialize videos in the modal
+        initializeVideos();
+        
+        // Add event listeners to like and comment buttons
+        const likeBtn = postModalContent.querySelector('.like-btn');
+        if (likeBtn) {
+            likeBtn.addEventListener('click', () => {
+                toggleLike(post.post_id);
+            });
+        }
+        
+        const commentBtn = postModalContent.querySelector('.comment-btn');
+        if (commentBtn) {
+            commentBtn.addEventListener('click', () => {
+                postModal.style.display = 'none';
+                showComments(post.post_id);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading post details:', error);
+        postModalContent.innerHTML = '<p class="error-message">Could not load post details. Please try again later.</p>';
+    }
   }
-  
-  // Add media content if available
-  if (post.media_urls && post.media_urls.length > 0) {
-      if (post.media_urls.length === 1) {
-          // Single media item
-          const mediaUrl = post.media_urls[0];
-          if (post.media_type === 'video') {
-              postContent += `
-                  <div class="post-media">
-                      <video controls src="${mediaUrl}" preload="metadata"></video>
-                  </div>
-              `;
-          } else {
-              postContent += `
-                  <div class="post-media">
-                      <img src="${mediaUrl}" alt="Post image">
-                  </div>
-              `;
-          }
-      } else {
-          // Multiple media items in a grid
-          postContent += '<div class="post-media-grid">';
-          
-          post.media_urls.forEach(mediaUrl => {
-              if (post.media_type === 'video') {
-                  postContent += `
-                      <div class="media-item">
-                          <video src="${mediaUrl}" preload="metadata"></video>
-                      </div>
-                  `;
-              } else {
-                  postContent += `
-                      <div class="media-item">
-                          <img src="${mediaUrl}" alt="Post image">
-                      </div>
-                  `;
-              }
-          });
-          
-          postContent += '</div>';
-      }
-  }
-  
-  // Add link preview if available
-  if (post.link_preview) {
-      try {
-          const linkPreview = typeof post.link_preview === 'string' 
-              ? JSON.parse(post.link_preview) 
-              : post.link_preview;
-          
-          if (linkPreview && linkPreview.url) {
-              postContent += `
-                  <a href="${linkPreview.url}" target="_blank" rel="noopener noreferrer" class="post-link-preview">
-                      ${linkPreview.image ? `
-                          <div class="post-link-preview-image">
-                              <img src="${linkPreview.image}" alt="Link preview">
-                          </div>
-                      ` : ''}
-                      <div class="post-link-preview-content">
-                          <div class="post-link-preview-title">${linkPreview.title || 'Link'}</div>
-                          ${linkPreview.description ? `
-                              <div class="post-link-preview-description">${linkPreview.description}</div>
-                          ` : ''}
-                          <div class="post-link-preview-url">${linkPreview.url}</div>
-                      </div>
-                  </a>
-              `;
-          }
-      } catch (error) {
-          console.error('Error parsing link preview:', error);
-      }
-  }
-  
-  postContent += '</div>';
-  
-  // Create post stats and actions
-  const likesCount = post.likes_count || 0;
-  const commentsCount = post.comments_count || 0;
-  
-  const postStats = `
-      <div class="post-stats">
-          <div class="likes-count">${likesCount} ${likesCount === 1 ? 'like' : 'likes'}</div>
-          <div class="comments-count">${commentsCount} ${commentsCount === 1 ? 'comment' : 'comments'}</div>
-      </div>
-      <div class="post-actions-row">
-          <button class="post-action-btn like-btn ${post.is_liked ? 'liked' : ''}" data-id="${post.post_id}">
-              <i class="fas ${post.is_liked ? 'fa-heart' : 'fa-heart'}"></i> Like
-          </button>
-          <button class="post-action-btn comment-btn" data-id="${post.post_id}">
-              <i class="fas fa-comment"></i> Comment
-          </button>
-          <button class="post-action-btn view-post-btn" data-id="${post.post_id}">
-              <i class="fas fa-expand"></i> View
-          </button>
-      </div>
-  `;
-  
-  // Combine all parts
-  postElement.innerHTML = postHeader + postContent + postStats;
-  
-  // Add event listeners
-  addPostEventListeners(postElement, post);
-  
-  return postElement;
-}
 
 // Add event listeners to post element
 function addPostEventListeners(postElement, post) {

@@ -750,7 +750,21 @@ ul {
 }
 
 video {
+  display: block !important;
+  background-color: #000 !important;
+  min-height: 100px;
+  width: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+}
+
+.video-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
   background-color: #000;
+  min-height: 200px;
 }
 
 .video-play-button {
