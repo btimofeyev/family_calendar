@@ -1,258 +1,235 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
-    <title>Family Dashboard</title>
-    <link rel="stylesheet" href="css/socialfeed.css" />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
-    />
-  </head>
-  <body>
-    <div class="dashboard-header">
-      <div class="logo">
-        <a href="#" id="scrollToTop">
-          <img src="./icons/logo.png" alt="Logo" class="logo-img">
-        </a>
-      </div>
-      <div class="notification-icon" id="notificationIcon">
-        <i class="fas fa-bell"></i>
-        <span class="notification-count" id="notificationCount">0</span>
-      </div>
-      <div class="logout-icon" id="logoutIcon">
-        <i class="fas fa-sign-out-alt"></i>
-      </div>
-    </div>
-    <div class="notification-dropdown" id="notificationDropdown" style="display: none;">
-      <div class="notification-header">
-        <h3>Notifications</h3>
-        <button id="markAllRead">Mark all as read</button>
-      </div>
-      <div class="notification-tabs">
-        <button id="unreadTab" class="tab active-tab">Unread</button>
-        <button id="allTab" class="tab">All</button>
-      </div>
-      <div id="notificationList"></div>
-    </div>
-    <div id="logoutModal" class="modal" style="display: none;">
-      <div class="modal-content">
-        <h2>Session Expired</h2>
-        <p>Your session has expired. Please log in again.</p>
-        <button id="loginRedirect">Go to Login</button>
-      </div>
-    </div>
-    
-    <div class="dashboard">
-      <div class="left-column" id="leftColumn">
-        <div class="card user-profile">
-          <h2>User Profile</h2>
-          <div class="profile-content">
-            <div id="userAvatar" class="avatar pulse"></div>
-            <div class="user-info">
-              <h3 id="userName" class="slide-in"></h3>
-              <p id="userEmail" class="slide-in"></p>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FamilyNook - Family Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo">
+                <img src="img/logo.png" alt="FamilyNook Logo">
+                <h1>FamilyNook</h1>
             </div>
-          </div>
-        </div>
-
-        <div class="card family-management">
-          <h2>Your Families</h2>
-          <div id="familySelector" class="family-list"></div>
-          <button id="createFamilyBtn" class="create-family-btn">
-            <span class="btn-text">Create New Family</span>
-            <span class="btn-icon">+</span>
-          </button>
-        </div>
-
-        <div class="card new-feature">
-          <a href="memories.html" class="memories-button">
-            <i class="fas fa-star"></i>
-            <span class="feature-name">Memories</span>
-            <span class="feature-tag">New Feature!</span>
-          </a>
-        </div>
-
-        <div id="familyView" class="card family-view">
-          <h2 id="familyName" class="family-name"></h2>
-          <h3>Members:</h3>
-          <div class="member-list">
-            <ul id="memberList"></ul>
-          </div>
-          <div class="invite-button-container">
-            <button id="inviteMemberBtn" class="invite-member-btn">
-              <i class="fas fa-user-plus"></i>
-              <span>Invite Member</span>
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <div class="center-column">
-        <div class="card social-feed">
-          <h2>Family Social Feed</h2>
-          <form id="postForm" enctype="multipart/form-data">
-            <textarea id="captionInput" placeholder="What's on your mind?" required></textarea>
-            <div id="mediaPreview"></div>
-            <div class="post-actions">
-              <label for="mediaInput" class="media-upload-label">
-                <i class="fas fa-image"></i> Add Photo/Video
-              </label>
-              <input type="file" id="mediaInput" name="media" accept="image/*,video/*" multiple style="display: none" />
-              <button type="submit">Post</button>
+            <ul class="nav-links">
+                <li class="active"><a href="#"><i class="fas fa-home"></i> <span>Dashboard</span></a></li>
+                <li><a href="#"><i class="fas fa-calendar"></i> <span>Calendar</span></a></li>
+                <li><a href="#"><i class="fas fa-photo-film"></i> <span>Memories</span></a></li>
+                <li><a href="#"><i class="fas fa-user-group"></i> <span>Family</span></a></li>
+                <li><a href="#"><i class="fas fa-gear"></i> <span>Settings</span></a></li>
+            </ul>
+            <div class="family-selector">
+                <select id="family-select">
+                    <option value="">Select Family</option>
+                    <!-- Families will be populated by JavaScript -->
+                </select>
             </div>
-          </form>
-          <div id="socialFeedContent"></div>
+            <div class="user-profile">
+                <div class="avatar">
+                    <img src="#" alt="User Avatar" id="user-avatar" data-name="">
+                </div>
+                <div class="user-info">
+                    <p id="user-name">Loading...</p>
+                    <a href="#" id="logout-btn">Log out</a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-header">
+                <div class="mobile-menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </div>
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search...">
+                </div>
+                <div class="header-actions">
+                    <button class="notifications-btn">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge">0</span>
+                    </button>
+                    <div class="notifications-panel">
+                        <div class="notifications-header">
+                            <h3>Notifications</h3>
+                            <button id="mark-all-read">Mark all as read</button>
+                        </div>
+                        <div class="notifications-list">
+                            <!-- Notifications will be populated by JavaScript -->
+                            <div class="empty-notifications">
+                                <i class="fas fa-check-circle"></i>
+                                <p>You're all caught up!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Left Column - Social Feed -->
+                <div class="social-feed-container">
+                    <div class="create-post-card">
+                        <div class="post-header">
+                            <div class="avatar">
+                                <img src="#" alt="User Avatar" id="post-user-avatar" data-name="">
+                            </div>
+                            <div class="post-input" id="post-input">
+                                <p>What's on your mind?</p>
+                            </div>
+                        </div>
+                        <div class="post-composer hidden" id="post-composer">
+                            <textarea placeholder="Share something with your family..." id="post-text"></textarea>
+                            <div class="media-preview" id="media-preview"></div>
+                            <div class="post-actions">
+                                <div class="post-attachments">
+                                    <label for="file-upload" class="attachment-btn">
+                                        <i class="fas fa-image"></i>
+                                        <span>Photo/Video</span>
+                                    </label>
+                                    <input type="file" id="file-upload" multiple accept="image/*,video/*" style="display: none">
+                                </div>
+                                <div class="post-submit">
+                                    <button class="cancel-btn" id="cancel-post">Cancel</button>
+                                    <button class="post-btn" id="submit-post" disabled>Post</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feed-controls">
+                        <h2>Family Feed</h2>
+                        <div class="feed-filters">
+                            <button class="filter-btn active" data-filter="all">All</button>
+                            <button class="filter-btn" data-filter="photos">Photos</button>
+                            <button class="filter-btn" data-filter="videos">Videos</button>
+                        </div>
+                    </div>
+
+                    <div class="posts-container" id="posts-container">
+                        <!-- Posts will be populated by JavaScript -->
+                        <div class="loading-posts">
+                            <div class="spinner"></div>
+                            <p>Loading posts...</p>
+                        </div>
+                    </div>
+
+                    <div class="pagination" id="pagination">
+                        <!-- Pagination will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Right Column - Widgets -->
+                <div class="widgets-container">
+                    <!-- Upcoming Events Widget -->
+                    <div class="widget">
+                        <div class="widget-header">
+                            <h3>Upcoming Events</h3>
+                            <a href="#" class="view-all">View Calendar</a>
+                        </div>
+                        <div class="widget-content" id="events-widget">
+                            <!-- Events will be populated by JavaScript -->
+                            <div class="loading-widget">
+                                <div class="spinner"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Family Members Widget -->
+                    <div class="widget">
+                        <div class="widget-header">
+                            <h3>Family Members</h3>
+                            <a href="#" class="view-all">View All</a>
+                        </div>
+                        <div class="widget-content" id="members-widget">
+                            <!-- Members will be populated by JavaScript -->
+                            <div class="loading-widget">
+                                <div class="spinner"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Memories Widget -->
+                    <div class="widget">
+                        <div class="widget-header">
+                            <h3>Recent Memories</h3>
+                            <a href="#" class="view-all">View All</a>
+                        </div>
+                        <div class="widget-content" id="memories-widget">
+                            <!-- Memories will be populated by JavaScript -->
+                            <div class="loading-widget">
+                                <div class="spinner"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal" id="post-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Post Details</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body" id="post-modal-content">
+                <!-- Post details will be populated by JavaScript -->
+            </div>
         </div>
-      </div>
-      
-      <div class="right-column" id="rightColumn">
-        <div class="card family-calendar">
-          <h2>Family Calendar</h2>
-          <div class="calendar-header">
-            <button id="prevMonth">&lt;</button>
-            <span id="monthYear"></span>
-            <button id="nextMonth">&gt;</button>
-          </div>
-          <div id="calendarGrid" class="calendar"></div>
-        </div>
-        <div class="card event-list">
-          <h2>Upcoming Events</h2>
-          <ul id="eventList"></ul>
-        </div>
-      </div>
     </div>
     
-    <!-- Media Gallery Modal for multiple images/videos -->
-    <div id="media-gallery-modal" class="modal media-gallery-modal">
-      <div class="modal-content gallery-modal-content">
-        <span class="close">&times;</span>
-        <div class="gallery-container">
-          <div class="gallery-main"></div>
-          <div class="gallery-caption">
-            <div class="gallery-author"></div>
-            <div class="gallery-text"></div>
-          </div>
-          <div class="gallery-thumbnails"></div>
-        </div>
-        <button class="gallery-nav prev"><i class="fas fa-chevron-left"></i></button>
-        <button class="gallery-nav next"><i class="fas fa-chevron-right"></i></button>
-      </div>
-    </div>
-    
-    <!-- YouTube Modal -->
-    <div id="youtube-modal" class="modal youtube-modal">
-      <div class="modal-content youtube-modal-content">
-        <span class="close">&times;</span>
-        <div class="youtube-container">
-          <iframe width="100%" height="100%" frameborder="0" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-            allowfullscreen></iframe>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Event Modal -->
-    <div id="eventModal" class="modal" style="display: none">
-      <div class="modal-content">
-        <span class="close" id="closeModalButton">&times;</span>
-        <form id="eventForm">
-          <input type="hidden" id="eventId" />
-          <label for="eventType">Event Type:</label>
-          <select id="eventType" required>
-            <option value="birthday">Birthday</option>
-            <option value="anniversary">Anniversary</option>
-            <option value="other">Other</option>
-          </select>
-          <label for="eventTitle">Title:</label>
-          <input type="text" id="eventTitle" required />
-          <label for="eventDate">Date:</label>
-          <input type="date" id="eventDate" required />
-          <label for="eventDescription">Description:</label>
-          <textarea id="eventDescription"></textarea>
-          <div id="recurringOption">
-            <label for="isRecurring">
-              <input type="checkbox" id="isRecurring" />
-              Recurring yearly?
-            </label>
-          </div>
-          <button type="submit" id="saveEventButton">Save Event</button>
-        </form>
-        <button id="deleteEvent" style="display: none">Delete Event</button>
-      </div>
-    </div>
-    
-    <div class="overlay" id="overlay"></div>
-    <div class="floating-icons">
-        <div class="icon" id="toggleLeftColumn">
-            <i class="fas fa-bars"></i>
-        </div>
-        <div class="icon plus-icon" id="togglePostForm">
-            <i class="fas fa-plus"></i>
-        </div>
-        <div class="icon" id="toggleRightColumn">
-            <i class="fas fa-calendar-alt"></i>
+    <div class="modal" id="comments-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Comments</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="comments-container" id="comments-container">
+                    <!-- Comments will be populated by JavaScript -->
+                </div>
+                <div class="comment-form">
+                    <textarea placeholder="Write a comment..." id="comment-text"></textarea>
+                    <button id="submit-comment">Comment</button>
+                </div>
+            </div>
         </div>
     </div>
-    
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/pushNotifications.js"></script>
-    <script src="js/notifications.js"></script>
-    <script src="js/socialFeed.js"></script>
+
+    <!-- Post Delete Confirmation Modal -->
+    <div class="modal" id="delete-confirmation-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Delete Post</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this post? This action cannot be undone.</p>
+                <div class="modal-actions">
+                    <button class="cancel-btn" id="cancel-delete">Cancel</button>
+                    <button class="delete-btn" id="confirm-delete">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/letter-avatar.js"></script>
+    <script src="js/auth.js"></script>
     <script src="js/dashboard.js"></script>
-    <script>
-      // Initialize social feed when the DOM is loaded
-      document.addEventListener("DOMContentLoaded", function() {
-        // This function is defined in enhanced-social-feed.js
-        initializeSocialFeed();
-        
-        // Toggle functionality for mobile
-        document.getElementById("toggleLeftColumn").addEventListener("click", function() {
-          toggleElementVisibility("leftColumn");
-        });
-
-        document.getElementById("togglePostForm").addEventListener("click", function() {
-          toggleElementVisibility("postForm");
-        });
-
-        document.getElementById("toggleRightColumn").addEventListener("click", function() {
-          toggleElementVisibility("rightColumn");
-        });
-
-        document.getElementById("overlay").addEventListener("click", function() {
-          closeAllElements();
-        });
-      });
-      
-      // Function to toggle element visibility on mobile
-      function toggleElementVisibility(elementId) {
-        const element = document.getElementById(elementId);
-        const overlay = document.getElementById("overlay");
-
-        if (element) {
-          if (element.classList.contains("open")) {
-            element.classList.remove("open");
-            overlay.classList.remove("active");
-          } else {
-            closeAllElements(); 
-            element.classList.add("open");
-            overlay.classList.add("active");
-          }
-        }
-      }
-
-      // Function to close all mobile elements
-      function closeAllElements() {
-        document.getElementById("leftColumn")?.classList.remove("open");
-        document.getElementById("rightColumn")?.classList.remove("open");
-        document.getElementById("postForm")?.classList.remove("open");
-        document.getElementById("overlay")?.classList.remove("active");
-      }
-    </script>
-  </body>
+    <script src="js/social-feed.js"></script>
+    <script src="js/widgets.js"></script>
+</body>
 </html>

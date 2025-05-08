@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Your Family - FamilyNook</title>
+    <link rel="stylesheet" href="css/login.css">
+    <link rel="stylesheet" href="css/create-family.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="create-family-container">
+        <div class="create-family-header">
+            <div class="logo">
+                <img src="img/logo.png" alt="FamilyNook Logo">
+                <h1>FamilyNook</h1>
+            </div>
+        </div>
+        
+        <div class="create-family-content">
+            <div class="create-family-card">
+                <div class="card-header">
+                    <h2>Welcome to FamilyNook!</h2>
+                    <p>Let's set up your family profile to get started.</p>
+                </div>
+                
+                <div class="progress-steps">
+                    <div class="step active" data-step="1">
+                        <div class="step-number">1</div>
+                        <div class="step-label">Create Family</div>
+                    </div>
+                    <div class="step" data-step="2">
+                        <div class="step-number">2</div>
+                        <div class="step-label">Invite Members</div>
+                    </div>
+                    <div class="step" data-step="3">
+                        <div class="step-number">3</div>
+                        <div class="step-label">Complete</div>
+                    </div>
+                </div>
+                
+                <div class="step-content active" id="step-1">
+                    <h3>Create Your Family</h3>
+                    <p>Give your family a name to get started.</p>
+                    
+                    <form id="create-family-form">
+                        <div class="form-group">
+                            <label for="family-name">Family Name</label>
+                            <div class="input-with-icon">
+                                <i class="fas fa-users"></i>
+                                <input type="text" id="family-name" required placeholder="e.g., The Smiths, Johnson Family">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="family-photo">Family Photo (Optional)</label>
+                            <div class="file-upload">
+                                <div class="file-preview" id="photo-preview">
+                                    <i class="fas fa-images"></i>
+                                    <span>Choose a photo</span>
+                                </div>
+                                <input type="file" id="family-photo" accept="image/*">
+                            </div>
+                        </div>
+                        
+                        <div class="error-message" id="family-error"></div>
+                        
+                        <div class="form-actions">
+                            <a href="dashboard.html" class="skip-btn">Skip for Now</a>
+                            <button type="submit" class="next-btn">Continue <i class="fas fa-arrow-right"></i></button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="step-content" id="step-2">
+                    <h3>Invite Family Members</h3>
+                    <p>Invite your family members to join your family on FamilyNook.</p>
+                    
+                    <form id="invite-form">
+                        <div class="form-group">
+                            <label>Email Addresses</label>
+                            <p class="form-hint">Enter email addresses separated by commas</p>
+                            <textarea id="invite-emails" placeholder="e.g., mom@example.com, dad@example.com"></textarea>
+                        </div>
+                        
+                        <div class="message-form-group">
+                            <label>Personal Message (Optional)</label>
+                            <textarea id="invite-message" placeholder="Add a personal message to your invitation..."></textarea>
+                        </div>
+                        
+                        <div class="or-divider">
+                            <span>OR</span>
+                        </div>
+                        
+                        <div class="passkey-section">
+                            <h4>Share a Family Passkey</h4>
+                            <p>Family members can use this code to join your family.</p>
+                            
+                            <div class="passkey-display" id="passkey-display">
+                                <span id="passkey-value">Generating...</span>
+                                <button type="button" id="copy-passkey"><i class="fas fa-copy"></i></button>
+                            </div>
+                            
+                            <p class="passkey-expiry">This passkey will expire in 24 hours</p>
+                        </div>
+                        
+                        <div class="error-message" id="invite-error"></div>
+                        
+                        <div class="form-actions">
+                            <button type="button" class="back-btn" data-step="1"><i class="fas fa-arrow-left"></i> Back</button>
+                            <button type="button" class="skip-btn" data-step="3">Skip for Now</button>
+                            <button type="submit" class="next-btn">Send Invites <i class="fas fa-arrow-right"></i></button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="step-content" id="step-3">
+                    <div class="success-content">
+                        <div class="success-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <h3>Your Family is Ready!</h3>
+                        <p>Congratulations! You've successfully set up your family on FamilyNook.</p>
+                        
+                        <div class="next-steps">
+                            <h4>Next Steps:</h4>
+                            <ul>
+                                <li><i class="fas fa-photo-film"></i> Share your first family memory</li>
+                                <li><i class="fas fa-calendar-plus"></i> Create a family event</li>
+                                <li><i class="fas fa-user-plus"></i> Invite more family members</li>
+                            </ul>
+                        </div>
+                        
+                        <a href="dashboard.html" class="dashboard-btn">Go to Dashboard</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/letter-avatar.js"></script>
+    <script src="js/create-family.js"></script>
+</body>
+</html>
