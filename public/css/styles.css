@@ -212,6 +212,7 @@ ul {
   margin-right: 10px;
   overflow: hidden;
   border-radius: 50%;
+  background-color: var(--primary-dark);
 }
 
 .user-profile .avatar img {
@@ -444,6 +445,7 @@ ul {
   border-radius: 50%;
   overflow: hidden;
   margin-right: 10px;
+  background-color: var(--primary-light);
 }
 
 .post-header .avatar img {
@@ -491,6 +493,7 @@ ul {
   height: 120px;
   border-radius: var(--radius-sm);
   overflow: hidden;
+  background-color: #f1f1f1;
 }
 
 .media-item img, .media-item video {
@@ -601,16 +604,20 @@ ul {
 }
 
 .posts-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1.5rem !important;
+  width: 100% !important;
 }
 
 .post-card {
-  background-color: var(--card-bg);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
+  background-color: var(--card-bg) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-sm) !important;
+  overflow: hidden !important;
+  margin-bottom: 1rem !important;
+  width: 100% !important;
+  display: block !important;
 }
 
 .post-card-header {
@@ -630,6 +637,7 @@ ul {
   border-radius: 50%;
   overflow: hidden;
   margin-right: 10px;
+  background-color: var(--primary-light);
 }
 
 .post-author .avatar img {
@@ -705,6 +713,7 @@ ul {
   margin-bottom: 1rem;
   border-radius: var(--radius-md);
   overflow: hidden;
+  background-color: #f1f1f1;
 }
 
 .post-media img {
@@ -714,15 +723,14 @@ ul {
   display: block;
 }
 
-/* VIDEO STYLES */
-.post-media video,
-.video-container video {
+/* VIDEO STYLES - FIXED */
+.post-media video {
   width: 100%;
   max-height: 400px;
   object-fit: contain;
-  border-radius: var(--radius-md);
   background-color: #000;
-  display: block;
+  display: block !important;
+  border-radius: var(--radius-md);
 }
 
 .video-container {
@@ -730,6 +738,19 @@ ul {
   border-radius: var(--radius-md);
   overflow: hidden;
   margin-bottom: 1rem;
+  background-color: #000;
+}
+
+.video-container video {
+  width: 100%;
+  max-height: 400px;
+  object-fit: contain;
+  display: block !important;
+  border-radius: var(--radius-md);
+}
+
+video {
+  background-color: #000;
 }
 
 .video-play-button {
@@ -748,6 +769,7 @@ ul {
   cursor: pointer;
   font-size: 1.5rem;
   transition: var(--transition);
+  z-index: 5;
 }
 
 .video-play-button:hover {
@@ -768,6 +790,7 @@ ul {
   border-radius: var(--radius-md);
   overflow: hidden;
   position: relative;
+  background-color: #000;
 }
 
 .post-media-grid .media-item img, 
@@ -775,6 +798,23 @@ ul {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block !important;
+}
+
+.post-media-grid .media-item.video-item {
+  position: relative;
+  background-color: #000;
+}
+
+.post-media-grid .media-item.video-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.2);
+  z-index: 1;
 }
 
 .post-media-grid .media-item.video-item::after {
@@ -794,6 +834,7 @@ ul {
   justify-content: center;
   color: white;
   font-size: 1rem;
+  z-index: 2;
 }
 
 .post-link-preview {
@@ -808,6 +849,7 @@ ul {
   width: 120px;
   height: 120px;
   overflow: hidden;
+  background-color: #f1f1f1;
 }
 
 .post-link-preview-image img {
@@ -914,6 +956,7 @@ ul {
   align-items: center;
   justify-content: center;
   color: var(--text-light);
+  width: 100%;
 }
 
 .loading-posts p {
@@ -1044,6 +1087,7 @@ ul {
   border-radius: 50%;
   overflow: hidden;
   margin-right: 1rem;
+  background-color: var(--primary-light);
 }
 
 .member-avatar img {
@@ -1076,6 +1120,7 @@ ul {
   border-radius: var(--radius-sm);
   overflow: hidden;
   cursor: pointer;
+  background-color: #f1f1f1;
 }
 
 .memory-item img {
@@ -1097,6 +1142,8 @@ ul {
 }
 
 /* ========== MODALS ========== */
+
+/* Continuation of the CSS file from where it left off */
 
 .modal {
   display: none;
@@ -1167,6 +1214,7 @@ ul {
   border-radius: 50%;
   overflow: hidden;
   margin-right: 1rem;
+  background-color: var(--primary-light);
 }
 
 .comment-avatar img {
@@ -1476,89 +1524,98 @@ ul {
   }
 }
 
-/* ========== ADDITIONAL VIDEO STYLES ========== */
+/* ========== ADDITIONAL VIDEO FIXES ========== */
 
-/* Video item in media grid */
-.media-item.video-item {
-  position: relative;
+/* Add these specific video fixes to ensure videos display correctly */
+video {
+  display: block !important;
+  background-color: #000 !important;
 }
 
-.media-item.video-item:before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.2);
-  z-index: 1;
+/* Fix for videos not showing */
+video:not([controls]) {
+  display: block !important;
 }
 
-.media-item.video-item video {
-  position: relative;
-  z-index: 0;
+/* Fix for video element errors */
+.post-content video,
+.post-media video,
+.media-item video {
+  display: block !important;
+  width: 100% !important;
+  object-fit: contain !important;
+  background-color: #000 !important;
+  min-height: 200px !important;
 }
 
-/* Video container in upload preview */
-.media-preview .video-container {
-  width: 100%;
-  height: 100%;
-  margin-bottom: 0;
+/* Fix for empty videos */
+video:not([src]),
+video[src=""],
+video[src="#"],
+video[src="undefined"] {
+  display: none !important;
 }
 
-.media-preview .video-container video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+/* Ensure video containers have proper dimensions */
+.video-container {
+  min-height: 200px !important;
+  background-color: #000 !important;
 }
 
-/* Video play indicator */
-.media-item.video-item:after {
-  content: '\f04b';
-  font-family: 'Font Awesome 5 Free';
-  font-weight: 900;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 40px;
-  height: 40px;
-  background-color: rgba(0, 0, 0, 0.5);
-  border-radius: 50%;
+/* Fix video loading */
+.video-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #000;
+  color: #fff;
+  height: 200px;
+  border-radius: var(--radius-md);
+}
+
+/* Fix image fallbacks for avatars */
+img[src="#"], 
+img[src="undefined"], 
+img[src="null"],
+img[src=""] {
+  display: none;
+}
+
+/* Avatar placeholder background */
+.avatar:has(img[src="#"]),
+.avatar:has(img[src="undefined"]),
+.avatar:has(img[src="null"]),
+.avatar:has(img[src=""]) {
+  background-color: var(--primary-color);
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 1rem;
-  z-index: 2;
+  font-weight: 600;
 }
 
-/* Video controls */
-video::-webkit-media-controls-panel {
-  background-color: rgba(0, 0, 0, 0.5);
-}
-
-video::-webkit-media-controls-play-button,
-video::-webkit-media-controls-volume-slider,
-video::-webkit-media-controls-mute-button,
-video::-webkit-media-controls-timeline,
-video::-webkit-media-controls-current-time-display,
-video::-webkit-media-controls-time-remaining-display,
-video::-webkit-media-controls-fullscreen-button {
-  color: white;
-}
-
-/* Fix for empty videos */
-video:not([src]) {
-  display: none;
-}
-
-/* Fix for post modal videos */
+/* === Additional fixes for video modals === */
 #post-modal .video-container {
+  margin: 0 auto;
   max-width: 100%;
-  max-height: 500px;
 }
 
-#post-modal .video-container video {
-  max-height: 500px;
+#post-modal .post-media video {
+  max-height: 500px !important;
+  width: 100% !important;
+}
+
+/* Ensure video controls are visible */
+video::-webkit-media-controls {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Make play button more visible */
+.video-play-button {
+  z-index: 10 !important;
+  background-color: rgba(0, 0, 0, 0.7) !important;
+  width: 64px !important;
+  height: 64px !important;
 }

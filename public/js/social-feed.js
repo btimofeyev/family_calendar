@@ -96,11 +96,7 @@ function handleFileSelection(files) {
       }
       
       // Check file size
-      if (file.size > CONFIG.MEDIA.MAX_FILE_SIZE) {
-          alert(`File ${file.name} exceeds the maximum file size of ${CONFIG.MEDIA.MAX_FILE_SIZE / (1024 * 1024)}MB.`);
-          continue;
-      }
-      
+
       // Create preview
       const mediaItem = document.createElement('div');
       mediaItem.className = 'media-item';

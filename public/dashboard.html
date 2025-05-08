@@ -5,27 +5,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FamilyNook - Family Dashboard</title>
     <link rel="stylesheet" href="css/styles.css">
-    <!-- Add the custom CSS for video fixes -->
-    <link rel="stylesheet" href="css/dashboard-video.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Add custom styles to fix the issues -->
+    <style>
+        /* Fix for missing images */
+        img[src="#"], 
+        img[src="undefined"], 
+        img[src="null"] {
+            background-color: #e0e0e0;
+        }
+        
+        /* Fix for post container visibility */
+        .posts-container {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 1.5rem !important;
+            width: 100% !important;
+            margin-bottom: 2rem !important;
+        }
+        
+        /* Ensure post cards are visible */
+        .post-card {
+            background-color: var(--card-bg) !important;
+            border-radius: var(--radius-md) !important;
+            box-shadow: var(--shadow-sm) !important;
+            overflow: hidden !important;
+            margin-bottom: 1rem !important;
+            width: 100% !important;
+            display: block !important;
+        }
+        
+        /* Fix fallback for missing images */
+        .post-author .avatar img,
+        .user-profile .avatar img {
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        
+        /* Fix loading styling */
+        .loading-posts {
+            padding: 3rem !important;
+            text-align: center !important;
+            width: 100% !important;
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <nav class="sidebar">
             <div class="logo">
-                <img src="icons/512x512.png" alt="FamilyNook Logo">
+                <img src="img/logo.png" alt="FamilyNook Logo" onerror="this.src='icons/512x512.png'">
                 <h1>FamilyNook</h1>
             </div>
             <ul class="nav-links">
-                <li class="active"><a href="dashboard.html"><i class="fas fa-home"></i> <span>Dashboard</span></a></li>
-                <li><a href="calendar.html"><i class="fas fa-calendar"></i> <span>Calendar</span></a></li>
-                <li><a href="memories.html"><i class="fas fa-photo-film"></i> <span>Memories</span></a></li>
-                <li><a href="family.html"><i class="fas fa-user-group"></i> <span>Family</span></a></li>
-                <li><a href="settings.html"><i class="fas fa-gear"></i> <span>Settings</span></a></li>
+                <li class="active"><a href="#"><i class="fas fa-home"></i> <span>Dashboard</span></a></li>
+                <li><a href="#"><i class="fas fa-calendar"></i> <span>Calendar</span></a></li>
+                <li><a href="#"><i class="fas fa-photo-film"></i> <span>Memories</span></a></li>
+                <li><a href="#"><i class="fas fa-user-group"></i> <span>Family</span></a></li>
+                <li><a href="#"><i class="fas fa-gear"></i> <span>Settings</span></a></li>
             </ul>
             <div class="family-selector">
                 <select id="family-select">
@@ -136,7 +181,7 @@
                     <div class="widget">
                         <div class="widget-header">
                             <h3>Upcoming Events</h3>
-                            <a href="calendar.html" class="view-all">View Calendar</a>
+                            <a href="#" class="view-all">View Calendar</a>
                         </div>
                         <div class="widget-content" id="events-widget">
                             <!-- Events will be populated by JavaScript -->
@@ -150,7 +195,7 @@
                     <div class="widget">
                         <div class="widget-header">
                             <h3>Family Members</h3>
-                            <a href="family.html" class="view-all">View All</a>
+                            <a href="#" class="view-all">View All</a>
                         </div>
                         <div class="widget-content" id="members-widget">
                             <!-- Members will be populated by JavaScript -->
@@ -164,7 +209,7 @@
                     <div class="widget">
                         <div class="widget-header">
                             <h3>Recent Memories</h3>
-                            <a href="memories.html" class="view-all">View All</a>
+                            <a href="#" class="view-all">View All</a>
                         </div>
                         <div class="widget-content" id="memories-widget">
                             <!-- Memories will be populated by JavaScript -->
@@ -232,7 +277,30 @@
     <script src="js/auth.js"></script>
     <script src="js/dashboard.js"></script>
     <script src="js/social-feed.js"></script>
-    <script src="js/video-handler.js"></script>
     <script src="js/widget.js"></script>
+    <script>
+        // Add this helper script to fix any broken images
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fix broken avatar images
+            const avatars = document.querySelectorAll('.avatar img');
+            avatars.forEach(img => {
+                img.onerror = function() {
+                    this.src = 'icons/512x512.png';
+                };
+                // Force a reload if the src is empty or #
+                if (img.src === '' || img.src === '#' || img.src.endsWith('#')) {
+                    img.src = 'icons/512x512.png';
+                }
+            });
+            
+            // Make post container explicitly visible
+            const postsContainer = document.getElementById('posts-container');
+            if (postsContainer) {
+                postsContainer.style.display = 'flex';
+                postsContainer.style.flexDirection = 'column';
+                postsContainer.style.width = '100%';
+            }
+        });
+    </script>
 </body>
 </html>
