@@ -24,202 +24,119 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Initialize all videos on the page
   function initializeVideos() {
-    // Fix video posts in the feed
-    setupVideoPlayers();
+    // Find all video containers
+    const videoContainers = document.querySelectorAll('.video-container');
     
-    // Fix video play buttons
-    setupVideoPlayButtons();
-  }
-  
-  // Set up video players with proper controls and poster images
-  function setupVideoPlayers() {
-    // Find all videos that don't have controls yet
-    const videos = document.querySelectorAll('video:not([data-initialized])');
-    
-    videos.forEach(video => {
-      // Mark as initialized to avoid duplicating work
-      video.setAttribute('data-initialized', 'true');
+    videoContainers.forEach(container => {
+      const video = container.querySelector('video');
+      const playButton = container.querySelector('.video-play-button');
       
-      // Add controls attribute if missing
-      if (!video.hasAttribute('controls')) {
-        video.setAttribute('controls', '');
-      }
+      if (!video || !playButton) return;
       
-      // Hide controls by default (will show on play)
+      // Mark container as initialized
+      if (container.hasAttribute('data-initialized')) return;
+      container.setAttribute('data-initialized', 'true');
+      
+      // Make sure video has proper attributes
       video.controls = false;
+      video.preload = 'metadata';
       
-      // Create poster frame if needed
-      if (!video.hasAttribute('poster') && video.parentElement) {
-        // Check if we need to add a play button container
-        const needsPlayButton = !video.parentElement.classList.contains('video-container');
-        
-        if (needsPlayButton) {
-          // Create a container for the video with play button
-          const videoContainer = document.createElement('div');
-          videoContainer.className = 'video-container';
-          
-          // Add play button
-          const playButton = document.createElement('div');
-          playButton.className = 'video-play-button';
-          playButton.innerHTML = '<i class="fas fa-play"></i>';
-          
-          // Insert the video container before the video in the DOM
-          video.parentNode.insertBefore(videoContainer, video);
-          
-          // Move the video inside the container
-          videoContainer.appendChild(video);
-          
-          // Add the play button to the container
-          videoContainer.appendChild(playButton);
-          
-          // Setup click handler for the play button
-          playButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            playVideo(video);
-          });
-        }
-      }
-      
-      // Add click handler to the video
-      video.addEventListener('click', (e) => {
+      // Add click event to play button
+      playButton.addEventListener('click', (e) => {
         e.stopPropagation();
+        playVideo(video, container);
+      });
+      
+      // Add click event to container (but not if clicking on controls)
+      container.addEventListener('click', (e) => {
+        // Don't trigger if clicking on controls
+        if (e.target.closest('video::-webkit-media-controls')) return;
         
         if (video.paused) {
-          playVideo(video);
+          playVideo(video, container);
         } else {
-          video.pause();
+          pauseVideo(video, container);
         }
       });
       
-      // Handle video play/pause state
+      // Handle video events
       video.addEventListener('play', () => {
-        // Show controls when playing
+        container.classList.add('playing');
+        playButton.style.display = 'none';
         video.controls = true;
-        
-        // Hide play button if it exists
-        const playButton = video.parentElement.querySelector('.video-play-button');
-        if (playButton) {
-          playButton.style.display = 'none';
-        }
       });
       
       video.addEventListener('pause', () => {
-        // Show play button again if it exists
-        const playButton = video.parentElement.querySelector('.video-play-button');
-        if (playButton && !video.ended) {
+        if (!video.ended) {
+          container.classList.remove('playing');
           playButton.style.display = 'flex';
         }
       });
       
       video.addEventListener('ended', () => {
-        // Show play button when video ends
-        const playButton = video.parentElement.querySelector('.video-play-button');
-        if (playButton) {
-          playButton.style.display = 'flex';
-        }
-        
-        // Hide controls when ended
+        container.classList.remove('playing');
+        playButton.style.display = 'flex';
         video.controls = false;
       });
     });
-  }
-  
-  // Set up play buttons for all video items
-  function setupVideoPlayButtons() {
-    // Find all media items that contain videos but don't have play buttons yet
-    const videoMediaItems = document.querySelectorAll('.media-item:has(video):not(.video-item)');
     
-    videoMediaItems.forEach(item => {
-      // Mark as video item
-      item.classList.add('video-item');
-      
-      // Add click handler to play the video
-      item.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const video = item.querySelector('video');
-        if (video) {
-          playVideo(video);
-        }
-      });
+    // Handle individual videos that aren't in containers
+    const standaloneVideos = document.querySelectorAll('video:not(.video-container video):not([data-initialized])');
+    
+    standaloneVideos.forEach(video => {
+      video.setAttribute('data-initialized', 'true');
+      video.controls = true;
+      video.preload = 'metadata';
     });
   }
   
-  // Play a video with proper controls
-  function playVideo(videoElement) {
+  // Play a video
+  function playVideo(videoElement, container) {
     if (!videoElement) return;
     
-    // Show controls
-    videoElement.controls = true;
-    
-    // Play the video
-    videoElement.play().catch(err => {
+    videoElement.play().then(() => {
+      // Show controls when playing
+      videoElement.controls = true;
+      
+      // Mark container as playing
+      if (container) {
+        container.classList.add('playing');
+      }
+      
+      // Hide play button
+      const playButton = container ? 
+        container.querySelector('.video-play-button') : 
+        videoElement.parentElement.querySelector('.video-play-button');
+        
+      if (playButton) {
+        playButton.style.display = 'none';
+      }
+    }).catch(err => {
       console.error('Error playing video:', err);
-      // Sometimes mobile browsers block autoplay, so we still need to show controls
+      // Sometimes mobile browsers block autoplay, so still show controls
       videoElement.controls = true;
     });
+  }
+  
+  // Pause a video
+  function pauseVideo(videoElement, container) {
+    if (!videoElement) return;
     
-    // Hide the play button if it exists
-    const playButton = videoElement.parentElement.querySelector('.video-play-button');
-    if (playButton) {
-      playButton.style.display = 'none';
+    videoElement.pause();
+    
+    // Show play button again
+    if (container) {
+      container.classList.remove('playing');
+      const playButton = container.querySelector('.video-play-button');
+      if (playButton) {
+        playButton.style.display = 'flex';
+      }
     }
   }
   
-  // Helper function to create a post element with proper video handling
-  function createPostElement(post) {
-    // This function can be used as a reference for how to properly create post elements
-    // with videos in the social-feed.js file
-    
-    const postElement = document.createElement('div');
-    postElement.className = 'post-card';
-    postElement.dataset.id = post.post_id;
-    
-    // Add media content if available
-    let mediaContent = '';
-    if (post.media_urls && post.media_urls.length > 0) {
-      if (post.media_urls.length === 1) {
-        // Single media item
-        const mediaUrl = post.media_urls[0];
-        if (post.media_type === 'video') {
-          mediaContent = `
-            <div class="video-container">
-              <video src="${mediaUrl}" preload="metadata" data-initialized="true"></video>
-              <div class="video-play-button">
-                <i class="fas fa-play"></i>
-              </div>
-            </div>
-          `;
-        } else {
-          mediaContent = `
-            <div class="post-media">
-              <img src="${mediaUrl}" alt="Post image">
-            </div>
-          `;
-        }
-      } else {
-        // Multiple media items in a grid
-        mediaContent = '<div class="post-media-grid">';
-        
-        post.media_urls.forEach(mediaUrl => {
-          if (post.media_type === 'video') {
-            mediaContent += `
-              <div class="media-item video-item">
-                <video src="${mediaUrl}" preload="metadata" data-initialized="true"></video>
-              </div>
-            `;
-          } else {
-            mediaContent += `
-              <div class="media-item">
-                <img src="${mediaUrl}" alt="Post image">
-              </div>
-            `;
-          }
-        });
-        
-        mediaContent += '</div>';
-      }
-    }
-    
-    // Add mediaContent to your post HTML structure
-    return postElement;
-  }
+  // For global access in HTML onclick handlers
+  window.playVideo = function(videoId) {
+    const video = document.getElementById(videoId);
+    const container = video ? video.closest('.video-container') : null;
+    playVideo(video, container);
+  };

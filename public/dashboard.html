@@ -278,29 +278,127 @@
     <script src="js/dashboard.js"></script>
     <script src="js/social-feed.js"></script>
     <script src="js/widget.js"></script>
-    <script>
-        // Add this helper script to fix any broken images
-        document.addEventListener('DOMContentLoaded', function() {
-            // Fix broken avatar images
-            const avatars = document.querySelectorAll('.avatar img');
-            avatars.forEach(img => {
-                img.onerror = function() {
-                    this.src = 'icons/512x512.png';
-                };
-                // Force a reload if the src is empty or #
-                if (img.src === '' || img.src === '#' || img.src.endsWith('#')) {
-                    img.src = 'icons/512x512.png';
-                }
+<!-- Replace your current inline script with this improved version -->
+<script>
+    // Direct fix for video play buttons - Improved Version
+    document.addEventListener('DOMContentLoaded', function() {
+      // Add critical CSS directly to the page
+      const style = document.createElement('style');
+      style.textContent = `
+        /* Critical video fixes */
+        .video-play-button {
+          cursor: pointer !important;
+          pointer-events: auto !important;
+          z-index: 10 !important;
+        }
+        
+        .video-container video {
+          z-index: 1 !important;
+        }
+        
+        .video-container.playing .video-play-button {
+          display: none !important;
+        }
+      `;
+      document.head.appendChild(style);
+      
+      // Function to set up a video container
+      function setupVideoContainer(container) {
+        const video = container.querySelector('video');
+        const playButton = container.querySelector('.video-play-button');
+        
+        if (!video || !playButton) return;
+        
+        // Flag to prevent duplicate handlers
+        if (container.dataset.setupComplete === 'true') return;
+        container.dataset.setupComplete = 'true';
+        
+        // Make sure video has proper attributes
+        video.setAttribute('preload', 'metadata');
+        
+        // Add direct click handler to play button
+        playButton.onclick = function(e) {
+          e.stopPropagation();
+          e.preventDefault();
+          console.log('Play button clicked');
+          
+          // Force display of controls
+          video.controls = true;
+          
+          // Try to play the video
+          const playPromise = video.play();
+          
+          if (playPromise !== undefined) {
+            playPromise.then(function() {
+              // Video playing successfully
+              playButton.style.display = 'none';
+              container.classList.add('playing');
+            }).catch(function(error) {
+              console.error('Video play failed:', error);
+              // Still show controls for manual play
+              video.controls = true;
             });
-            
-            // Make post container explicitly visible
-            const postsContainer = document.getElementById('posts-container');
-            if (postsContainer) {
-                postsContainer.style.display = 'flex';
-                postsContainer.style.flexDirection = 'column';
-                postsContainer.style.width = '100%';
-            }
+          } else {
+            // Older browsers might not return a promise
+            playButton.style.display = 'none';
+            container.classList.add('playing');
+          }
+          
+          return false;
+        };
+        
+        // Handle video events
+        video.addEventListener('play', function() {
+          playButton.style.display = 'none';
+          container.classList.add('playing');
         });
-    </script>
+        
+        video.addEventListener('pause', function() {
+          if (!video.ended) {
+            playButton.style.display = '';
+            container.classList.remove('playing');
+          }
+        });
+        
+        video.addEventListener('ended', function() {
+          playButton.style.display = '';
+          container.classList.remove('playing');
+          video.controls = false;
+        });
+      }
+      
+      // Initialize all video containers on page load
+      document.querySelectorAll('.video-container').forEach(setupVideoContainer);
+      
+      // Set up a MutationObserver to handle dynamically added videos
+      const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+          if (mutation.type === 'childList' && mutation.addedNodes.length) {
+            // Check if any of the added nodes are video containers or contain video containers
+            mutation.addedNodes.forEach(function(node) {
+              if (node.nodeType === 1) { // Element node
+                if (node.classList && node.classList.contains('video-container')) {
+                  setupVideoContainer(node);
+                } else if (node.querySelectorAll) {
+                  node.querySelectorAll('.video-container').forEach(setupVideoContainer);
+                }
+              }
+            });
+          }
+        });
+      });
+      
+      // Observe the entire document for changes
+      observer.observe(document.body, { 
+        childList: true,
+        subtree: true
+      });
+      
+      // Add body class for CSS targeting
+      document.body.classList.add('dashboard');
+      
+      console.log('Video handler initialized');
+    });
+  </script>
 </body>
 </html>
