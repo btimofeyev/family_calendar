@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FamilyNook - Family Dashboard</title>
     <link rel="stylesheet" href="css/styles.css">
+    <!-- Add the custom CSS for video fixes -->
+    <link rel="stylesheet" href="css/dashboard-video.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,15 +17,15 @@
         <!-- Sidebar Navigation -->
         <nav class="sidebar">
             <div class="logo">
-                <img src="img/logo.png" alt="FamilyNook Logo">
+                <img src="icons/512x512.png" alt="FamilyNook Logo">
                 <h1>FamilyNook</h1>
             </div>
             <ul class="nav-links">
-                <li class="active"><a href="#"><i class="fas fa-home"></i> <span>Dashboard</span></a></li>
-                <li><a href="#"><i class="fas fa-calendar"></i> <span>Calendar</span></a></li>
-                <li><a href="#"><i class="fas fa-photo-film"></i> <span>Memories</span></a></li>
-                <li><a href="#"><i class="fas fa-user-group"></i> <span>Family</span></a></li>
-                <li><a href="#"><i class="fas fa-gear"></i> <span>Settings</span></a></li>
+                <li class="active"><a href="dashboard.html"><i class="fas fa-home"></i> <span>Dashboard</span></a></li>
+                <li><a href="calendar.html"><i class="fas fa-calendar"></i> <span>Calendar</span></a></li>
+                <li><a href="memories.html"><i class="fas fa-photo-film"></i> <span>Memories</span></a></li>
+                <li><a href="family.html"><i class="fas fa-user-group"></i> <span>Family</span></a></li>
+                <li><a href="settings.html"><i class="fas fa-gear"></i> <span>Settings</span></a></li>
             </ul>
             <div class="family-selector">
                 <select id="family-select">
@@ -33,7 +35,7 @@
             </div>
             <div class="user-profile">
                 <div class="avatar">
-                    <img src="#" alt="User Avatar" id="user-avatar" data-name="">
+                    <img src="icons/512x512.png" alt="User Avatar" id="user-avatar" data-name="">
                 </div>
                 <div class="user-info">
                     <p id="user-name">Loading...</p>
@@ -81,7 +83,7 @@
                     <div class="create-post-card">
                         <div class="post-header">
                             <div class="avatar">
-                                <img src="#" alt="User Avatar" id="post-user-avatar" data-name="">
+                                <img src="icons/512x512.png" alt="User Avatar" id="post-user-avatar" data-name="">
                             </div>
                             <div class="post-input" id="post-input">
                                 <p>What's on your mind?</p>
@@ -134,7 +136,7 @@
                     <div class="widget">
                         <div class="widget-header">
                             <h3>Upcoming Events</h3>
-                            <a href="#" class="view-all">View Calendar</a>
+                            <a href="calendar.html" class="view-all">View Calendar</a>
                         </div>
                         <div class="widget-content" id="events-widget">
                             <!-- Events will be populated by JavaScript -->
@@ -148,7 +150,7 @@
                     <div class="widget">
                         <div class="widget-header">
                             <h3>Family Members</h3>
-                            <a href="#" class="view-all">View All</a>
+                            <a href="family.html" class="view-all">View All</a>
                         </div>
                         <div class="widget-content" id="members-widget">
                             <!-- Members will be populated by JavaScript -->
@@ -162,7 +164,7 @@
                     <div class="widget">
                         <div class="widget-header">
                             <h3>Recent Memories</h3>
-                            <a href="#" class="view-all">View All</a>
+                            <a href="memories.html" class="view-all">View All</a>
                         </div>
                         <div class="widget-content" id="memories-widget">
                             <!-- Memories will be populated by JavaScript -->
@@ -230,6 +232,7 @@
     <script src="js/auth.js"></script>
     <script src="js/dashboard.js"></script>
     <script src="js/social-feed.js"></script>
-    <script src="js/widgets.js"></script>
+    <script src="js/video-handler.js"></script>
+    <script src="js/widget.js"></script>
 </body>
 </html>
