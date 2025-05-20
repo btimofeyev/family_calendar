@@ -115,7 +115,7 @@ function checkLoggedIn() {
     const userData = localStorage.getItem(CONFIG.USER_KEY);
     
     if (token && userData) {
-        window.location.href = 'dashboard.html';
+        window.location.href = 'feed.html';
     }
 }
 
@@ -200,7 +200,7 @@ async function handleLogin(e) {
         
         showToast('Login successful. Redirecting...', 'success');
         setTimeout(() => {
-            window.location.href = data.isNewUser ? 'create-family.html' : 'dashboard.html';
+            window.location.href = data.isNewUser ? 'create-family.html' : 'feed.html';
         }, 1000);
     } catch (error) {
         console.error('Login error:', error);
@@ -244,7 +244,7 @@ async function handleRegister(e) {
         
         showToast('Account created successfully. Redirecting...', 'success');
         setTimeout(() => {
-            window.location.href = data.isNewUser ? 'create-family.html' : 'dashboard.html';
+            window.location.href = data.isNewUser ? 'create-family.html' : 'feed.html';
         }, 1000);
     } catch (error) {
         console.error('Registration error:', error);

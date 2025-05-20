@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Feed - FamilyNook</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/feed.css">
+</head>
+<body>
+    <header>
+        <h1>FamilyNook Feed</h1>
+        <button id="logout-btn">Logout</button>
+    </header>
+    <main id="feed-container"></main>
+    <section id="create-post-section">
+        <h2>Create New Post</h2>
+        <form id="create-post-form">
+            <div>
+                <label for="post-caption">Caption:</label>
+                <textarea id="post-caption" name="caption" rows="3" required></textarea>
+            </div>
+            <div>
+                <label for="post-media">Attach Media (Image/Video):</label>
+                <input type="file" id="post-media" name="media" accept="image/*,video/*">
+            </div>
+            <button type="submit">Post</button>
+        </form>
+    </section>
+    <script src="js/config.js"></script>
+    <script src="js/feed.js"></script>
+</body>
+</html>
