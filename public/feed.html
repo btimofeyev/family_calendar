@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FamilyNook - Family Feed</title>
+    <link rel="stylesheet" href="css/feed.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header Navigation -->
+    <header class="feed-header">
+        <nav class="feed-nav">
+            <div class="nav-left">
+                <button id="back-btn" class="nav-btn">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div class="logo">
+                    <h1>FamilyNook</h1>
+                    <span>Family Feed</span>
+                </div>
+            </div>
+            <div class="nav-right">
+                <div class="user-info">
+                    <span id="user-name">Loading...</span>
+                    <div class="user-avatar">
+                        <img id="user-avatar" src="img/default-avatar.png" alt="User Avatar">
+                    </div>
+                </div>
+                <button id="logout-btn" class="nav-btn logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Feed Container -->
+    <main class="feed-container">
+        <!-- Create Post Section -->
+        <div class="create-post-section">
+            <div class="create-post-header">
+                <div class="user-avatar-small">
+                    <img id="create-user-avatar" src="img/default-avatar.png" alt="Your Avatar">
+                </div>
+                <button id="create-post-btn" class="create-post-input">
+                    <span>What's happening with your family?</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Family Selector -->
+        <div class="family-selector">
+            <div class="selector-header">
+                <i class="fas fa-users"></i>
+                <span>Select Family</span>
+            </div>
+            <select id="family-select">
+                <option value="">Loading families...</option>
+            </select>
+        </div>
+
+        <!-- Feed Content -->
+        <div class="feed-content">
+            <div id="loading-spinner" class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>Loading posts...</span>
+            </div>
+            
+            <div id="posts-container" class="posts-container">
+                <!-- Posts will be loaded here -->
+            </div>
+
+            <div id="no-posts" class="no-posts hidden">
+                <i class="fas fa-heart"></i>
+                <h3>No posts yet</h3>
+                <p>Be the first to share something with your family!</p>
+                <button id="create-first-post" class="btn btn-primary">Create First Post</button>
+            </div>
+
+            <!-- Load More Button -->
+            <div id="load-more-container" class="load-more-container hidden">
+                <button id="load-more-btn" class="btn btn-secondary">Load More Posts</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Create Post Modal -->
+    <div id="create-post-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create Post</h3>
+                <button class="close-modal" id="close-create-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="create-post-form" class="create-post-form">
+                <div class="form-group">
+                    <div class="user-info-row">
+                        <div class="user-avatar-small">
+                            <img id="modal-user-avatar" src="img/default-avatar.png" alt="Your Avatar">
+                        </div>
+                        <span id="modal-user-name">Your Name</span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <textarea 
+                        id="post-caption" 
+                        placeholder="Share something special with your family..." 
+                        rows="4"
+                        maxlength="2000"
+                    ></textarea>
+                    <div class="character-count">
+                        <span id="char-count">0</span>/2000
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="media-upload-section">
+                        <label for="media-upload" class="media-upload-btn">
+                            <i class="fas fa-camera"></i>
+                            Add Photos/Videos
+                        </label>
+                        <input 
+                            type="file" 
+                            id="media-upload" 
+                            multiple 
+                            accept="image/*,video/*" 
+                            style="display: none;"
+                        >
+                    </div>
+                    
+                    <div id="media-preview" class="media-preview hidden">
+                        <!-- Media previews will appear here -->
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="cancel-post" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" id="submit-post" class="btn btn-primary" disabled>Post</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Post Details Modal -->
+    <div id="post-modal" class="modal hidden">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Post Details</h3>
+                <button class="close-modal" id="close-post-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div id="post-detail-content" class="post-detail-content">
+                <!-- Post details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Comment Modal -->
+    <div id="comment-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Comment</h3>
+                <button class="close-modal" id="close-comment-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="comment-form" class="comment-form">
+                <div class="form-group">
+                    <textarea 
+                        id="comment-text" 
+                        placeholder="Write a comment..." 
+                        rows="3"
+                        maxlength="500"
+                        required
+                    ></textarea>
+                    <div class="character-count">
+                        <span id="comment-char-count">0</span>/500
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" id="cancel-comment" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" id="submit-comment" class="btn btn-primary">Comment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Success Toast -->
+    <div id="success-toast" class="toast success hidden">
+        <i class="fas fa-check-circle"></i>
+        <span id="success-message">Success!</span>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="error-toast" class="toast error hidden">
+        <i class="fas fa-exclamation-circle"></i>
+        <span id="error-message">Error occurred!</span>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/feed.js"></script>
+</body>
+</html>
